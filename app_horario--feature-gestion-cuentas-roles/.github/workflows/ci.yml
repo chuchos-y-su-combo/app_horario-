@@ -1,0 +1,74 @@
+# GitHub Actions CI/CD Pipeline for ApplicationSchedule
+# Ejecuta en: push y pull requests hacia 'main'
+# Validaciones: Build + Tests (si existen)
+
+name: CI - Build & Test
+
+# Eventos que disparan el workflow
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+# Previene ejecuciones concurrentes del mismo workflow
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    # Información del job para debugging
+    name: Build & Test (.NET 10)
+    
+    steps:
+      # 1. Clonar el repositorio
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necesario para análisis completo
+      
+      # 2. Instalar .NET SDK (versión 10.x)
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+          cache: true  # Caché automático de NuGet
+          cache-dependency-path: '**/packages.lock.json'
+      
+      # 3. Mostrar información del entorno
+      - name: Display .NET version
+        run: dotnet --version
+      
+      # 4. Restaurar dependencias NuGet
+      - name: Restore NuGet packages
+        run: dotnet restore
+        # El cache de 'setup-dotnet' acelera este paso significativamente
+      
+      # 5. Compilar la solución
+      - name: Build solution
+        run: dotnet build --no-restore --configuration Release
+        # --no-restore: Evita restaurar nuevamente (ya se hizo en paso 4)
+        # --configuration Release: Compila en modo Release para producción
+      
+      # 6. Ejecutar tests (busca automáticamente proyectos *.Tests.csproj)
+      - name: Run unit tests
+        run: dotnet test --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed"
+        # --no-build: Usa binarios ya compilados
+        # --logger: Muestra logs detallados en caso de fallo
+        # El pipeline fallará automáticamente si algún test falla ✓
+      
+      # 7. Información de éxito
+      - name: CI Success
+        if: success()
+        run: echo "✅ Build y Tests completados exitosamente"
+      
+      # 8. Información de fallo (opcional, para debugging)
+      - name: CI Failed
+        if: failure()
+        run: |
+          echo "❌ El build o tests fallaron"
+          echo "Revisa los logs arriba para más detalles"
+          exit 1
