@@ -11,10 +11,7 @@ string connectionString = builder.Configuration.GetConnectionString("DefaultConn
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseMySql(
-        connectionString,
-        ServerVersion.AutoDetect(connectionString)
-    );
+    options.UseSqlite(connectionString);
 });
 
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
@@ -37,6 +34,16 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    
+    
+    context.Database.EnsureCreated();
+    
+    // context.Database.Migrate();
+}
 
 app.UseSwagger();
 app.UseSwaggerUI();
