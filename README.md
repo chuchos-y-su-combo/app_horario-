@@ -34,3 +34,13 @@ Se implementa el módulo inicial de Seguridad correspondiente al Sprint 1.
 
 El frontend podrá consumir el módulo desde los endpoints REST locales.  
 Los compañeros pueden agregar sus módulos de Docentes y Asignaturas reutilizando la misma estructura por capas.
+
+## Cómo ejecutar la API
+
+1. Crea la base de datos ejecutando `database_schema.sql` en MySQL.
+2. Verifica que la cadena de conexión en `src/ApplicationSchedule.Api/appsettings.json` use tu usuario y contraseña reales de MySQL.
+3. Desde la raíz del repositorio ejecuta:
+
+	`dotnet run --project src/ApplicationSchedule.Api/ApplicationSchedule.Api.csproj`
+
+4. Abre Swagger en `http://localhost:5213/swagger`.

@@ -1,6 +1,7 @@
 using ApplicationSchedule.Application.Interfaces;
 using ApplicationSchedule.Application.Services;
 using ApplicationSchedule.Infrastructure.Data;
+using ApplicationSchedule.Infrastructure.services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,6 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
+builder.Services.AddScoped<IProfesorService, ProfesorService>();
 
 builder.Services.AddControllers();
 
