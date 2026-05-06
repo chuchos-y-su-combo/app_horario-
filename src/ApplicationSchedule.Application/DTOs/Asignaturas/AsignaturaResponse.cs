@@ -1,0 +1,16 @@
+namespace ApplicationSchedule.Application.DTOs.Asignaturas;
+
+public class AsignaturaResponse
+{
+    public int IdAsignatura { get; set; }
+
+    public int IdPlanEstudios { get; set; }
+
+    public string Codigo { get; set; } = string.Empty;
+
+    public string Nombre { get; set; } = string.Empty;
+
+    public int Creditos { get; set; }
+
+    public int Semestre { get; set; }
+}

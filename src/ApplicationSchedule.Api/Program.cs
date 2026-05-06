@@ -1,5 +1,6 @@
 using ApplicationSchedule.Application.Interfaces;
 using ApplicationSchedule.Application.Services;
+using ApplicationSchedule.Infrastructure.Services;
 using ApplicationSchedule.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,6 +17,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     );
 });
 
+builder.Services.AddScoped<IAsignaturaService, AsignaturaService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 
 builder.Services.AddControllers();

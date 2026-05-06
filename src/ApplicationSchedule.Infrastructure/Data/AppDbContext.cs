@@ -9,7 +9,7 @@ public class AppDbContext : DbContext
         : base(options)
     {
     }
-
+    public DbSet<Asignatura> Asignaturas => Set<Asignatura>();
     public DbSet<Rol> Roles => Set<Rol>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
 
@@ -17,8 +17,47 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        ConfigurarAsignaturas(modelBuilder);
         ConfigurarRoles(modelBuilder);
         ConfigurarUsuarios(modelBuilder);
+    }
+    private static void ConfigurarAsignaturas(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Asignatura>(entity =>
+        {
+            entity.ToTable("Asignaturas");
+
+            entity.HasKey(a => a.IdAsignatura);
+
+            entity.Property(a => a.IdAsignatura)
+                .HasColumnName("id_asignatura")
+                .ValueGeneratedOnAdd();
+
+            entity.Property(a => a.IdPlanEstudios)
+                .HasColumnName("id_plan_estudios")
+                .IsRequired();
+
+            entity.Property(a => a.Codigo)
+                .HasColumnName("codigo")
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.Property(a => a.Nombre)
+                .HasColumnName("nombre")
+                .HasMaxLength(150)
+                .IsRequired();
+
+            entity.Property(a => a.Creditos)
+                .HasColumnName("creditos")
+                .IsRequired();
+
+            entity.Property(a => a.Semestre)
+                .HasColumnName("semestre")
+                .IsRequired();
+
+            entity.HasIndex(a => a.Codigo)
+                .IsUnique();
+        });
     }
 
     private static void ConfigurarRoles(ModelBuilder modelBuilder)
