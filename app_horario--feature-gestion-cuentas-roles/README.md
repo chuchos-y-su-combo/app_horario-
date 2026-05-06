@@ -1,3 +1,5 @@
+[![CI - Build & Test](https://github.com/chuchos-y-su-combo/app_horario-/actions/workflows/ci.yml/badge.svg)](https://github.com/chuchos-y-su-combo/app_horario-/actions/workflows/ci.yml)
+
 ## Descripción
 
 Se implementa el módulo inicial de Seguridad correspondiente al Sprint 1.

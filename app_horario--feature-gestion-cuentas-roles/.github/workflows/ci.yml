@@ -19,6 +19,9 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app_horario--feature-gestion-cuentas-roles
     
     # Información del job para debugging
     name: Build & Test (.NET 10)
@@ -44,18 +47,20 @@ jobs:
       
       # 4. Restaurar dependencias NuGet
       - name: Restore NuGet packages
-        run: dotnet restore
+        run: dotnet restore ApplicationSchedule.sln
         # El cache de 'setup-dotnet' acelera este paso significativamente
       
       # 5. Compilar la solución
       - name: Build solution
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build ApplicationSchedule.sln --no-restore --configuration Release
         # --no-restore: Evita restaurar nuevamente (ya se hizo en paso 4)
         # --configuration Release: Compila en modo Release para producción
       
       # 6. Ejecutar tests (busca automáticamente proyectos *.Tests.csproj)
       - name: Run unit tests
-        run: dotnet test --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed"
+        env:
+          ASPNETCORE_ENVIRONMENT: Testing
+        run: dotnet test ApplicationSchedule.sln --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed"
         # --no-build: Usa binarios ya compilados
         # --logger: Muestra logs detallados en caso de fallo
         # El pipeline fallará automáticamente si algún test falla ✓
