@@ -2,12 +2,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ApplicationSchedule.Domain\ApplicationSchedule.Domain.csproj" />
-    <ProjectReference Include="..\ApplicationSchedule.Application\ApplicationSchedule.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.7" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
   </ItemGroup>
 
   <PropertyGroup>

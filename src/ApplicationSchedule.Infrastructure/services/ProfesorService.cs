@@ -50,7 +50,7 @@ public class ProfesorService : IProfesorService
 
         if (existeIdentificacion)
         {
-            throw new InvalidOperationException("Ya existe un profesor con esta identificación.");
+            throw new InvalidOperationException("Ya existe un profesor con esta identificaciï¿½n.");
         }
 
         var profesor = new Profesor
@@ -83,7 +83,7 @@ public class ProfesorService : IProfesorService
 
         if (existeIdentificacion)
         {
-            throw new InvalidOperationException("A otro profesor ya le pertenece esta identificación.");
+            throw new InvalidOperationException("A otro profesor ya le pertenece esta identificaciï¿½n.");
         }
 
         profesor.Nombre = request.Nombre;
