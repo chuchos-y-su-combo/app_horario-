@@ -2,6 +2,7 @@ using ApplicationSchedule.Application.Interfaces;
 using ApplicationSchedule.Application.Services;
 using ApplicationSchedule.Infrastructure.Services;
 using ApplicationSchedule.Infrastructure.Data;
+using ApplicationSchedule.Infrastructure.services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,14 +12,12 @@ string connectionString = builder.Configuration.GetConnectionString("DefaultConn
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseMySql(
-        connectionString,
-        ServerVersion.AutoDetect(connectionString)
-    );
+    options.UseSqlite(connectionString);
 });
 
 builder.Services.AddScoped<IAsignaturaService, AsignaturaService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
+builder.Services.AddScoped<IProfesorService, ProfesorService>();
 
 builder.Services.AddControllers();
 
@@ -37,6 +36,16 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    
+    
+    context.Database.EnsureCreated();
+    
+    // context.Database.Migrate();
+}
 
 app.UseSwagger();
 app.UseSwaggerUI();
