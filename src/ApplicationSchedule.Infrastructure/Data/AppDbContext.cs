@@ -9,16 +9,57 @@ public class AppDbContext : DbContext
         : base(options)
     {
     }
-
+    public DbSet<Asignatura> Asignaturas => Set<Asignatura>();
     public DbSet<Rol> Roles => Set<Rol>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<Profesor> Profesores => Set<Profesor>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
+        ConfigurarAsignaturas(modelBuilder);
         ConfigurarRoles(modelBuilder);
         ConfigurarUsuarios(modelBuilder);
+        ConfigurarProfesores(modelBuilder);
+    }
+    private static void ConfigurarAsignaturas(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Asignatura>(entity =>
+        {
+            entity.ToTable("Asignaturas");
+
+            entity.HasKey(a => a.IdAsignatura);
+
+            entity.Property(a => a.IdAsignatura)
+                .HasColumnName("id_asignatura")
+                .ValueGeneratedOnAdd();
+
+            entity.Property(a => a.IdPlanEstudios)
+                .HasColumnName("id_plan_estudios")
+                .IsRequired();
+
+            entity.Property(a => a.Codigo)
+                .HasColumnName("codigo")
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.Property(a => a.Nombre)
+                .HasColumnName("nombre")
+                .HasMaxLength(150)
+                .IsRequired();
+
+            entity.Property(a => a.Creditos)
+                .HasColumnName("creditos")
+                .IsRequired();
+
+            entity.Property(a => a.Semestre)
+                .HasColumnName("semestre")
+                .IsRequired();
+
+            entity.HasIndex(a => a.Codigo)
+                .IsUnique();
+        });
     }
 
     private static void ConfigurarRoles(ModelBuilder modelBuilder)
@@ -86,6 +127,37 @@ public class AppDbContext : DbContext
                 .WithMany(r => r.Usuarios)
                 .HasForeignKey(u => u.IdRol)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    private static void ConfigurarProfesores(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Profesor>(entity =>
+        {
+            entity.ToTable("Profesores");
+
+            entity.HasKey(p => p.IdProfesor);
+
+            entity.Property(p => p.IdProfesor)
+                .HasColumnName("id_profesor");
+
+            entity.Property(p => p.Nombre)
+                .HasColumnName("nombre")
+                .HasMaxLength(150)
+                .IsRequired();
+
+            entity.Property(p => p.Identificacion)
+                .HasColumnName("identificacion")
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.Property(p => p.TipoContrato)
+                .HasColumnName("tipo_contrato")
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.HasIndex(p => p.Identificacion)
+                .IsUnique(); 
         });
     }
 }
