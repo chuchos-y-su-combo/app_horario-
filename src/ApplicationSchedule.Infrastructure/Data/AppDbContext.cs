@@ -57,6 +57,11 @@ public class AppDbContext : DbContext
                 .HasColumnName("semestre")
                 .IsRequired();
 
+            entity.Property(a => a.EsFijaTapsi)
+                .HasColumnName("es_fija_tapsi")
+                .HasDefaultValue(false)
+                .IsRequired();
+
             entity.HasIndex(a => a.Codigo)
                 .IsUnique();
         });
