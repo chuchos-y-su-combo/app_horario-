@@ -13,4 +13,6 @@ public class Asignatura
 	public int Creditos { get; set; }
 
 	public int Semestre { get; set; }
+
+	public bool EsFijaTapsi { get; set; }
 }

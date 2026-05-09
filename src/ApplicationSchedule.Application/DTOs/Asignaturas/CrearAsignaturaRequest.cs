@@ -22,4 +22,6 @@ public class CrearAsignaturaRequest
 	[Required(ErrorMessage = "El semestre es obligatorio.")]
 	[Range(1, 10, ErrorMessage = "El semestre debe estar entre 1 y 10.")]
 	public int Semestre { get; set; }
+
+	public bool EsFijaTapsi { get; set; }
 }
