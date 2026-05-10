@@ -1,8 +1,7 @@
 using ApplicationSchedule.Application.Interfaces;
 using ApplicationSchedule.Application.Services;
-using ApplicationSchedule.Infrastructure.Services;
 using ApplicationSchedule.Infrastructure.Data;
-using ApplicationSchedule.Infrastructure.services;
+using ApplicationSchedule.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 
@@ -19,6 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IAsignaturaService, AsignaturaService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IProfesorService, ProfesorService>();
+builder.Services.AddScoped<IAsignacionService, AsignacionService>();
 
 builder.Services.AddControllers();
 
@@ -52,8 +52,6 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
     context.Database.EnsureCreated();
-
-    // context.Database.Migrate();
 }
 
 if (app.Environment.IsDevelopment())

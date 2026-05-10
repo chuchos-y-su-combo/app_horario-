@@ -5,8 +5,12 @@ namespace ApplicationSchedule.Application.Interfaces;
 public interface IProfesorService
 {
     Task<List<ProfesorResponse>> ObtenerTodosAsync();
-    Task<ProfesorResponse?> ObtenerPorIdAsync(int idProfesor);
+
+    Task<ProfesorResponse?> ObtenerPorIdAsync(string idProfesor);
+
     Task<ProfesorResponse> CrearAsync(CrearProfesorRequest request);
-    Task<bool> ActualizarAsync(int idProfesor, ActualizarProfesorRequest request);
-    Task<bool> EliminarAsync(int idProfesor);
+
+    Task<bool> ActualizarAsync(string idProfesor, ActualizarProfesorRequest request);
+
+    Task<bool> EliminarAsync(string idProfesor);
 }

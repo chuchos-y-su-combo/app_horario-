@@ -1,167 +1,93 @@
 using ApplicationSchedule.Domain.Entities;
 using ApplicationSchedule.Infrastructure.Data;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ApplicationSchedule.Tests.Infrastructure;
 
-/// <summary>
-/// Factory personalizado para crear instancias de la aplicación con base de datos en memoria para pruebas.
-/// ✅ AISLAMIENTO CRÍTICO:
-/// - Cada instancia tiene su propia BD InMemory independiente (nombre único con GUID)
-/// - Permite ejecución paralela de tests sin interferencias
-/// - NO persiste datos entre test runs
-/// - BD completamente limpia en cada initialization
-/// </summary>
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _databaseName;
 
     public CustomWebApplicationFactory()
     {
-        // IMPORTANTE: Cada BD tiene nombre único. EF Core InMemory usa el nombre como key.
-        // Dos tests NUNCA compartirán BD incluso si se ejecutan en paralelo.
         _databaseName = $"TestDb_{Guid.NewGuid()}_{DateTime.UtcNow.Ticks}";
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // Configurar appsettings para testing
         builder.ConfigureAppConfiguration((context, config) =>
         {
             var dict = new Dictionary<string, string?>
             {
                 { "ConnectionStrings:DefaultConnection", string.Empty }
             };
-            config.AddInMemoryCollection(dict!);
+
+            config.AddInMemoryCollection(dict);
         });
 
         builder.UseEnvironment("Testing");
 
         builder.ConfigureServices(services =>
         {
-            // ✅ PASO 1: Remover cualquier registro relacionado con AppDbContext/DbContextOptions
             var descriptorsToRemove = services.Where(d =>
                 d.ServiceType == typeof(DbContextOptions<AppDbContext>) ||
                 d.ServiceType == typeof(AppDbContext) ||
-                (d.ImplementationType != null && d.ImplementationType == typeof(AppDbContext)) ||
-                (d.ServiceType?.FullName?.Contains("AppDbContext") == true)
+                d.ServiceType.FullName?.Contains("AppDbContext") == true
             ).ToList();
 
-            foreach (var d in descriptorsToRemove)
+            foreach (var descriptor in descriptorsToRemove)
             {
-                services.Remove(d);
+                services.Remove(descriptor);
             }
-            
-            // ✅ PASO 2: Registrar DbContext SOLO con InMemory
+
             services.AddDbContext<AppDbContext>(
                 options => options.UseInMemoryDatabase(_databaseName),
-                ServiceLifetime.Transient);
-
-            // Remover servicios relacionados con Swagger/OpenAPI si fueron registrados
-            var swaggerGen = services.FirstOrDefault(d => d.ServiceType?.FullName?.Contains("Swashbuckle") == true);
-            if (swaggerGen != null)
-            {
-                services.Remove(swaggerGen);
-            }
-
-            // Agregar un IStartupFilter que limpie ApplicationParts problemáticos
-            services.AddSingleton<Microsoft.AspNetCore.Hosting.IStartupFilter>(new RemoveSwaggerApplicationPartsStartupFilter());
-
-            // Forzar que MVC use solo los ApplicationParts del ensamblado de la API
-            var apiAssemblyName = typeof(Program).Assembly.GetName().Name;
-            services.AddControllers().ConfigureApplicationPartManager(apm =>
-            {
-                var keep = apm.ApplicationParts.Where(p => p.Name == apiAssemblyName).ToList();
-                apm.ApplicationParts.Clear();
-                foreach (var p in keep)
-                {
-                    apm.ApplicationParts.Add(p);
-                }
-            });
+                ServiceLifetime.Transient
+            );
         });
     }
 
-    private class RemoveSwaggerApplicationPartsStartupFilter : Microsoft.AspNetCore.Hosting.IStartupFilter
-    {
-        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
-        {
-            return app =>
-            {
-                try
-                {
-                    var partManager = app.ApplicationServices.GetService<Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartManager>();
-                    if (partManager != null)
-                    {
-                        var toRemove = partManager.ApplicationParts
-                            .Where(p => p.Name?.Contains("Swashbuckle") == true || p.Name?.Contains("Microsoft.OpenApi") == true)
-                            .ToList();
-
-                        foreach (var p in toRemove)
-                        {
-                            partManager.ApplicationParts.Remove(p);
-                        }
-                    }
-                }
-                catch
-                {
-                    // No fallar en el startup filter
-                }
-
-                next(app);
-            };
-        }
-    }
-
-    /// <summary>
-    /// Inicializa la BD: crea esquema y siembra roles base.
-    /// Se llama DESPUÉS de que el host esté completamente listo.
-    /// </summary>
     public async Task InitializeDatabaseAsync()
     {
         await ExecuteDbContextAsync(async dbContext =>
         {
             await dbContext.Database.EnsureCreatedAsync();
-            
+
             if (!await dbContext.Roles.AnyAsync())
             {
-                var roles = new[]
-                {
+                dbContext.Roles.AddRange(
                     new Rol { IdRol = 1, NombreRol = "Administrador" },
-                    new Rol { IdRol = 2, NombreRol = "Coordinador" },
-                    new Rol { IdRol = 3, NombreRol = "Profesor" },
-                    new Rol { IdRol = 4, NombreRol = "Estudiante" }
-                };
-                dbContext.Roles.AddRange(roles);
-                await dbContext.SaveChangesAsync();
+                    new Rol { IdRol = 2, NombreRol = "Coordinador" }
+                );
             }
+
+            if (!await dbContext.PlanesEstudio.AnyAsync())
+            {
+                dbContext.PlanesEstudio.AddRange(
+                    new PlanEstudio
+                    {
+                        IdPlan = "11111111-1111-1111-1111-111111111111",
+                        NombrePlan = "Plan de Estudios 1020 Jornada Diurna",
+                        Jornada = "Diurna"
+                    },
+                    new PlanEstudio
+                    {
+                        IdPlan = "22222222-2222-2222-2222-222222222222",
+                        NombrePlan = "Plan de Estudios Jornada Noche",
+                        Jornada = "Nocturna"
+                    }
+                );
+            }
+
+            await dbContext.SaveChangesAsync();
         });
     }
 
-    public override async ValueTask DisposeAsync()
-    {
-        await ResetDatabaseAsync();
-        await base.DisposeAsync();
-    }
-
-    /// <summary>
-    /// Obtiene un DbContext nuevo dentro de un scope apropiado.
-    /// IMPORTANTE: Cada llamada retorna un DbContext FRESCO
-    /// </summary>
-    public async Task<T> ExecuteDbContextAsync<T>(Func<AppDbContext, Task<T>> action)
-    {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(_databaseName)
-            .Options;
-
-        await using var dbContext = new AppDbContext(options);
-        return await action(dbContext);
-    }
-
-    /// <summary>
-    /// Obtiene un DbContext nuevo dentro de un scope apropiado para operaciones sin retorno.
-    /// </summary>
     public async Task ExecuteDbContextAsync(Func<AppDbContext, Task> action)
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -172,37 +98,33 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         await action(dbContext);
     }
 
-    /// <summary>
-    /// LIMPIEZA TOTAL: Elimina todos los datos excepto roles base.
-    /// Se ejecuta al final de cada test mediante IAsyncLifetime.
-    /// </summary>
+    public async Task<T> ExecuteDbContextAsync<T>(Func<AppDbContext, Task<T>> action)
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(_databaseName)
+            .Options;
+
+        await using var dbContext = new AppDbContext(options);
+        return await action(dbContext);
+    }
+
     public async Task ResetDatabaseAsync()
     {
         await ExecuteDbContextAsync(async dbContext =>
         {
-            // Eliminar todos los usuarios
+            var asignaciones = await dbContext.Asignaciones.ToListAsync();
+            dbContext.Asignaciones.RemoveRange(asignaciones);
+
             var usuarios = await dbContext.Usuarios.ToListAsync();
-            if (usuarios.Any())
-            {
-                dbContext.Usuarios.RemoveRange(usuarios);
-                await dbContext.SaveChangesAsync();
-            }
+            dbContext.Usuarios.RemoveRange(usuarios);
 
-            // Eliminar todos los profesores
-            var profesores = await dbContext.Profesores.ToListAsync();
-            if (profesores.Any())
-            {
-                dbContext.Profesores.RemoveRange(profesores);
-                await dbContext.SaveChangesAsync();
-            }
-
-            // Eliminar todas las asignaturas
             var asignaturas = await dbContext.Asignaturas.ToListAsync();
-            if (asignaturas.Any())
-            {
-                dbContext.Asignaturas.RemoveRange(asignaturas);
-                await dbContext.SaveChangesAsync();
-            }
+            dbContext.Asignaturas.RemoveRange(asignaturas);
+
+            var docentes = await dbContext.Docentes.ToListAsync();
+            dbContext.Docentes.RemoveRange(docentes);
+
+            await dbContext.SaveChangesAsync();
         });
     }
 }
