@@ -2,9 +2,9 @@ namespace ApplicationSchedule.Application.DTOs.Asignaturas;
 
 public class AsignaturaResponse
 {
-    public int IdAsignatura { get; set; }
+    public string IdAsignatura { get; set; } = string.Empty;
 
-    public int IdPlanEstudios { get; set; }
+    public string IdPlan { get; set; } = string.Empty;
 
     public string Codigo { get; set; } = string.Empty;
 
@@ -13,4 +13,8 @@ public class AsignaturaResponse
     public int Creditos { get; set; }
 
     public int Semestre { get; set; }
+
+    public int MinEstudiantes { get; set; }
+
+    public bool EsFijaTapsi { get; set; }
 }

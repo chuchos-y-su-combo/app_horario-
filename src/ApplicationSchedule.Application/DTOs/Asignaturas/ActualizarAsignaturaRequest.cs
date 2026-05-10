@@ -5,14 +5,14 @@ namespace ApplicationSchedule.Application.DTOs.Asignaturas;
 public class ActualizarAsignaturaRequest
 {
     [Required(ErrorMessage = "El plan de estudios es obligatorio.")]
-    public int IdPlanEstudios { get; set; }
+    public string IdPlan { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El código es obligatorio.")]
     [MaxLength(20, ErrorMessage = "El código no puede superar los 20 caracteres.")]
     public string Codigo { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El nombre es obligatorio.")]
-    [MaxLength(150, ErrorMessage = "El nombre no puede superar los 150 caracteres.")]
+    [MaxLength(100, ErrorMessage = "El nombre no puede superar los 100 caracteres.")]
     public string Nombre { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Los créditos son obligatorios.")]
@@ -20,6 +20,11 @@ public class ActualizarAsignaturaRequest
     public int Creditos { get; set; }
 
     [Required(ErrorMessage = "El semestre es obligatorio.")]
-    [Range(1, 10, ErrorMessage = "El semestre debe estar entre 1 y 10.")]
+    [Range(1, 12, ErrorMessage = "El semestre debe estar entre 1 y 12.")]
     public int Semestre { get; set; }
+
+    [Range(1, 200, ErrorMessage = "El mínimo de estudiantes debe estar entre 1 y 200.")]
+    public int MinEstudiantes { get; set; } = 15;
+
+    public bool EsFijaTapsi { get; set; }
 }

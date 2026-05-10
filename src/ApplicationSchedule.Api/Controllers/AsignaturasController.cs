@@ -23,16 +23,36 @@ public class AsignaturasController : ControllerBase
         return Ok(asignaturas);
     }
 
-    [HttpGet("plan/{idPlanEstudios}")]
-    public async Task<ActionResult<List<AsignaturaResponse>>> ObtenerPorPlanEstudios(int idPlanEstudios)
+    [HttpGet("plan/{idPlan}")]
+    public async Task<ActionResult<List<AsignaturaResponse>>> ObtenerPorPlan(string idPlan)
     {
-        List<AsignaturaResponse> asignaturas = await _asignaturaService.ObtenerPorPlanEstudiosAsync(idPlanEstudios);
+        List<AsignaturaResponse> asignaturas = await _asignaturaService.ObtenerPorPlanAsync(idPlan);
 
         return Ok(asignaturas);
     }
 
+    [HttpGet("tapsi/fijas")]
+    public async Task<ActionResult<List<AsignaturaResponse>>> ObtenerFijasTapsi()
+    {
+        List<AsignaturaResponse> asignaturas = await _asignaturaService.ObtenerFijasTapsiAsync();
+
+        return Ok(asignaturas);
+    }
+
+    [HttpPost("tapsi/marcar-fijas")]
+    public async Task<IActionResult> MarcarObligatoriasTapsiComoFijas()
+    {
+        int cantidadMarcada = await _asignaturaService.MarcarObligatoriasTapsiComoFijasAsync();
+
+        return Ok(new
+        {
+            mensaje = "Asignaturas obligatorias TAPSI marcadas como fijas correctamente.",
+            cantidadMarcada
+        });
+    }
+
     [HttpGet("{idAsignatura}")]
-    public async Task<ActionResult<AsignaturaResponse>> ObtenerPorId(int idAsignatura)
+    public async Task<ActionResult<AsignaturaResponse>> ObtenerPorId(string idAsignatura)
     {
         AsignaturaResponse? asignatura = await _asignaturaService.ObtenerPorIdAsync(idAsignatura);
 
@@ -70,13 +90,13 @@ public class AsignaturasController : ControllerBase
     }
 
     [HttpPut("{idAsignatura}")]
-    public async Task<IActionResult> Actualizar(int idAsignatura, ActualizarAsignaturaRequest request)
+    public async Task<IActionResult> Actualizar(string idAsignatura, ActualizarAsignaturaRequest request)
     {
         try
         {
-            bool actualizado = await _asignaturaService.ActualizarAsync(idAsignatura, request);
+            bool actualizada = await _asignaturaService.ActualizarAsync(idAsignatura, request);
 
-            if (!actualizado)
+            if (!actualizada)
             {
                 return NotFound(new
                 {
@@ -96,18 +116,28 @@ public class AsignaturasController : ControllerBase
     }
 
     [HttpDelete("{idAsignatura}")]
-    public async Task<IActionResult> Eliminar(int idAsignatura)
+    public async Task<IActionResult> Eliminar(string idAsignatura)
     {
-        bool eliminado = await _asignaturaService.EliminarAsync(idAsignatura);
-
-        if (!eliminado)
+        try
         {
-            return NotFound(new
+            bool eliminada = await _asignaturaService.EliminarAsync(idAsignatura);
+
+            if (!eliminada)
             {
-                mensaje = "Asignatura no encontrada."
+                return NotFound(new
+                {
+                    mensaje = "Asignatura no encontrada."
+                });
+            }
+
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                mensaje = ex.Message
             });
         }
-
-        return NoContent();
     }
 }

@@ -4,15 +4,19 @@ namespace ApplicationSchedule.Application.Interfaces;
 
 public interface IAsignaturaService
 {
-	Task<List<AsignaturaResponse>> ObtenerTodasAsync();
+    Task<List<AsignaturaResponse>> ObtenerTodasAsync();
 
-	Task<List<AsignaturaResponse>> ObtenerPorPlanEstudiosAsync(int idPlanEstudios);
+    Task<List<AsignaturaResponse>> ObtenerPorPlanAsync(string idPlan);
 
-	Task<AsignaturaResponse?> ObtenerPorIdAsync(int idAsignatura);
+    Task<AsignaturaResponse?> ObtenerPorIdAsync(string idAsignatura);
 
-	Task<AsignaturaResponse> CrearAsync(CrearAsignaturaRequest request);
+    Task<List<AsignaturaResponse>> ObtenerFijasTapsiAsync();
 
-	Task<bool> ActualizarAsync(int idAsignatura, ActualizarAsignaturaRequest request);
+    Task<AsignaturaResponse> CrearAsync(CrearAsignaturaRequest request);
 
-	Task<bool> EliminarAsync(int idAsignatura);
+    Task<bool> ActualizarAsync(string idAsignatura, ActualizarAsignaturaRequest request);
+
+    Task<int> MarcarObligatoriasTapsiComoFijasAsync();
+
+    Task<bool> EliminarAsync(string idAsignatura);
 }
