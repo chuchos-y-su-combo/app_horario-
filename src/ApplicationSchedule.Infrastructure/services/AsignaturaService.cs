@@ -14,11 +14,11 @@ public class AsignaturaService : IAsignaturaService
 
     private static readonly HashSet<string> CodigosFijosTapsi = new(StringComparer.OrdinalIgnoreCase)
     {
-        "104030", // Cálculo Diferencial
-        "103007", // Técnicas de Programación
-        "103018", // Programación Orientada a Objetos
-        "103004", // Teoría de Sistemas
-        "103027"  // Sistemas Operativos
+        "104030",
+        "103007",
+        "103018",
+        "103004",
+        "103027"
     };
 
     private static readonly HashSet<string> NombresFijosTapsi = new(StringComparer.OrdinalIgnoreCase)
