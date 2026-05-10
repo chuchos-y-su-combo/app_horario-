@@ -24,7 +24,7 @@ public class ProfesoresController : ControllerBase
     }
 
     [HttpGet("{idProfesor}")]
-    public async Task<ActionResult<ProfesorResponse>> ObtenerPorId(int idProfesor)
+    public async Task<ActionResult<ProfesorResponse>> ObtenerPorId(string idProfesor)
     {
         ProfesorResponse? profesor = await _profesorService.ObtenerPorIdAsync(idProfesor);
 
@@ -32,7 +32,7 @@ public class ProfesoresController : ControllerBase
         {
             return NotFound(new
             {
-                mensaje = "Profesor no encontrado."
+                mensaje = "Docente no encontrado."
             });
         }
 
@@ -62,7 +62,7 @@ public class ProfesoresController : ControllerBase
     }
 
     [HttpPut("{idProfesor}")]
-    public async Task<IActionResult> Actualizar(int idProfesor, ActualizarProfesorRequest request)
+    public async Task<IActionResult> Actualizar(string idProfesor, ActualizarProfesorRequest request)
     {
         try
         {
@@ -72,7 +72,7 @@ public class ProfesoresController : ControllerBase
             {
                 return NotFound(new
                 {
-                    mensaje = "Profesor no encontrado."
+                    mensaje = "Docente no encontrado."
                 });
             }
 
@@ -88,18 +88,28 @@ public class ProfesoresController : ControllerBase
     }
 
     [HttpDelete("{idProfesor}")]
-    public async Task<IActionResult> Eliminar(int idProfesor)
+    public async Task<IActionResult> Eliminar(string idProfesor)
     {
-        bool eliminado = await _profesorService.EliminarAsync(idProfesor);
-
-        if (!eliminado)
+        try
         {
-            return NotFound(new
+            bool eliminado = await _profesorService.EliminarAsync(idProfesor);
+
+            if (!eliminado)
             {
-                mensaje = "Profesor no encontrado."
+                return NotFound(new
+                {
+                    mensaje = "Docente no encontrado."
+                });
+            }
+
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                mensaje = ex.Message
             });
         }
-
-        return NoContent();
     }
 }

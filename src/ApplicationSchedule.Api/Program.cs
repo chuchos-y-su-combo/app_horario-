@@ -2,8 +2,8 @@ using ApplicationSchedule.Application.Interfaces;
 using ApplicationSchedule.Application.Services;
 using ApplicationSchedule.Infrastructure.Services;
 using ApplicationSchedule.Infrastructure.Data;
-using ApplicationSchedule.Infrastructure.services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IAsignaturaService, AsignaturaService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IProfesorService, ProfesorService>();
+builder.Services.AddScoped<IAsignacionService, AsignacionService>();
 
 builder.Services.AddControllers();
 
@@ -47,7 +48,11 @@ using (var scope = app.Services.CreateScope())
     // context.Database.Migrate();
 }
 
-app.UseSwagger();
+app.UseSwagger(options =>
+{
+    options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0;
+});
+
 app.UseSwaggerUI();
 
 app.UseCors("FrontendLocal");

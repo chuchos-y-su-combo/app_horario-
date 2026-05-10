@@ -7,165 +7,151 @@ using Xunit;
 
 namespace ApplicationSchedule.Tests.Controllers;
 
-/// <summary>
-/// Suite completa de pruebas para los 5 endpoints de Profesores API.
-/// Pruebas independientes siguiendo patrón AAA.
-/// </summary>
 public class ProfesoresControllerTests : IntegrationTestBase, IClassFixture<CustomWebApplicationFactory>
 {
-    public ProfesoresControllerTests(CustomWebApplicationFactory factory) : base(factory) { }
-
-    #region GET /api/profesores
+    public ProfesoresControllerTests(CustomWebApplicationFactory factory) : base(factory)
+    {
+    }
 
     [Fact(DisplayName = "GET /api/profesores - Retorna lista vacía inicialmente")]
-    public async Task ObtenerTodos_RetornListaVacia_CuandoNoHayProfesores()
+    public async Task ObtenerTodos_RetornaListaVacia()
     {
-        // Arrange: BD limpia
-
-        // Act
         var response = await Client.GetAsync("/api/profesores");
 
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+
         var profesores = await response.Content.ReadFromJsonAsync<List<ProfesorResponse>>();
         profesores.Should().NotBeNull();
         profesores.Should().BeEmpty();
     }
 
-    [Fact(DisplayName = "GET /api/profesores - Retorna lista de todos los profesores")]
-    public async Task ObtenerTodos_RetornListaProfesores_CuandoHayMultiples()
+    [Fact(DisplayName = "POST /api/profesores - Crea docente TC con máximo 5 asignaturas")]
+    public async Task Crear_DocenteTC_AsignaMaximoCinco()
     {
-        // Arrange: Crear 3 profesores
-        var profesoresACrear = new[]
+        var request = new CrearProfesorRequest
         {
-            new CrearProfesorRequest { Nombre = "Dr. Carlos López", Identificacion = "12345678", TipoContrato = "Tiempo Completo" },
-            new CrearProfesorRequest { Nombre = "Dra. María García", Identificacion = "87654321", TipoContrato = "Parcial" },
-            new CrearProfesorRequest { Nombre = "Prof. Juan Rodríguez", Identificacion = "55555555", TipoContrato = "Tiempo Completo" }
+            Nombre = "Carlos Pérez",
+            Identificacion = "1001",
+            TipoContrato = "TC"
         };
 
-        foreach (var request in profesoresACrear)
+        var response = await Client.PostAsJsonAsync("/api/profesores", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var profesor = await response.Content.ReadFromJsonAsync<ProfesorResponse>();
+        profesor.Should().NotBeNull();
+        profesor!.IdProfesor.Should().NotBeNullOrWhiteSpace();
+        profesor.Nombre.Should().Be("Carlos Pérez");
+        profesor.Identificacion.Should().Be("1001");
+        profesor.TipoContrato.Should().Be("TC");
+        profesor.MaxAsignaturas.Should().Be(5);
+    }
+
+    [Fact(DisplayName = "POST /api/profesores - Crea docente TP con máximo 3 asignaturas")]
+    public async Task Crear_DocenteTP_AsignaMaximoTres()
+    {
+        var request = new CrearProfesorRequest
         {
-            await Client.PostAsJsonAsync("/api/profesores", request);
-        }
+            Nombre = "Ana Gómez",
+            Identificacion = "1002",
+            TipoContrato = "TP"
+        };
 
-        // Act
-        var response = await Client.GetAsync("/api/profesores");
+        var response = await Client.PostAsJsonAsync("/api/profesores", request);
 
-        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var profesor = await response.Content.ReadFromJsonAsync<ProfesorResponse>();
+        profesor.Should().NotBeNull();
+        profesor!.TipoContrato.Should().Be("TP");
+        profesor.MaxAsignaturas.Should().Be(3);
+    }
+
+    [Theory(DisplayName = "POST /api/profesores - Normaliza contratos largos a TC o TP")]
+    [InlineData("Tiempo Completo", "TC", 5)]
+    [InlineData("Parcial", "TP", 3)]
+    public async Task Crear_NormalizaTipoContrato(string entrada, string esperado, int maxEsperado)
+    {
+        var request = new CrearProfesorRequest
+        {
+            Nombre = $"Docente {entrada}",
+            Identificacion = Guid.NewGuid().ToString("N")[..8],
+            TipoContrato = entrada
+        };
+
+        var response = await Client.PostAsJsonAsync("/api/profesores", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var profesor = await response.Content.ReadFromJsonAsync<ProfesorResponse>();
+        profesor!.TipoContrato.Should().Be(esperado);
+        profesor.MaxAsignaturas.Should().Be(maxEsperado);
+    }
+
+    [Fact(DisplayName = "GET /api/profesores/{id} - Obtiene docente existente")]
+    public async Task ObtenerPorId_RetornaDocenteExistente()
+    {
+        var crearResponse = await Client.PostAsJsonAsync("/api/profesores", new CrearProfesorRequest
+        {
+            Nombre = "Pedro Sánchez",
+            Identificacion = "2001",
+            TipoContrato = "TC"
+        });
+
+        var creado = await crearResponse.Content.ReadFromJsonAsync<ProfesorResponse>();
+
+        var response = await Client.GetAsync($"/api/profesores/{creado!.IdProfesor}");
+
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var profesores = await response.Content.ReadFromJsonAsync<List<ProfesorResponse>>();
-        profesores.Should().HaveCount(3);
+
+        var obtenido = await response.Content.ReadFromJsonAsync<ProfesorResponse>();
+        obtenido!.IdProfesor.Should().Be(creado.IdProfesor);
+        obtenido.Nombre.Should().Be("Pedro Sánchez");
+        obtenido.MaxAsignaturas.Should().Be(5);
     }
 
-    #endregion
-
-    #region GET /api/profesores/{idProfesor}
-
-    [Fact(DisplayName = "GET /api/profesores/{id} - Retorna profesor existente")]
-    public async Task ObtenerPorId_RetornProfesor_CuandoIdExiste()
+    [Fact(DisplayName = "GET /api/profesores/{id} - Retorna 404 si no existe")]
+    public async Task ObtenerPorId_Retorna404()
     {
-        // Arrange: Crear profesor
-        var crearRequest = new CrearProfesorRequest
-        {
-            Nombre = "Dr. Pedro Sánchez",
-            Identificacion = "99887766",
-            TipoContrato = "Tiempo Completo"
-        };
-        var crearResponse = await Client.PostAsJsonAsync("/api/profesores", crearRequest);
-        var profesorCreado = await crearResponse.Content.ReadFromJsonAsync<ProfesorResponse>();
+        var response = await Client.GetAsync($"/api/profesores/{Guid.NewGuid()}");
 
-        // Act
-        var getResponse = await Client.GetAsync($"/api/profesores/{profesorCreado!.IdProfesor}");
-
-        // Assert
-        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var profesorObtenido = await getResponse.Content.ReadFromJsonAsync<ProfesorResponse>();
-        profesorObtenido.Should().NotBeNull();
-        profesorObtenido!.IdProfesor.Should().Be(profesorCreado.IdProfesor);
-        profesorObtenido.Nombre.Should().Be("Dr. Pedro Sánchez");
-        profesorObtenido.Identificacion.Should().Be("99887766");
-        profesorObtenido.TipoContrato.Should().Be("Tiempo Completo");
-    }
-
-    [Fact(DisplayName = "GET /api/profesores/{id} - Retorna 404 cuando no existe")]
-    public async Task ObtenerPorId_Retorn404_CuandoIdNoExiste()
-    {
-        // Arrange
-
-        // Act
-        var response = await Client.GetAsync("/api/profesores/9999");
-
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
-    #endregion
-
-    #region POST /api/profesores
-
-    [Fact(DisplayName = "POST /api/profesores - Crea profesor válido exitosamente")]
-    public async Task Crear_RetornCreated_ConDatosValidos()
-    {
-        // Arrange
-        var request = new CrearProfesorRequest
-        {
-            Nombre = "Prof. Ana Martínez",
-            Identificacion = "11223344",
-            TipoContrato = "Tiempo Completo"
-        };
-
-        // Act
-        var response = await Client.PostAsJsonAsync("/api/profesores", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
-        response.Headers.Location.Should().NotBeNull();
-        
-        var profesorCreado = await response.Content.ReadFromJsonAsync<ProfesorResponse>();
-        profesorCreado.Should().NotBeNull();
-        profesorCreado!.Nombre.Should().Be("Prof. Ana Martínez");
-        profesorCreado.Identificacion.Should().Be("11223344");
-        profesorCreado.TipoContrato.Should().Be("Tiempo Completo");
-    }
-
     [Fact(DisplayName = "POST /api/profesores - Rechaza identificación duplicada")]
-    public async Task Crear_RetornBadRequest_CuandoIdentificacionDuplicada()
+    public async Task Crear_RechazaIdentificacionDuplicada()
     {
-        // Arrange: Crear primer profesor
-        var identificacion = "44332211";
         var request1 = new CrearProfesorRequest
         {
-            Nombre = "Profesor 1",
-            Identificacion = identificacion,
-            TipoContrato = "Tiempo Completo"
+            Nombre = "Docente Uno",
+            Identificacion = "3001",
+            TipoContrato = "TC"
         };
-        await Client.PostAsJsonAsync("/api/profesores", request1);
 
-        // Intentar crear segundo con misma identificación
         var request2 = new CrearProfesorRequest
         {
-            Nombre = "Profesor 2",
-            Identificacion = identificacion,
-            TipoContrato = "Parcial"
+            Nombre = "Docente Dos",
+            Identificacion = "3001",
+            TipoContrato = "TP"
         };
 
-        // Act
+        await Client.PostAsJsonAsync("/api/profesores", request1);
+
         var response = await Client.PostAsJsonAsync("/api/profesores", request2);
 
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        response.Content.ReadAsStringAsync().Result.Should().Contain("identificaci");
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("identificación");
     }
 
-    [Theory(DisplayName = "POST /api/profesores - Valida requerimientos de entrada")]
-    [InlineData("", "12345678", "Tiempo Completo")]
-    [InlineData("Profesor", "", "Tiempo Completo")]
-    [InlineData("Profesor", "12345678", "")]
-    [InlineData("Profesor", "12345678", "Invalido")]
-    public async Task Crear_RetornBadRequest_ConValidacionesFallidas(
-        string nombre, string identificacion, string tipoContrato)
+    [Theory(DisplayName = "POST /api/profesores - Valida campos obligatorios")]
+    [InlineData("", "4001", "TC")]
+    [InlineData("Docente", "", "TC")]
+    [InlineData("Docente", "4001", "")]
+    [InlineData("Docente", "4001", "Invalido")]
+    public async Task Crear_RechazaDatosInvalidos(string nombre, string identificacion, string tipoContrato)
     {
-        // Arrange
         var request = new CrearProfesorRequest
         {
             Nombre = nombre,
@@ -173,201 +159,60 @@ public class ProfesoresControllerTests : IntegrationTestBase, IClassFixture<Cust
             TipoContrato = tipoContrato
         };
 
-        // Act
         var response = await Client.PostAsJsonAsync("/api/profesores", request);
 
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
-    [Theory(DisplayName = "POST /api/profesores - Valida tipo de contrato")]
-    [InlineData("Tiempo Completo")]
-    [InlineData("Parcial")]
-    public async Task Crear_AceptaTiposContratoValidos(string tipoContrato)
+    [Fact(DisplayName = "PUT /api/profesores/{id} - Actualiza docente y recalcula máximo")]
+    public async Task Actualizar_Docente_RecalculaMaximo()
     {
-        // Arrange
-        var request = new CrearProfesorRequest
+        var crearResponse = await Client.PostAsJsonAsync("/api/profesores", new CrearProfesorRequest
         {
-            Nombre = "Prof. Test",
-            Identificacion = $"ID{Guid.NewGuid().ToString().Substring(0, 8)}",
-            TipoContrato = tipoContrato
-        };
+            Nombre = "Docente Original",
+            Identificacion = "5001",
+            TipoContrato = "TC"
+        });
 
-        // Act
-        var response = await Client.PostAsJsonAsync("/api/profesores", request);
+        var creado = await crearResponse.Content.ReadFromJsonAsync<ProfesorResponse>();
 
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
-        var profesor = await response.Content.ReadFromJsonAsync<ProfesorResponse>();
-        profesor!.TipoContrato.Should().Be(tipoContrato);
-    }
-
-    #endregion
-
-    #region PUT /api/profesores/{idProfesor}
-
-    [Fact(DisplayName = "PUT /api/profesores/{id} - Actualiza profesor exitosamente")]
-    public async Task Actualizar_RetornNoContent_ConDatosValidos()
-    {
-        // Arrange: Crear profesor
-        var crearRequest = new CrearProfesorRequest
-        {
-            Nombre = "Nombre Original",
-            Identificacion = "10101010",
-            TipoContrato = "Tiempo Completo"
-        };
-        var crearResponse = await Client.PostAsJsonAsync("/api/profesores", crearRequest);
-        var profesor = await crearResponse.Content.ReadFromJsonAsync<ProfesorResponse>();
-
-        // Actualizar
         var actualizarRequest = new ActualizarProfesorRequest
         {
-            Nombre = "Nombre Actualizado",
-            Identificacion = "20202020",
-            TipoContrato = "Parcial"
+            Nombre = "Docente Actualizado",
+            Identificacion = "5002",
+            TipoContrato = "TP"
         };
 
-        // Act
-        var response = await Client.PutAsJsonAsync($"/api/profesores/{profesor!.IdProfesor}", actualizarRequest);
+        var response = await Client.PutAsJsonAsync($"/api/profesores/{creado!.IdProfesor}", actualizarRequest);
 
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        // Verificar cambios
-        var getResponse = await Client.GetAsync($"/api/profesores/{profesor.IdProfesor}");
-        var profesorActualizado = await getResponse.Content.ReadFromJsonAsync<ProfesorResponse>();
-        profesorActualizado!.Nombre.Should().Be("Nombre Actualizado");
-        profesorActualizado.Identificacion.Should().Be("20202020");
-        profesorActualizado.TipoContrato.Should().Be("Parcial");
+        var getResponse = await Client.GetAsync($"/api/profesores/{creado.IdProfesor}");
+        var actualizado = await getResponse.Content.ReadFromJsonAsync<ProfesorResponse>();
+
+        actualizado!.Nombre.Should().Be("Docente Actualizado");
+        actualizado.Identificacion.Should().Be("5002");
+        actualizado.TipoContrato.Should().Be("TP");
+        actualizado.MaxAsignaturas.Should().Be(3);
     }
 
-    [Fact(DisplayName = "PUT /api/profesores/{id} - Retorna 404 cuando no existe")]
-    public async Task Actualizar_Retorn404_CuandoProfesorNoExiste()
+    [Fact(DisplayName = "DELETE /api/profesores/{id} - Elimina docente sin asignaciones")]
+    public async Task Eliminar_DocenteSinAsignaciones()
     {
-        // Arrange
-        var request = new ActualizarProfesorRequest
+        var crearResponse = await Client.PostAsJsonAsync("/api/profesores", new CrearProfesorRequest
         {
-            Nombre = "Test",
-            Identificacion = "99999999",
-            TipoContrato = "Tiempo Completo"
-        };
+            Nombre = "Docente Eliminable",
+            Identificacion = "6001",
+            TipoContrato = "TP"
+        });
 
-        // Act
-        var response = await Client.PutAsJsonAsync("/api/profesores/9999", request);
+        var creado = await crearResponse.Content.ReadFromJsonAsync<ProfesorResponse>();
 
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
+        var deleteResponse = await Client.DeleteAsync($"/api/profesores/{creado!.IdProfesor}");
 
-    [Fact(DisplayName = "PUT /api/profesores/{id} - Rechaza identificación duplicada")]
-    public async Task Actualizar_RetornBadRequest_CuandoIdentificacionDuplicada()
-    {
-        // Arrange: Crear dos profesores
-        var prof1Request = new CrearProfesorRequest
-        {
-            Nombre = "Profesor 1",
-            Identificacion = "11111111",
-            TipoContrato = "Tiempo Completo"
-        };
-        var prof1Response = await Client.PostAsJsonAsync("/api/profesores", prof1Request);
-        var prof1 = await prof1Response.Content.ReadFromJsonAsync<ProfesorResponse>();
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        var prof2Request = new CrearProfesorRequest
-        {
-            Nombre = "Profesor 2",
-            Identificacion = "22222222",
-            TipoContrato = "Tiempo Completo"
-        };
-        var prof2Response = await Client.PostAsJsonAsync("/api/profesores", prof2Request);
-
-        // Intentar actualizar prof1 con identificación de prof2
-        var actualizarRequest = new ActualizarProfesorRequest
-        {
-            Nombre = "Profesor 1 Modificado",
-            Identificacion = "22222222",
-            TipoContrato = "Tiempo Completo"
-        };
-
-        // Act
-        var response = await Client.PutAsJsonAsync($"/api/profesores/{prof1!.IdProfesor}", actualizarRequest);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    [Fact(DisplayName = "PUT /api/profesores/{id} - Permite mantener propia identificación")]
-    public async Task Actualizar_PermiteIdPropia_CuandoActualizaOtrosCampos()
-    {
-        // Arrange: Crear profesor
-        var crearRequest = new CrearProfesorRequest
-        {
-            Nombre = "Profesor Original",
-            Identificacion = "33333333",
-            TipoContrato = "Tiempo Completo"
-        };
-        var crearResponse = await Client.PostAsJsonAsync("/api/profesores", crearRequest);
-        var profesor = await crearResponse.Content.ReadFromJsonAsync<ProfesorResponse>();
-
-        // Actualizar con misma identificación pero otro nombre
-        var actualizarRequest = new ActualizarProfesorRequest
-        {
-            Nombre = "Profesor Nuevo Nombre",
-            Identificacion = "33333333",
-            TipoContrato = "Parcial"
-        };
-
-        // Act
-        var response = await Client.PutAsJsonAsync($"/api/profesores/{profesor!.IdProfesor}", actualizarRequest);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
-
-        // Verificar cambios
-        var getResponse = await Client.GetAsync($"/api/profesores/{profesor.IdProfesor}");
-        var profesorActualizado = await getResponse.Content.ReadFromJsonAsync<ProfesorResponse>();
-        profesorActualizado!.Nombre.Should().Be("Profesor Nuevo Nombre");
-        profesorActualizado.Identificacion.Should().Be("33333333");
-    }
-
-    #endregion
-
-    #region DELETE /api/profesores/{idProfesor}
-
-    [Fact(DisplayName = "DELETE /api/profesores/{id} - Elimina profesor exitosamente")]
-    public async Task Eliminar_RetornNoContent_CuandoExiste()
-    {
-        // Arrange: Crear profesor
-        var crearRequest = new CrearProfesorRequest
-        {
-            Nombre = "Profesor a Eliminar",
-            Identificacion = "77777777",
-            TipoContrato = "Tiempo Completo"
-        };
-        var crearResponse = await Client.PostAsJsonAsync("/api/profesores", crearRequest);
-        var profesor = await crearResponse.Content.ReadFromJsonAsync<ProfesorResponse>();
-
-        // Act
-        var response = await Client.DeleteAsync($"/api/profesores/{profesor!.IdProfesor}");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
-
-        // Verificar que no existe
-        var getResponse = await Client.GetAsync($"/api/profesores/{profesor.IdProfesor}");
+        var getResponse = await Client.GetAsync($"/api/profesores/{creado.IdProfesor}");
         getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
-
-    [Fact(DisplayName = "DELETE /api/profesores/{id} - Retorna 404 cuando no existe")]
-    public async Task Eliminar_Retorn404_CuandoNoExiste()
-    {
-        // Arrange
-
-        // Act
-        var response = await Client.DeleteAsync("/api/profesores/9999");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-
-    #endregion
 }

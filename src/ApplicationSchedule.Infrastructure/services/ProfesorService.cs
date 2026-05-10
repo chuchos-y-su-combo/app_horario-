@@ -4,7 +4,7 @@ using ApplicationSchedule.Domain.Entities;
 using ApplicationSchedule.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace ApplicationSchedule.Infrastructure.services;
+namespace ApplicationSchedule.Infrastructure.Services;
 
 public class ProfesorService : IProfesorService
 {
@@ -17,93 +17,133 @@ public class ProfesorService : IProfesorService
 
     public async Task<List<ProfesorResponse>> ObtenerTodosAsync()
     {
-        return await _context.Profesores
-            .Select(p => new ProfesorResponse
-            {
-                IdProfesor = p.IdProfesor,
-                Nombre = p.Nombre,
-                Identificacion = p.Identificacion,
-                TipoContrato = p.TipoContrato
-            })
+        return await _context.Docentes
+            .OrderBy(d => d.Nombre)
+            .Select(d => ToResponse(d))
             .ToListAsync();
     }
 
-    public async Task<ProfesorResponse?> ObtenerPorIdAsync(int idProfesor)
+    public async Task<ProfesorResponse?> ObtenerPorIdAsync(string idProfesor)
     {
-        var profesor = await _context.Profesores.FindAsync(idProfesor);
+        Docente? docente = await _context.Docentes
+            .FirstOrDefaultAsync(d => d.IdDocente == idProfesor);
 
-        if (profesor is null) return null;
-
-        return new ProfesorResponse
-        {
-            IdProfesor = profesor.IdProfesor,
-            Nombre = profesor.Nombre,
-            Identificacion = profesor.Identificacion,
-            TipoContrato = profesor.TipoContrato
-        };
+        return docente is null ? null : ToResponse(docente);
     }
 
     public async Task<ProfesorResponse> CrearAsync(CrearProfesorRequest request)
     {
-        bool existeIdentificacion = await _context.Profesores
-            .AnyAsync(p => p.Identificacion == request.Identificacion);
+        string identificacionNormalizada = request.Identificacion.Trim();
+        string tipoContratoNormalizado = NormalizarTipoContrato(request.TipoContrato);
+
+        bool existeIdentificacion = await _context.Docentes
+            .AnyAsync(d => d.Identificacion == identificacionNormalizada);
 
         if (existeIdentificacion)
         {
-            throw new InvalidOperationException("Ya existe un profesor con esta identificaci�n.");
+            throw new InvalidOperationException("Ya existe un docente con esta identificación.");
         }
 
-        var profesor = new Profesor
+        var docente = new Docente
         {
-            Nombre = request.Nombre,
-            Identificacion = request.Identificacion,
-            TipoContrato = request.TipoContrato
+            IdDocente = Guid.NewGuid().ToString(),
+            Nombre = request.Nombre.Trim(),
+            Identificacion = identificacionNormalizada,
+            TipoContrato = tipoContratoNormalizado,
+            MaxAsignaturas = ObtenerMaxAsignaturasPorContrato(tipoContratoNormalizado)
         };
 
-        _context.Profesores.Add(profesor);
+        _context.Docentes.Add(docente);
         await _context.SaveChangesAsync();
 
-        return new ProfesorResponse
-        {
-            IdProfesor = profesor.IdProfesor,
-            Nombre = profesor.Nombre,
-            Identificacion = profesor.Identificacion,
-            TipoContrato = profesor.TipoContrato
-        };
+        return ToResponse(docente);
     }
 
-    public async Task<bool> ActualizarAsync(int idProfesor, ActualizarProfesorRequest request)
+    public async Task<bool> ActualizarAsync(string idProfesor, ActualizarProfesorRequest request)
     {
-        var profesor = await _context.Profesores.FindAsync(idProfesor);
+        Docente? docente = await _context.Docentes
+            .FirstOrDefaultAsync(d => d.IdDocente == idProfesor);
 
-        if (profesor is null) return false;
-
-        bool existeIdentificacion = await _context.Profesores
-            .AnyAsync(p => p.Identificacion == request.Identificacion && p.IdProfesor != idProfesor);
-
-        if (existeIdentificacion)
+        if (docente is null)
         {
-            throw new InvalidOperationException("A otro profesor ya le pertenece esta identificaci�n.");
+            return false;
         }
 
-        profesor.Nombre = request.Nombre;
-        profesor.Identificacion = request.Identificacion;
-        profesor.TipoContrato = request.TipoContrato;
+        string identificacionNormalizada = request.Identificacion.Trim();
+        string tipoContratoNormalizado = NormalizarTipoContrato(request.TipoContrato);
+
+        bool identificacionUsadaPorOtro = await _context.Docentes
+            .AnyAsync(d => d.Identificacion == identificacionNormalizada && d.IdDocente != idProfesor);
+
+        if (identificacionUsadaPorOtro)
+        {
+            throw new InvalidOperationException("A otro docente ya le pertenece esta identificación.");
+        }
+
+        docente.Nombre = request.Nombre.Trim();
+        docente.Identificacion = identificacionNormalizada;
+        docente.TipoContrato = tipoContratoNormalizado;
+        docente.MaxAsignaturas = ObtenerMaxAsignaturasPorContrato(tipoContratoNormalizado);
 
         await _context.SaveChangesAsync();
 
         return true;
     }
 
-    public async Task<bool> EliminarAsync(int idProfesor)
+    public async Task<bool> EliminarAsync(string idProfesor)
     {
-        var profesor = await _context.Profesores.FindAsync(idProfesor);
+        Docente? docente = await _context.Docentes
+            .FirstOrDefaultAsync(d => d.IdDocente == idProfesor);
 
-        if (profesor is null) return false;
+        if (docente is null)
+        {
+            return false;
+        }
 
-        _context.Profesores.Remove(profesor);
+        bool tieneAsignaciones = await _context.Asignaciones
+            .AnyAsync(a => a.IdDocente == idProfesor);
+
+        if (tieneAsignaciones)
+        {
+            throw new InvalidOperationException("No se puede eliminar un docente que tiene asignaciones registradas.");
+        }
+
+        _context.Docentes.Remove(docente);
         await _context.SaveChangesAsync();
 
         return true;
     }
+
+    private static string NormalizarTipoContrato(string tipoContrato)
+    {
+        string contrato = tipoContrato.Trim().ToUpperInvariant();
+
+        return contrato switch
+        {
+            "TC" => "TC",
+            "TIEMPO COMPLETO" => "TC",
+            "TP" => "TP",
+            "PARCIAL" => "TP",
+            _ => throw new InvalidOperationException("Tipo de contrato no válido. Use TC, TP, Tiempo Completo o Parcial.")
+        };
+    }
+
+    private static int ObtenerMaxAsignaturasPorContrato(string tipoContrato)
+    {
+        return tipoContrato switch
+        {
+            "TC" => 5,
+            "TP" => 3,
+            _ => throw new InvalidOperationException("Tipo de contrato no válido. Use TC o TP.")
+        };
+    }
+
+    private static ProfesorResponse ToResponse(Docente docente) => new()
+    {
+        IdProfesor = docente.IdDocente,
+        Nombre = docente.Nombre,
+        Identificacion = docente.Identificacion,
+        TipoContrato = docente.TipoContrato,
+        MaxAsignaturas = docente.MaxAsignaturas
+    };
 }
