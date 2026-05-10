@@ -31,6 +31,26 @@ public class AsignaturasController : ControllerBase
         return Ok(asignaturas);
     }
 
+    [HttpGet("tapsi/fijas")]
+    public async Task<ActionResult<List<AsignaturaResponse>>> ObtenerFijasTapsi()
+    {
+        List<AsignaturaResponse> asignaturas = await _asignaturaService.ObtenerFijasTapsiAsync();
+
+        return Ok(asignaturas);
+    }
+
+    [HttpPost("tapsi/marcar-fijas")]
+    public async Task<IActionResult> MarcarObligatoriasTapsiComoFijas()
+    {
+        int cantidadMarcada = await _asignaturaService.MarcarObligatoriasTapsiComoFijasAsync();
+
+        return Ok(new
+        {
+            mensaje = "Asignaturas obligatorias TAPSI marcadas como fijas correctamente.",
+            cantidadMarcada
+        });
+    }
+
     [HttpGet("{idAsignatura}")]
     public async Task<ActionResult<AsignaturaResponse>> ObtenerPorId(int idAsignatura)
     {
@@ -69,6 +89,7 @@ public class AsignaturasController : ControllerBase
         }
     }
 
+
     [HttpPut("{idAsignatura}")]
     public async Task<IActionResult> Actualizar(int idAsignatura, ActualizarAsignaturaRequest request)
     {
@@ -95,19 +116,29 @@ public class AsignaturasController : ControllerBase
         }
     }
 
-    [HttpDelete("{idAsignatura}")]
+   [HttpDelete("{idAsignatura}")]
     public async Task<IActionResult> Eliminar(int idAsignatura)
     {
-        bool eliminado = await _asignaturaService.EliminarAsync(idAsignatura);
-
-        if (!eliminado)
+        try
         {
-            return NotFound(new
+            bool eliminado = await _asignaturaService.EliminarAsync(idAsignatura);
+
+            if (!eliminado)
             {
-                mensaje = "Asignatura no encontrada."
+                return NotFound(new
+                {
+                    mensaje = "Asignatura no encontrada."
+                });
+            }
+
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                mensaje = ex.Message
             });
         }
-
-        return NoContent();
     }
 }

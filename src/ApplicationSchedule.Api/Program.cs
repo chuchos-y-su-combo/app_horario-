@@ -4,6 +4,7 @@ using ApplicationSchedule.Infrastructure.Services;
 using ApplicationSchedule.Infrastructure.Data;
 using ApplicationSchedule.Infrastructure.services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,7 +23,16 @@ builder.Services.AddScoped<IProfesorService, ProfesorService>();
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "ApplicationSchedule.Api",
+        Version = "v1",
+        Description = "API para la gestión de horarios académicos, usuarios, profesores y asignaturas."
+    });
+});
 
 builder.Services.AddCors(options =>
 {
@@ -40,15 +50,25 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    
-    
+
     context.Database.EnsureCreated();
-    
+
     // context.Database.Migrate();
 }
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger(options =>
+    {
+        options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0;
+    });
+
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "ApplicationSchedule.Api v1");
+        options.RoutePrefix = "swagger";
+    });
+}
 
 app.UseCors("FrontendLocal");
 
