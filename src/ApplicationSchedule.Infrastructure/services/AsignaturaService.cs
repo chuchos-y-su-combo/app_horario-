@@ -14,11 +14,11 @@ public class AsignaturaService : IAsignaturaService
 
     private static readonly HashSet<string> CodigosFijosTapsi = new(StringComparer.OrdinalIgnoreCase)
     {
-        "104030", // Cálculo Diferencial
-        "103007", // Técnicas de Programación
-        "103018", // Programación Orientada a Objetos
-        "103004", // Teoría de Sistemas
-        "103027"  // Sistemas Operativos
+        "104030",
+        "103007",
+        "103018",
+        "103004",
+        "103027"
     };
 
     private static readonly HashSet<string> NombresFijosTapsi = new(StringComparer.OrdinalIgnoreCase)
@@ -44,6 +44,24 @@ public class AsignaturaService : IAsignaturaService
             .ToListAsync();
     }
 
+    public async Task<List<AsignaturaResponse>> ObtenerPorPlanAsync(string idPlan)
+    {
+        return await _context.Asignaturas
+            .Where(a => a.IdPlan == idPlan)
+            .OrderBy(a => a.Semestre)
+            .ThenBy(a => a.Nombre)
+            .Select(a => ToResponse(a))
+            .ToListAsync();
+    }
+
+    public async Task<AsignaturaResponse?> ObtenerPorIdAsync(string idAsignatura)
+    {
+        Asignatura? asignatura = await _context.Asignaturas
+            .FirstOrDefaultAsync(a => a.IdAsignatura == idAsignatura);
+
+        return asignatura is null ? null : ToResponse(asignatura);
+    }
+
     public async Task<List<AsignaturaResponse>> ObtenerFijasTapsiAsync()
     {
         return await _context.Asignaturas
@@ -54,14 +72,87 @@ public class AsignaturaService : IAsignaturaService
             .ToListAsync();
     }
 
-    public async Task<List<AsignaturaResponse>> ObtenerPorPlanEstudiosAsync(int idPlanEstudios)
+    public async Task<AsignaturaResponse> CrearAsync(CrearAsignaturaRequest request)
     {
-        return await _context.Asignaturas
-            .Where(a => a.IdPlanEstudios == idPlanEstudios)
-            .OrderBy(a => a.Semestre)
-            .ThenBy(a => a.Nombre)
-            .Select(a => ToResponse(a))
-            .ToListAsync();
+        string idPlan = request.IdPlan.Trim();
+        string codigoNormalizado = request.Codigo.Trim().ToUpperInvariant();
+        string nombreLimpio = request.Nombre.Trim();
+
+        bool planExiste = await _context.PlanesEstudio
+            .AnyAsync(p => p.IdPlan == idPlan);
+
+        if (!planExiste)
+        {
+            throw new InvalidOperationException("El plan de estudios seleccionado no existe.");
+        }
+
+        bool codigoExiste = await _context.Asignaturas
+            .AnyAsync(a => a.Codigo == codigoNormalizado);
+
+        if (codigoExiste)
+        {
+            throw new InvalidOperationException("Ya existe una asignatura registrada con ese código.");
+        }
+
+        var asignatura = new Asignatura
+        {
+            IdAsignatura = Guid.NewGuid().ToString(),
+            IdPlan = idPlan,
+            Codigo = codigoNormalizado,
+            Nombre = nombreLimpio,
+            Creditos = request.Creditos,
+            Semestre = request.Semestre,
+            MinEstudiantes = request.MinEstudiantes,
+            EsFijaTapsi = request.EsFijaTapsi || EsAsignaturaObligatoriaTapsi(codigoNormalizado, nombreLimpio)
+        };
+
+        _context.Asignaturas.Add(asignatura);
+        await _context.SaveChangesAsync();
+
+        return ToResponse(asignatura);
+    }
+
+    public async Task<bool> ActualizarAsync(string idAsignatura, ActualizarAsignaturaRequest request)
+    {
+        Asignatura? asignatura = await _context.Asignaturas
+            .FirstOrDefaultAsync(a => a.IdAsignatura == idAsignatura);
+
+        if (asignatura is null)
+        {
+            return false;
+        }
+
+        string idPlan = request.IdPlan.Trim();
+        string codigoNormalizado = request.Codigo.Trim().ToUpperInvariant();
+        string nombreLimpio = request.Nombre.Trim();
+
+        bool planExiste = await _context.PlanesEstudio
+            .AnyAsync(p => p.IdPlan == idPlan);
+
+        if (!planExiste)
+        {
+            throw new InvalidOperationException("El plan de estudios seleccionado no existe.");
+        }
+
+        bool codigoUsadoPorOtra = await _context.Asignaturas
+            .AnyAsync(a => a.Codigo == codigoNormalizado && a.IdAsignatura != idAsignatura);
+
+        if (codigoUsadoPorOtra)
+        {
+            throw new InvalidOperationException("El código ya está siendo usado por otra asignatura.");
+        }
+
+        asignatura.IdPlan = idPlan;
+        asignatura.Codigo = codigoNormalizado;
+        asignatura.Nombre = nombreLimpio;
+        asignatura.Creditos = request.Creditos;
+        asignatura.Semestre = request.Semestre;
+        asignatura.MinEstudiantes = request.MinEstudiantes;
+        asignatura.EsFijaTapsi = request.EsFijaTapsi || EsAsignaturaObligatoriaTapsi(codigoNormalizado, nombreLimpio);
+
+        await _context.SaveChangesAsync();
+
+        return true;
     }
 
     public async Task<int> MarcarObligatoriasTapsiComoFijasAsync()
@@ -82,77 +173,7 @@ public class AsignaturaService : IAsignaturaService
         return obligatoriasTapsi.Count;
     }
 
-    public async Task<AsignaturaResponse?> ObtenerPorIdAsync(int idAsignatura)
-    {
-        Asignatura? asignatura = await _context.Asignaturas
-            .FirstOrDefaultAsync(a => a.IdAsignatura == idAsignatura);
-
-        return asignatura is null ? null : ToResponse(asignatura);
-    }
-
-    public async Task<AsignaturaResponse> CrearAsync(CrearAsignaturaRequest request)
-    {
-        string codigoNormalizado = request.Codigo.Trim().ToUpper();
-        string nombreLimpio = request.Nombre.Trim();
-
-        bool codigoExiste = await _context.Asignaturas
-            .AnyAsync(a => a.Codigo == codigoNormalizado);
-
-        if (codigoExiste)
-        {
-            throw new InvalidOperationException("Ya existe una asignatura registrada con ese código.");
-        }
-
-        var asignatura = new Asignatura
-        {
-            IdPlanEstudios = request.IdPlanEstudios,
-            Codigo = codigoNormalizado,
-            Nombre = nombreLimpio,
-            Creditos = request.Creditos,
-            Semestre = request.Semestre,
-            EsFijaTapsi = request.EsFijaTapsi || EsAsignaturaObligatoriaTapsi(codigoNormalizado, nombreLimpio)
-        };
-
-        _context.Asignaturas.Add(asignatura);
-        await _context.SaveChangesAsync();
-
-        return ToResponse(asignatura);
-    }
-
-    public async Task<bool> ActualizarAsync(int idAsignatura, ActualizarAsignaturaRequest request)
-    {
-        Asignatura? asignatura = await _context.Asignaturas
-            .FirstOrDefaultAsync(a => a.IdAsignatura == idAsignatura);
-
-        if (asignatura is null)
-        {
-            return false;
-        }
-
-        string codigoNormalizado = request.Codigo.Trim().ToUpper();
-        string nombreLimpio = request.Nombre.Trim();
-
-        bool codigoUsadoPorOtra = await _context.Asignaturas
-            .AnyAsync(a => a.Codigo == codigoNormalizado && a.IdAsignatura != idAsignatura);
-
-        if (codigoUsadoPorOtra)
-        {
-            throw new InvalidOperationException("El código ya está siendo usado por otra asignatura.");
-        }
-
-        asignatura.IdPlanEstudios = request.IdPlanEstudios;
-        asignatura.Codigo = codigoNormalizado;
-        asignatura.Nombre = nombreLimpio;
-        asignatura.Creditos = request.Creditos;
-        asignatura.Semestre = request.Semestre;
-        asignatura.EsFijaTapsi = request.EsFijaTapsi || EsAsignaturaObligatoriaTapsi(codigoNormalizado, nombreLimpio);
-
-        await _context.SaveChangesAsync();
-
-        return true;
-    }
-
-   public async Task<bool> EliminarAsync(int idAsignatura)
+    public async Task<bool> EliminarAsync(string idAsignatura)
     {
         Asignatura? asignatura = await _context.Asignaturas
             .FirstOrDefaultAsync(a => a.IdAsignatura == idAsignatura);
@@ -175,7 +196,7 @@ public class AsignaturaService : IAsignaturaService
 
     private static bool EsAsignaturaObligatoriaTapsi(string codigo, string nombre)
     {
-        string codigoNormalizado = codigo.Trim().ToUpper();
+        string codigoNormalizado = codigo.Trim().ToUpperInvariant();
         string nombreNormalizado = NormalizarTexto(nombre);
 
         return CodigosFijosTapsi.Contains(codigoNormalizado)
@@ -204,11 +225,12 @@ public class AsignaturaService : IAsignaturaService
     private static AsignaturaResponse ToResponse(Asignatura a) => new()
     {
         IdAsignatura = a.IdAsignatura,
-        IdPlanEstudios = a.IdPlanEstudios,
+        IdPlan = a.IdPlan,
         Codigo = a.Codigo,
         Nombre = a.Nombre,
         Creditos = a.Creditos,
         Semestre = a.Semestre,
+        MinEstudiantes = a.MinEstudiantes,
         EsFijaTapsi = a.EsFijaTapsi
     };
 }

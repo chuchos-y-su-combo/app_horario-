@@ -23,10 +23,10 @@ public class AsignaturasController : ControllerBase
         return Ok(asignaturas);
     }
 
-    [HttpGet("plan/{idPlanEstudios}")]
-    public async Task<ActionResult<List<AsignaturaResponse>>> ObtenerPorPlanEstudios(int idPlanEstudios)
+    [HttpGet("plan/{idPlan}")]
+    public async Task<ActionResult<List<AsignaturaResponse>>> ObtenerPorPlan(string idPlan)
     {
-        List<AsignaturaResponse> asignaturas = await _asignaturaService.ObtenerPorPlanEstudiosAsync(idPlanEstudios);
+        List<AsignaturaResponse> asignaturas = await _asignaturaService.ObtenerPorPlanAsync(idPlan);
 
         return Ok(asignaturas);
     }
@@ -52,7 +52,7 @@ public class AsignaturasController : ControllerBase
     }
 
     [HttpGet("{idAsignatura}")]
-    public async Task<ActionResult<AsignaturaResponse>> ObtenerPorId(int idAsignatura)
+    public async Task<ActionResult<AsignaturaResponse>> ObtenerPorId(string idAsignatura)
     {
         AsignaturaResponse? asignatura = await _asignaturaService.ObtenerPorIdAsync(idAsignatura);
 
@@ -89,15 +89,14 @@ public class AsignaturasController : ControllerBase
         }
     }
 
-
     [HttpPut("{idAsignatura}")]
-    public async Task<IActionResult> Actualizar(int idAsignatura, ActualizarAsignaturaRequest request)
+    public async Task<IActionResult> Actualizar(string idAsignatura, ActualizarAsignaturaRequest request)
     {
         try
         {
-            bool actualizado = await _asignaturaService.ActualizarAsync(idAsignatura, request);
+            bool actualizada = await _asignaturaService.ActualizarAsync(idAsignatura, request);
 
-            if (!actualizado)
+            if (!actualizada)
             {
                 return NotFound(new
                 {
@@ -116,14 +115,14 @@ public class AsignaturasController : ControllerBase
         }
     }
 
-   [HttpDelete("{idAsignatura}")]
-    public async Task<IActionResult> Eliminar(int idAsignatura)
+    [HttpDelete("{idAsignatura}")]
+    public async Task<IActionResult> Eliminar(string idAsignatura)
     {
         try
         {
-            bool eliminado = await _asignaturaService.EliminarAsync(idAsignatura);
+            bool eliminada = await _asignaturaService.EliminarAsync(idAsignatura);
 
-            if (!eliminado)
+            if (!eliminada)
             {
                 return NotFound(new
                 {
