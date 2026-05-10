@@ -1,0 +1,58 @@
+name: CI - Build & Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.x
+
+      - name: Restore and build projects
+        shell: pwsh
+        run: |
+          $projects = Get-ChildItem -Recurse -Filter *.csproj | Sort-Object FullName
+
+          if ($projects.Count -eq 0) {
+            throw "No se encontraron proyectos .csproj en el repositorio."
+          }
+
+          foreach ($project in $projects) {
+            Write-Host "Restoring $($project.FullName)"
+            dotnet restore $project.FullName
+
+            Write-Host "Building $($project.FullName)"
+            dotnet build $project.FullName --no-restore --configuration Release
+          }
+
+      - name: Run automated tests
+        shell: pwsh
+        env:
+          ASPNETCORE_ENVIRONMENT: Testing
+        run: |
+          $testProjects = Get-ChildItem -Recurse -Filter *Tests*.csproj | Sort-Object FullName
+
+          if ($testProjects.Count -eq 0) {
+            Write-Host "No se encontraron proyectos de prueba; se omite dotnet test."
+            exit 0
+          }
+
+          foreach ($testProject in $testProjects) {
+            Write-Host "Running tests in $($testProject.FullName)"
+            dotnet test $testProject.FullName --configuration Release --no-build --verbosity normal --logger "console;verbosity=detailed"
+          }
