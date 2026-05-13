@@ -19,6 +19,7 @@ builder.Services.AddScoped<IAsignaturaService, AsignaturaService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IProfesorService, ProfesorService>();
 builder.Services.AddScoped<IAsignacionService, AsignacionService>();
+builder.Services.AddScoped<ICurriculoDocenteService, CurriculoDocenteService>();
 
 builder.Services.AddControllers();
 
