@@ -21,4 +21,6 @@ public class Asignatura
     public PlanEstudio? PlanEstudio { get; set; }
 
     public ICollection<Asignacion> Asignaciones { get; set; } = new List<Asignacion>();
+
+    public ICollection<DocenteHabilitado> DocentesHabilitados { get; set; } = new List<DocenteHabilitado>();
 }

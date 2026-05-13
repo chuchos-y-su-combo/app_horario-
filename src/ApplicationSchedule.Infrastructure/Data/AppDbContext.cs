@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<PlanEstudio> PlanesEstudio => Set<PlanEstudio>();
     public DbSet<Docente> Docentes => Set<Docente>();
     public DbSet<Asignatura> Asignaturas => Set<Asignatura>();
+    public DbSet<DocenteHabilitado> DocentesHabilitados => Set<DocenteHabilitado>();   
     public DbSet<Asignacion> Asignaciones => Set<Asignacion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -26,9 +27,54 @@ public class AppDbContext : DbContext
         ConfigurarPlanesEstudio(modelBuilder);
         ConfigurarDocentes(modelBuilder);
         ConfigurarAsignaturas(modelBuilder);
+        ConfigurarDocentesHabilitados(modelBuilder);
         ConfigurarAsignaciones(modelBuilder);
     }
 
+
+    /// <summary>
+    /// Configura la relación muchos a muchos entre docentes y asignaturas.
+    /// Esta tabla indica qué asignaturas puede dictar cada docente según su currículo.
+    /// </summary>
+    private static void ConfigurarDocentesHabilitados(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<DocenteHabilitado>(entity =>
+        {
+            entity.ToTable("docentes_habilitados");
+
+            entity.HasKey(dh => new { dh.IdDocente, dh.IdAsignatura });
+
+            entity.Property(dh => dh.IdDocente)
+                .HasColumnName("id_docente")
+                .HasMaxLength(36)
+                .IsRequired();
+
+            entity.Property(dh => dh.IdAsignatura)
+                .HasColumnName("id_asignatura")
+                .HasMaxLength(36)
+                .IsRequired();
+
+            entity.Property(dh => dh.FechaHabilitacion)
+                .HasColumnName("fecha_habilitacion")
+                .IsRequired();
+
+            entity.Property(dh => dh.Fuente)
+                .HasColumnName("fuente")
+                .HasMaxLength(50)
+                .HasDefaultValue("Excel")
+                .IsRequired();
+
+            entity.HasOne(dh => dh.Docente)
+                .WithMany(d => d.AsignaturasHabilitadas)
+                .HasForeignKey(dh => dh.IdDocente)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(dh => dh.Asignatura)
+                .WithMany(a => a.DocentesHabilitados)
+                .HasForeignKey(dh => dh.IdAsignatura)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
     private static void ConfigurarRoles(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Rol>(entity =>
