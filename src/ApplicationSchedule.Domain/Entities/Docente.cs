@@ -17,4 +17,6 @@ public class Docente
     public int MaxAsignaturas { get; set; }
 
     public ICollection<Asignacion> Asignaciones { get; set; } = new List<Asignacion>();
+
+    public ICollection<DocenteHabilitado> AsignaturasHabilitadas { get; set; } = new List<DocenteHabilitado>();
 }

@@ -130,6 +130,24 @@ public class AsignacionService : IAsignacionService
 
         ValidarContratoDocente(docente);
 
+        bool docenteTieneCurriculoCargado = await _context.DocentesHabilitados
+            .AnyAsync(dh => dh.IdDocente == docente.IdDocente);
+
+        if (docenteTieneCurriculoCargado)
+        {
+            bool docentePuedeDictarAsignatura = await _context.DocentesHabilitados
+                .AnyAsync(dh =>
+                    dh.IdDocente == docente.IdDocente &&
+                    dh.IdAsignatura == asignatura.IdAsignatura);
+
+            if (!docentePuedeDictarAsignatura)
+            {
+                throw new InvalidOperationException(
+                    $"El docente {docente.Nombre} no está habilitado por currículo para dictar la asignatura {asignatura.Nombre}."
+                );
+            }
+        }
+
         int asignaturasActuales = await ContarAsignaturasDistintasAsync(idDocente, periodo);
 
         bool asignaturaYaAsignadaEnPeriodo = await _context.Asignaciones
