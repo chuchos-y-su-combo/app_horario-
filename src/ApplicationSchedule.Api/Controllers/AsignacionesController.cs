@@ -19,48 +19,36 @@ public class AsignacionesController : ControllerBase
     public async Task<ActionResult<List<AsignacionResponse>>> ObtenerTodas()
     {
         List<AsignacionResponse> asignaciones = await _asignacionService.ObtenerTodasAsync();
-
         return Ok(asignaciones);
     }
 
     [HttpGet("docente/{idDocente}")]
-    public async Task<ActionResult<List<AsignacionResponse>>> ObtenerPorDocente(string idDocente, [FromQuery] string? periodo = null)
+    public async Task<ActionResult<List<AsignacionResponse>>> ObtenerPorDocente(
+        string idDocente, [FromQuery] string? periodo = null)
     {
         try
         {
             List<AsignacionResponse> asignaciones = await _asignacionService.ObtenerPorDocenteAsync(idDocente, periodo);
-
             return Ok(asignaciones);
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new
-            {
-                mensaje = ex.Message
-            });
+            return NotFound(new { mensaje = ex.Message });
         }
     }
 
     [HttpGet("docente/{idDocente}/resumen")]
-    public async Task<ActionResult<ResumenCargaDocenteResponse>> ObtenerResumenCargaDocente(string idDocente, [FromQuery] string periodo)
+    public async Task<ActionResult<ResumenCargaDocenteResponse>> ObtenerResumenCargaDocente(
+        string idDocente, [FromQuery] string periodo)
     {
         if (string.IsNullOrWhiteSpace(periodo))
-        {
-            return BadRequest(new
-            {
-                mensaje = "El periodo es obligatorio."
-            });
-        }
+            return BadRequest(new { mensaje = "El periodo es obligatorio." });
 
-        ResumenCargaDocenteResponse? resumen = await _asignacionService.ObtenerResumenCargaDocenteAsync(idDocente, periodo);
+        ResumenCargaDocenteResponse? resumen =
+            await _asignacionService.ObtenerResumenCargaDocenteAsync(idDocente, periodo);
 
         if (resumen is null)
-        {
-            return NotFound(new
-            {
-                mensaje = "Docente no encontrado."
-            });
-        }
+            return NotFound(new { mensaje = "Docente no encontrado." });
 
         return Ok(resumen);
     }
@@ -71,15 +59,11 @@ public class AsignacionesController : ControllerBase
         try
         {
             AsignacionResponse asignacionCreada = await _asignacionService.CrearAsync(request);
-
             return Created(string.Empty, asignacionCreada);
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new
-            {
-                mensaje = ex.Message
-            });
+            return BadRequest(new { mensaje = ex.Message });
         }
     }
 
@@ -89,13 +73,45 @@ public class AsignacionesController : ControllerBase
         bool eliminado = await _asignacionService.EliminarAsync(idAsignacion);
 
         if (!eliminado)
-        {
-            return NotFound(new
-            {
-                mensaje = "Asignación no encontrada."
-            });
-        }
+            return NotFound(new { mensaje = "Asignación no encontrada." });
 
         return NoContent();
+    }
+
+    // ── Issue #10 ──────────────────────────────────────────────────────────
+
+    [HttpPost("manual")]
+    public async Task<ActionResult<AsignacionResponse>> AsignarManualmente(
+        AsignarAsignaturaManualRequest request)
+    {
+        try
+        {
+            AsignacionResponse asignacion = await _asignacionService.AsignarManualmenteAsync(request);
+            return Created(string.Empty, asignacion);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { mensaje = ex.Message });
+        }
+    }
+
+    [HttpGet("docente/{idDocente}/asignaturas-disponibles")]
+    public async Task<ActionResult<List<AsignaturaDisponibleParaDocenteResponse>>> ObtenerAsignaturasDisponibles(
+        string idDocente, [FromQuery] string periodo)
+    {
+        if (string.IsNullOrWhiteSpace(periodo))
+            return BadRequest(new { mensaje = "El parámetro 'periodo' es obligatorio." });
+
+        try
+        {
+            var disponibles = await _asignacionService
+                .ObtenerAsignaturasDisponiblesParaDocenteAsync(idDocente, periodo);
+
+            return Ok(disponibles);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { mensaje = ex.Message });
+        }
     }
 }
