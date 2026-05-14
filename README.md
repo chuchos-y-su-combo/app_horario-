@@ -39,6 +39,7 @@ El backend actualmente cubre los siguientes requerimientos:
 | Req 7 | Implementado | Marcar materias obligatorias TAPSI como fijas |
 | Req 8 | Implementado | Contemplar asignatura adicional requerida para TAPSI jornada diurna |
 | Disponibilidad docente | Implementado | Importar disponibilidad docente desde el Excel actual de coordinación |
+| Req 9 | Implementado | Generar automáticamente propuestas de asignación para Ingeniería diurna, Ingeniería nocturna, TAPSI diurna y TAPSI nocturna |
 
 ---
 
@@ -982,6 +983,22 @@ Respuesta esperada:
 
 ---
 
+# Requerimiento 9: generación automática de propuestas para 4 escenarios
+
+## Descripción
+
+El sistema permite generar automáticamente propuestas de asignación para los cuatro escenarios académicos definidos:
+
+- Ingeniería diurna.
+- Ingeniería nocturna.
+- TAPSI diurna.
+- TAPSI nocturna.
+
+Las propuestas generadas se almacenan en la tabla `asignaciones` con estado:
+
+```txt
+Propuesta
+
 # Cambios recientes de base de datos
 
 Para el Req. 8 y disponibilidad docente se deja constancia en el script:
@@ -1091,6 +1108,10 @@ GET /api/asignaturas/tapsi/diurna/opciones-adicionales
 GET /api/asignaturas/tapsi/diurna/plan
 POST /api/asignaturas/tapsi/diurna/marcar-opciones-adicionales
 ```
+## Horarios
+
+```http
+POST /api/horarios/generar-propuestas
 
 ---
 

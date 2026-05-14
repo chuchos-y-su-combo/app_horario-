@@ -371,6 +371,12 @@ public class AppDbContext : DbContext
                 .HasDefaultValue("Propuesta")
                 .IsRequired();
 
+            entity.Property(a => a.Escenario)
+                .HasColumnName("escenario")
+                .HasMaxLength(30)
+                .HasDefaultValue("ING_DIURNA")
+                .IsRequired();
+
             entity.HasOne(a => a.Docente)
                 .WithMany(d => d.Asignaciones)
                 .HasForeignKey(a => a.IdDocente)
