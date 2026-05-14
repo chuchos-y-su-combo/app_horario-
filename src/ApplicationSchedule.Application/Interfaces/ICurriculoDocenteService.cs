@@ -1,4 +1,5 @@
 using ApplicationSchedule.Application.DTOs.Curriculos;
+using ApplicationSchedule.Application.DTOs.Disponibilidades;
 
 namespace ApplicationSchedule.Application.Interfaces;
 
@@ -14,6 +15,11 @@ public interface ICurriculoDocenteService
     );
 
     Task<List<AsignaturaHabilitadaDocenteResponse>> ObtenerAsignaturasHabilitadasAsync(
+        string idDocente,
+        CancellationToken cancellationToken = default
+    );
+
+    Task<List<DisponibilidadDocenteResponse>> ObtenerDisponibilidadDocenteAsync(
         string idDocente,
         CancellationToken cancellationToken = default
     );

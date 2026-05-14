@@ -1,9 +1,16 @@
 using ApplicationSchedule.Application.DTOs.Asignaturas;
+using ApplicationSchedule.Application.DTOs.Tapsi;
 
 namespace ApplicationSchedule.Application.Interfaces;
 
 public interface IAsignaturaService
 {
+    Task<List<AsignaturaResponse>> ObtenerOpcionalesTapsiDiurnaAsync();
+
+    Task<TapsiDiurnaPlanResponse> ObtenerPlanTapsiDiurnaAsync();
+
+    Task<int> MarcarOpcionalesTapsiDiurnaAsync();
+
     Task<List<AsignaturaResponse>> ObtenerTodasAsync();
 
     Task<List<AsignaturaResponse>> ObtenerPorPlanAsync(string idPlan);
