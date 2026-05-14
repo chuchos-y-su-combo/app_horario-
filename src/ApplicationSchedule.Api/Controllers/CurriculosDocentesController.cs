@@ -105,4 +105,30 @@ public class CurriculosDocentesController : ControllerBase
             });
         }
     }
+    [HttpPost("{idDocente}/reducir-disponibilidad")]
+    public async Task<ActionResult<ReduccionDisponibilidadResponse>> ReducirDisponibilidad(
+    string idDocente,
+    [FromQuery] string idAsignatura,
+    [FromQuery] string periodo,
+    CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(idAsignatura))
+            return BadRequest(new { mensaje = "El parámetro 'idAsignatura' es obligatorio." });
+
+        if (string.IsNullOrWhiteSpace(periodo))
+            return BadRequest(new { mensaje = "El parámetro 'periodo' es obligatorio." });
+
+        try
+        {
+            ReduccionDisponibilidadResponse resultado =
+                await _curriculoDocenteService.ReducirDisponibilidadPorDobleJornadaAsync(
+                    idDocente, idAsignatura, periodo, cancellationToken);
+
+            return Ok(resultado);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { mensaje = ex.Message });
+        }
+    }
 }
