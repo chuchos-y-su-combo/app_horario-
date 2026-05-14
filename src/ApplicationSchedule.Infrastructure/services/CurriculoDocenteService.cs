@@ -6,6 +6,7 @@ using ApplicationSchedule.Domain.Entities;
 using ApplicationSchedule.Infrastructure.Data;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
+using ApplicationSchedule.Application.DTOs.Disponibilidades;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
@@ -45,6 +46,18 @@ public class CurriculoDocenteService : ICurriculoDocenteService
 
         using var workbook = new XLWorkbook(archivo);
 
+        IXLWorksheet? hojaDisponibilidad = workbook.Worksheets
+            .FirstOrDefault(w => string.Equals(w.Name.Trim(), HojaDisponibilidad, StringComparison.OrdinalIgnoreCase));
+
+        if (hojaDisponibilidad is not null)
+        {
+            List<DisponibilidadImportadaResponse> disponibilidades =
+                await ProcesarHojaDisponibilidadAsync(hojaDisponibilidad, docentes, cancellationToken);
+
+            response.Disponibilidades.AddRange(disponibilidades);
+            response.TotalDisponibilidadesCreadas = disponibilidades.Sum(d => d.RegistrosCreados);
+        }
+
         foreach (IXLWorksheet worksheet in workbook.Worksheets)
         {
             if (EsHojaIgnorada(worksheet.Name))
@@ -53,6 +66,8 @@ public class CurriculoDocenteService : ICurriculoDocenteService
             }
 
             response.TotalHojasProcesadas++;
+
+            
 
             CurriculoDocenteImportadoResponse detalleDocente = await ProcesarHojaDocenteAsync(
                 worksheet,
@@ -110,6 +125,110 @@ public class CurriculoDocenteService : ICurriculoDocenteService
                 FechaHabilitacion = dh.FechaHabilitacion
             })
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<DisponibilidadDocenteResponse>> ObtenerDisponibilidadDocenteAsync(
+        string idDocente,
+        CancellationToken cancellationToken = default)
+    {
+        bool docenteExiste = await _context.Docentes
+            .AnyAsync(d => d.IdDocente == idDocente, cancellationToken);
+
+        if (!docenteExiste)
+        {
+            throw new InvalidOperationException("Docente no encontrado.");
+        }
+
+        return await _context.Disponibilidades
+            .Where(d => d.IdDocente == idDocente)
+            .OrderBy(d => d.DiaSemana)
+            .ThenBy(d => d.HoraInicio)
+            .Select(d => new DisponibilidadDocenteResponse
+            {
+                IdDisponibilidad = d.IdDisponibilidad,
+                IdDocente = d.IdDocente,
+                DiaSemana = d.DiaSemana,
+                DiaNombre = ObtenerNombreDia(d.DiaSemana),
+                HoraInicio = d.HoraInicio,
+                HoraFin = d.HoraFin
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    private async Task<List<DisponibilidadImportadaResponse>> ProcesarHojaDisponibilidadAsync(
+        IXLWorksheet worksheet,
+        List<Docente> docentes,
+        CancellationToken cancellationToken)
+    {
+        List<DisponibilidadExcelItem> items = DisponibilidadExcelParser.LeerHoja(worksheet);
+
+        var resultado = new List<DisponibilidadImportadaResponse>();
+
+        foreach (DisponibilidadExcelItem item in items)
+        {
+            Docente? docente = docentes.FirstOrDefault(d =>
+                NormalizarTexto(d.Nombre) == NormalizarTexto(item.NombreDocente)
+                || NormalizarTexto(d.Nombre).Contains(NormalizarTexto(item.NombreDocente)));
+
+            var detalle = new DisponibilidadImportadaResponse
+            {
+                NombreDocenteDetectado = item.NombreDocente,
+                IdDocente = docente?.IdDocente,
+                DocenteEncontrado = docente is not null,
+                TextoOriginal = item.TextoOriginal,
+                Mensajes = item.Mensajes
+            };
+
+            if (docente is null)
+            {
+                detalle.Mensajes.Add("No existe un docente registrado con ese nombre.");
+                resultado.Add(detalle);
+                continue;
+            }
+
+            if (item.Bloques.Count == 0)
+            {
+                detalle.Mensajes.Add("No se encontraron bloques de disponibilidad válidos.");
+                resultado.Add(detalle);
+                continue;
+            }
+
+            List<Disponibilidad> disponibilidadesAnteriores = await _context.Disponibilidades
+                .Where(d => d.IdDocente == docente.IdDocente)
+                .ToListAsync(cancellationToken);
+
+            _context.Disponibilidades.RemoveRange(disponibilidadesAnteriores);
+
+            foreach (DisponibilidadBloque bloque in item.Bloques)
+            {
+                var disponibilidad = new Disponibilidad
+                {
+                    IdDisponibilidad = Guid.NewGuid().ToString(),
+                    IdDocente = docente.IdDocente,
+                    DiaSemana = bloque.DiaSemana,
+                    HoraInicio = bloque.HoraInicio,
+                    HoraFin = bloque.HoraFin
+                };
+
+                _context.Disponibilidades.Add(disponibilidad);
+
+                detalle.Disponibilidades.Add(new DisponibilidadDocenteResponse
+                {
+                    IdDisponibilidad = disponibilidad.IdDisponibilidad,
+                    IdDocente = disponibilidad.IdDocente,
+                    DiaSemana = disponibilidad.DiaSemana,
+                    DiaNombre = ObtenerNombreDia(disponibilidad.DiaSemana),
+                    HoraInicio = disponibilidad.HoraInicio,
+                    HoraFin = disponibilidad.HoraFin
+                });
+            }
+
+            detalle.RegistrosCreados = detalle.Disponibilidades.Count;
+
+            resultado.Add(detalle);
+        }
+
+        return resultado;
     }
 
     private async Task<CurriculoDocenteImportadoResponse> ProcesarHojaDocenteAsync(
@@ -423,5 +542,18 @@ public class CurriculoDocenteService : ICurriculoDocenteService
         return builder.ToString()
             .Normalize(NormalizationForm.FormC)
             .ToUpperInvariant();
+    }
+    private static string ObtenerNombreDia(int diaSemana)
+    {
+        return diaSemana switch
+        {
+            1 => "Lunes",
+            2 => "Martes",
+            3 => "Miércoles",
+            4 => "Jueves",
+            5 => "Viernes",
+            6 => "Sábado",
+            _ => "Desconocido"
+        };
     }
 }

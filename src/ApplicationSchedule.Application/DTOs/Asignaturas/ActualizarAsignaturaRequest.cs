@@ -27,4 +27,5 @@ public class ActualizarAsignaturaRequest
     public int MinEstudiantes { get; set; } = 15;
 
     public bool EsFijaTapsi { get; set; }
+    public bool EsOpcionalTapsiDiurna { get; set; }
 }

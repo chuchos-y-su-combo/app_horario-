@@ -1,5 +1,6 @@
 using ApplicationSchedule.Application.DTOs.Curriculos;
 using ApplicationSchedule.Application.Interfaces;
+using ApplicationSchedule.Application.DTOs.Disponibilidades;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApplicationSchedule.Api.Controllers;
@@ -20,53 +21,43 @@ public class CurriculosDocentesController : ControllerBase
     }
 
     /// <summary>
-    /// Importa un archivo Excel con hojas por docente y determina automáticamente
-    /// las asignaturas que puede dictar cada uno.
+    /// Importa desde Excel las asignaturas habilitadas y la disponibilidad de los docentes.
     /// </summary>
     [HttpPost("curriculos/importar-excel")]
+    [Consumes("multipart/form-data")]
     public async Task<ActionResult<ImportarCurriculoResponse>> ImportarExcel(
-        [FromForm] IFormFile archivo,
+        IFormFile archivo,
         CancellationToken cancellationToken)
     {
         if (archivo is null || archivo.Length == 0)
         {
             return BadRequest(new
             {
-                mensaje = "Debe enviar un archivo Excel válido."
+                mensaje = "Debe cargar un archivo Excel válido."
             });
         }
 
-        string extension = Path.GetExtension(archivo.FileName);
+        string extension = Path.GetExtension(archivo.FileName).ToLowerInvariant();
 
-        if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+        if (extension != ".xlsx")
         {
             return BadRequest(new
             {
-                mensaje = "El archivo debe tener extensión .xlsx."
+                mensaje = "El archivo debe tener formato .xlsx."
             });
         }
 
-        try
-        {
-            await using Stream stream = archivo.OpenReadStream();
+        await using Stream stream = archivo.OpenReadStream();
 
-            ImportarCurriculoResponse resultado = await _curriculoDocenteService.ImportarDesdeExcelAsync(
+        ImportarCurriculoResponse resultado =
+            await _curriculoDocenteService.ImportarDesdeExcelAsync(
                 stream,
                 archivo.FileName,
                 cancellationToken
             );
 
-            return Ok(resultado);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new
-            {
-                mensaje = ex.Message
-            });
-        }
+        return Ok(resultado);
     }
-
     /// <summary>
     /// Obtiene las asignaturas que un docente está habilitado para dictar.
     /// </summary>
@@ -81,6 +72,30 @@ public class CurriculosDocentesController : ControllerBase
                 await _curriculoDocenteService.ObtenerAsignaturasHabilitadasAsync(idProfesor, cancellationToken);
 
             return Ok(asignaturas);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new
+            {
+                mensaje = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Obtiene la disponibilidad importada para un docente.
+    /// </summary>
+    [HttpGet("{idProfesor}/disponibilidad")]
+    public async Task<ActionResult<List<DisponibilidadDocenteResponse>>> ObtenerDisponibilidadDocente(
+        string idProfesor,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            List<DisponibilidadDocenteResponse> disponibilidades =
+                await _curriculoDocenteService.ObtenerDisponibilidadDocenteAsync(idProfesor, cancellationToken);
+
+            return Ok(disponibilidades);
         }
         catch (InvalidOperationException ex)
         {

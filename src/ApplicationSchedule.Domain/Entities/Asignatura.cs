@@ -17,6 +17,7 @@ public class Asignatura
     public int MinEstudiantes { get; set; } = 15;
 
     public bool EsFijaTapsi { get; set; }
+    public bool EsOpcionalTapsiDiurna { get; set; }
 
     public PlanEstudio? PlanEstudio { get; set; }
 

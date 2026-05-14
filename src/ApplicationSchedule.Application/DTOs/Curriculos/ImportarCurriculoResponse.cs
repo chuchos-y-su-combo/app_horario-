@@ -1,3 +1,5 @@
+using ApplicationSchedule.Application.DTOs.Disponibilidades;
+
 namespace ApplicationSchedule.Application.DTOs.Curriculos;
 
 /// <summary>
@@ -17,7 +19,11 @@ public class ImportarCurriculoResponse
 
     public int TotalAsignaturasNoEncontradas { get; set; }
 
+    public int TotalDisponibilidadesCreadas { get; set; }
+
     public List<string> DocentesNoEncontrados { get; set; } = new();
 
     public List<CurriculoDocenteImportadoResponse> Detalle { get; set; } = new();
+
+    public List<DisponibilidadImportadaResponse> Disponibilidades { get; set; } = new();
 }

@@ -4,6 +4,7 @@ using ApplicationSchedule.Application.DTOs.Asignaturas;
 using ApplicationSchedule.Application.Interfaces;
 using ApplicationSchedule.Domain.Entities;
 using ApplicationSchedule.Infrastructure.Data;
+using ApplicationSchedule.Application.DTOs.Tapsi;
 using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Services;
@@ -11,6 +12,9 @@ namespace ApplicationSchedule.Infrastructure.Services;
 public class AsignaturaService : IAsignaturaService
 {
     private readonly AppDbContext _context;
+    private const int TopeCreditosDiurna = 18;
+    private const int TopeCreditosJornadaExtendida = 15;
+    private const int CreditosAdicionalesTapsiDiurna = 3;
 
     private static readonly HashSet<string> CodigosFijosTapsi = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -103,7 +107,8 @@ public class AsignaturaService : IAsignaturaService
             Creditos = request.Creditos,
             Semestre = request.Semestre,
             MinEstudiantes = request.MinEstudiantes,
-            EsFijaTapsi = request.EsFijaTapsi || EsAsignaturaObligatoriaTapsi(codigoNormalizado, nombreLimpio)
+            EsFijaTapsi = request.EsFijaTapsi || EsAsignaturaObligatoriaTapsi(codigoNormalizado, nombreLimpio),
+            EsOpcionalTapsiDiurna = request.EsOpcionalTapsiDiurna || EsAsignaturaOpcionalTapsiDiurna(codigoNormalizado, nombreLimpio)
         };
 
         _context.Asignaturas.Add(asignatura);
@@ -149,6 +154,7 @@ public class AsignaturaService : IAsignaturaService
         asignatura.Semestre = request.Semestre;
         asignatura.MinEstudiantes = request.MinEstudiantes;
         asignatura.EsFijaTapsi = request.EsFijaTapsi || EsAsignaturaObligatoriaTapsi(codigoNormalizado, nombreLimpio);
+        asignatura.EsOpcionalTapsiDiurna = request.EsOpcionalTapsiDiurna || EsAsignaturaOpcionalTapsiDiurna(codigoNormalizado, nombreLimpio);
 
         await _context.SaveChangesAsync();
 
@@ -203,6 +209,14 @@ public class AsignaturaService : IAsignaturaService
             || NombresFijosTapsi.Contains(nombreNormalizado);
     }
 
+    private static bool EsAsignaturaOpcionalTapsiDiurna(string codigo, string nombre)
+    {
+        string codigoNormalizado = codigo.Trim().ToUpperInvariant();
+        string nombreNormalizado = NormalizarTexto(nombre);
+
+        return CodigosOpcionalesTapsiDiurna.Contains(codigoNormalizado)
+            || NombresOpcionalesTapsiDiurna.Contains(nombreNormalizado);
+    }
     private static string NormalizarTexto(string texto)
     {
         string textoSinEspaciosDobles = string.Join(' ', texto.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries));
@@ -222,7 +236,73 @@ public class AsignaturaService : IAsignaturaService
         return builder.ToString().Normalize(NormalizationForm.FormC).ToUpperInvariant();
     }
 
-    private static AsignaturaResponse ToResponse(Asignatura a) => new()
+    private static readonly HashSet<string> CodigosOpcionalesTapsiDiurna = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "103093",
+        "103126",
+        "109183"
+    };
+
+    private static readonly HashSet<string> NombresOpcionalesTapsiDiurna = new(StringComparer.OrdinalIgnoreCase)
+    {
+        NormalizarTexto("Ingeniería de Software II"),
+        NormalizarTexto("Ingenieria de Software II"),
+        NormalizarTexto("Redes LAN"),
+        NormalizarTexto("Programación Back End"),
+        NormalizarTexto("Programación Backend")
+    };
+   
+    public async Task<List<AsignaturaResponse>> ObtenerOpcionalesTapsiDiurnaAsync()
+    {
+        return await _context.Asignaturas
+            .Where(a => a.EsOpcionalTapsiDiurna)
+            .OrderBy(a => a.Semestre)
+            .ThenBy(a => a.Nombre)
+            .Select(a => ToResponse(a))
+            .ToListAsync();
+    }
+
+    public async Task<TapsiDiurnaPlanResponse> ObtenerPlanTapsiDiurnaAsync()
+    {
+        List<AsignaturaResponse> fijas = await ObtenerFijasTapsiAsync();
+        List<AsignaturaResponse> opciones = await ObtenerOpcionalesTapsiDiurnaAsync();
+
+        int creditosFijos = fijas.Sum(a => a.Creditos);
+        int creditosTotales = creditosFijos + CreditosAdicionalesTapsiDiurna;
+
+        return new TapsiDiurnaPlanResponse
+        {
+            Jornada = "Diurna",
+            TopeCreditosDiurna = TopeCreditosDiurna,
+            TopeCreditosJornadaExtendida = TopeCreditosJornadaExtendida,
+            CreditosFijosTapsi = creditosFijos,
+            CreditosAdicionalesRequeridos = CreditosAdicionalesTapsiDiurna,
+            CreditosTotalesRequeridosDiurna = creditosTotales,
+            Regla = "Para TAPSI jornada diurna se deben tomar las 5 materias fijas sin cruce y adicionar exactamente una opción entre Ingeniería de Software II, Redes LAN o Programación Back End.",
+            AsignaturasFijas = fijas,
+            OpcionesAdicionalesDiurna = opciones
+        };
+    }
+
+    public async Task<int> MarcarOpcionalesTapsiDiurnaAsync()
+    {
+        List<Asignatura> asignaturas = await _context.Asignaturas.ToListAsync();
+
+        List<Asignatura> opcionalesTapsiDiurna = asignaturas
+            .Where(a => EsAsignaturaOpcionalTapsiDiurna(a.Codigo, a.Nombre))
+            .ToList();
+
+        foreach (Asignatura asignatura in opcionalesTapsiDiurna)
+        {
+            asignatura.EsOpcionalTapsiDiurna = true;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return opcionalesTapsiDiurna.Count;
+    }
+
+     private static AsignaturaResponse ToResponse(Asignatura a) => new()
     {
         IdAsignatura = a.IdAsignatura,
         IdPlan = a.IdPlan,
@@ -231,6 +311,8 @@ public class AsignaturaService : IAsignaturaService
         Creditos = a.Creditos,
         Semestre = a.Semestre,
         MinEstudiantes = a.MinEstudiantes,
-        EsFijaTapsi = a.EsFijaTapsi
+        EsFijaTapsi = a.EsFijaTapsi,
+        EsOpcionalTapsiDiurna = a.EsOpcionalTapsiDiurna
     };
+
 }
