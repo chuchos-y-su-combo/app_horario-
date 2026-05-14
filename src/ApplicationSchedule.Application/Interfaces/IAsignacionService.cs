@@ -13,4 +13,11 @@ public interface IAsignacionService
     Task<AsignacionResponse> CrearAsync(CrearAsignacionRequest request);
 
     Task<bool> EliminarAsync(string idAsignacion);
+
+    Task<AsignacionResponse> AsignarManualmenteAsync(AsignarAsignaturaManualRequest request);
+
+    Task<List<AsignaturaDisponibleParaDocenteResponse>> ObtenerAsignaturasDisponiblesParaDocenteAsync(
+        string idDocente,
+        string periodo
+    );
 }

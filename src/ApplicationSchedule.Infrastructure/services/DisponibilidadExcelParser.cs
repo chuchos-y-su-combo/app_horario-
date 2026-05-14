@@ -13,14 +13,14 @@ internal static class DisponibilidadExcelParser
     private const string HoraFinManana = "12:00";
     private const string HoraInicioNoche = "18:00";
 
-    public static List<DisponibilidadExcelItem> LeerHoja(IXLWorksheet worksheet)
+    public static List<DisponibilidadExcelItem> LeerHoja(ClosedXML.Excel.IXLWorksheet worksheet)
     {
         return TieneFormatoNormalizado(worksheet)
             ? LeerFormatoNormalizado(worksheet)
             : LeerFormatoActualCoordinacion(worksheet);
     }
 
-    private static bool TieneFormatoNormalizado(IXLWorksheet worksheet)
+    private static bool TieneFormatoNormalizado(ClosedXML.Excel.IXLWorksheet worksheet)
     {
         string a1 = NormalizarTexto(worksheet.Cell(1, 1).GetString());
         string b1 = NormalizarTexto(worksheet.Cell(1, 2).GetString());
@@ -85,7 +85,7 @@ internal static class DisponibilidadExcelParser
         return resultado;
     }
 
-    private static List<DisponibilidadExcelItem> LeerFormatoActualCoordinacion(IXLWorksheet worksheet)
+    private static List<DisponibilidadExcelItem> LeerFormatoActualCoordinacion(ClosedXML.Excel.IXLWorksheet worksheet)
     {
         var resultado = new List<DisponibilidadExcelItem>();
 

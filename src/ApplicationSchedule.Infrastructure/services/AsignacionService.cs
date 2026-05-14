@@ -42,9 +42,7 @@ public class AsignacionService : IAsignacionService
         bool docenteExiste = await _context.Docentes.AnyAsync(d => d.IdDocente == idDocente);
 
         if (!docenteExiste)
-        {
             throw new InvalidOperationException("Docente no encontrado.");
-        }
 
         IQueryable<Asignacion> query = _context.Asignaciones
             .Include(a => a.Docente)
@@ -80,9 +78,7 @@ public class AsignacionService : IAsignacionService
             .FirstOrDefaultAsync(d => d.IdDocente == idDocente);
 
         if (docente is null)
-        {
             return null;
-        }
 
         string periodoLimpio = periodo.Trim();
         int asignaturasActuales = await ContarAsignaturasDistintasAsync(idDocente, periodoLimpio);
@@ -108,25 +104,19 @@ public class AsignacionService : IAsignacionService
         string periodo = request.Periodo.Trim();
 
         if (string.CompareOrdinal(horaInicio, horaFin) >= 0)
-        {
             throw new InvalidOperationException("La hora de inicio debe ser menor que la hora de fin.");
-        }
 
         Docente? docente = await _context.Docentes
             .FirstOrDefaultAsync(d => d.IdDocente == idDocente);
 
         if (docente is null)
-        {
             throw new InvalidOperationException("Docente no encontrado.");
-        }
 
         Asignatura? asignatura = await _context.Asignaturas
             .FirstOrDefaultAsync(a => a.IdAsignatura == idAsignatura);
 
         if (asignatura is null)
-        {
             throw new InvalidOperationException("Asignatura no encontrada.");
-        }
 
         ValidarContratoDocente(docente);
 
@@ -141,11 +131,8 @@ public class AsignacionService : IAsignacionService
                     dh.IdAsignatura == asignatura.IdAsignatura);
 
             if (!docentePuedeDictarAsignatura)
-            {
                 throw new InvalidOperationException(
-                    $"El docente {docente.Nombre} no está habilitado por currículo para dictar la asignatura {asignatura.Nombre}."
-                );
-            }
+                    $"El docente {docente.Nombre} no está habilitado por currículo para dictar la asignatura {asignatura.Nombre}.");
         }
 
         int asignaturasActuales = await ContarAsignaturasDistintasAsync(idDocente, periodo);
@@ -157,11 +144,8 @@ public class AsignacionService : IAsignacionService
                 a.Periodo == periodo);
 
         if (!asignaturaYaAsignadaEnPeriodo && asignaturasActuales >= docente.MaxAsignaturas)
-        {
             throw new InvalidOperationException(
-                $"El docente con contrato {docente.TipoContrato} ya alcanzó el límite de {docente.MaxAsignaturas} asignaturas para el periodo {periodo}."
-            );
-        }
+                $"El docente con contrato {docente.TipoContrato} ya alcanzó el límite de {docente.MaxAsignaturas} asignaturas para el periodo {periodo}.");
 
         bool bloqueDuplicado = await _context.Asignaciones
             .AnyAsync(a =>
@@ -173,9 +157,7 @@ public class AsignacionService : IAsignacionService
                 a.Periodo == periodo);
 
         if (bloqueDuplicado)
-        {
             throw new InvalidOperationException("Esta asignación ya existe para el mismo docente, asignatura, día, horario y periodo.");
-        }
 
         var asignacion = new Asignacion
         {
@@ -208,15 +190,126 @@ public class AsignacionService : IAsignacionService
             .FirstOrDefaultAsync(a => a.IdAsignacion == idAsignacion);
 
         if (asignacion is null)
-        {
             return false;
-        }
 
         _context.Asignaciones.Remove(asignacion);
         await _context.SaveChangesAsync();
 
         return true;
     }
+
+    // ── Issue #10 ──────────────────────────────────────────────────────────
+
+    public async Task<AsignacionResponse> AsignarManualmenteAsync(AsignarAsignaturaManualRequest request)
+    {
+        string idDocente = request.IdDocente.Trim();
+        string idAsignatura = request.IdAsignatura.Trim();
+        string periodo = request.Periodo.Trim();
+
+        Docente? docente = await _context.Docentes
+            .FirstOrDefaultAsync(d => d.IdDocente == idDocente);
+
+        if (docente is null)
+            throw new InvalidOperationException("Docente no encontrado.");
+
+        Asignatura? asignatura = await _context.Asignaturas
+            .FirstOrDefaultAsync(a => a.IdAsignatura == idAsignatura);
+
+        if (asignatura is null)
+            throw new InvalidOperationException("Asignatura no encontrada.");
+
+        ValidarContratoDocente(docente);
+
+        if (!request.ForzarSinCurriculo)
+        {
+            bool tieneCurriculo = await _context.DocentesHabilitados
+                .AnyAsync(dh => dh.IdDocente == idDocente);
+
+            if (tieneCurriculo)
+            {
+                bool habilitado = await _context.DocentesHabilitados
+                    .AnyAsync(dh => dh.IdDocente == idDocente && dh.IdAsignatura == idAsignatura);
+
+                if (!habilitado)
+                    throw new InvalidOperationException(
+                        $"El docente {docente.Nombre} no está habilitado por currículo para dictar " +
+                        $"'{asignatura.Nombre}'. Use ForzarSinCurriculo = true para sobrescribir.");
+            }
+        }
+
+        int asignaturasActuales = await ContarAsignaturasDistintasAsync(idDocente, periodo);
+
+        bool yaAsignada = await _context.Asignaciones
+            .AnyAsync(a => a.IdDocente == idDocente && a.IdAsignatura == idAsignatura && a.Periodo == periodo);
+
+        if (yaAsignada)
+            throw new InvalidOperationException(
+                $"La asignatura '{asignatura.Nombre}' ya está asignada al docente en el periodo {periodo}.");
+
+        if (asignaturasActuales >= docente.MaxAsignaturas)
+            throw new InvalidOperationException(
+                $"El docente ya alcanzó el límite de {docente.MaxAsignaturas} asignaturas para el periodo {periodo}.");
+
+        var asignacion = new Asignacion
+        {
+            IdAsignacion = Guid.NewGuid().ToString(),
+            IdDocente = idDocente,
+            IdAsignatura = idAsignatura,
+            Dia = 0,
+            HoraInicio = string.Empty,
+            HoraFin = string.Empty,
+            Periodo = periodo,
+            Estado = "AsignadaManual"
+        };
+
+        _context.Asignaciones.Add(asignacion);
+        await _context.SaveChangesAsync();
+
+        asignacion.Docente = docente;
+        asignacion.Asignatura = asignatura;
+
+        return ToResponse(asignacion, asignaturasActuales + 1);
+    }
+
+    public async Task<List<AsignaturaDisponibleParaDocenteResponse>> ObtenerAsignaturasDisponiblesParaDocenteAsync(
+        string idDocente,
+        string periodo)
+    {
+        bool docenteExiste = await _context.Docentes.AnyAsync(d => d.IdDocente == idDocente);
+
+        if (!docenteExiste)
+            throw new InvalidOperationException("Docente no encontrado.");
+
+        string periodoLimpio = periodo.Trim();
+
+        List<string> yaAsignadas = await _context.Asignaciones
+            .Where(a => a.IdDocente == idDocente && a.Periodo == periodoLimpio)
+            .Select(a => a.IdAsignatura)
+            .Distinct()
+            .ToListAsync();
+
+        List<string> habilitadasPorCurriculo = await _context.DocentesHabilitados
+            .Where(dh => dh.IdDocente == idDocente)
+            .Select(dh => dh.IdAsignatura)
+            .ToListAsync();
+
+        List<Asignatura> todas = await _context.Asignaturas
+            .OrderBy(a => a.Semestre)
+            .ThenBy(a => a.Nombre)
+            .ToListAsync();
+
+        return todas.Select(a => new AsignaturaDisponibleParaDocenteResponse
+        {
+            IdAsignatura = a.IdAsignatura,
+            Codigo = a.Codigo,
+            Nombre = a.Nombre,
+            Creditos = a.Creditos,
+            Semestre = a.Semestre,
+            HabilitadaPorCurriculo = habilitadasPorCurriculo.Contains(a.IdAsignatura),
+            YaAsignadaEnPeriodo = yaAsignadas.Contains(a.IdAsignatura)
+        }).ToList();
+    }
+
 
     private async Task<int> ContarAsignaturasDistintasAsync(string idDocente, string periodo)
     {
@@ -229,17 +322,11 @@ public class AsignacionService : IAsignacionService
 
     private static void ValidarContratoDocente(Docente docente)
     {
-        if (docente.TipoContrato == "TC" && docente.MaxAsignaturas == 5)
-        {
-            return;
-        }
+        if (docente.TipoContrato == "TC" && docente.MaxAsignaturas == 5) return;
+        if (docente.TipoContrato == "TP" && docente.MaxAsignaturas == 3) return;
 
-        if (docente.TipoContrato == "TP" && docente.MaxAsignaturas == 3)
-        {
-            return;
-        }
-
-        throw new InvalidOperationException("La configuración del contrato docente no es válida. TC debe tener máximo 5 asignaturas y TP máximo 3.");
+        throw new InvalidOperationException(
+            "La configuración del contrato docente no es válida. TC debe tener máximo 5 asignaturas y TP máximo 3.");
     }
 
     private static AsignacionResponse ToResponse(Asignacion asignacion, int asignaturasActuales) => new()
