@@ -1,5 +1,6 @@
 using ApplicationSchedule.Application.DTOs.Asignaturas;
 using ApplicationSchedule.Application.Interfaces;
+using ApplicationSchedule.Application.DTOs.Tapsi;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApplicationSchedule.Api.Controllers;
@@ -37,6 +38,34 @@ public class AsignaturasController : ControllerBase
         List<AsignaturaResponse> asignaturas = await _asignaturaService.ObtenerFijasTapsiAsync();
 
         return Ok(asignaturas);
+    }
+
+    [HttpGet("tapsi/diurna/opciones-adicionales")]
+    public async Task<ActionResult<List<AsignaturaResponse>>> ObtenerOpcionesAdicionalesTapsiDiurna()
+    {
+        List<AsignaturaResponse> asignaturas = await _asignaturaService.ObtenerOpcionalesTapsiDiurnaAsync();
+
+        return Ok(asignaturas);
+    }
+
+    [HttpGet("tapsi/diurna/plan")]
+    public async Task<ActionResult<TapsiDiurnaPlanResponse>> ObtenerPlanTapsiDiurna()
+    {
+        TapsiDiurnaPlanResponse plan = await _asignaturaService.ObtenerPlanTapsiDiurnaAsync();
+
+        return Ok(plan);
+    }
+
+    [HttpPost("tapsi/diurna/marcar-opciones-adicionales")]
+    public async Task<IActionResult> MarcarOpcionesAdicionalesTapsiDiurna()
+    {
+        int cantidadMarcada = await _asignaturaService.MarcarOpcionalesTapsiDiurnaAsync();
+
+        return Ok(new
+        {
+            mensaje = "Asignaturas adicionales TAPSI para jornada diurna marcadas correctamente.",
+            cantidadMarcada
+        });
     }
 
     [HttpPost("tapsi/marcar-fijas")]
