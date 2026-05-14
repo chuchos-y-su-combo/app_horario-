@@ -7,6 +7,7 @@ using ApplicationSchedule.Infrastructure.Data;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using ApplicationSchedule.Application.DTOs.Disponibilidades;
+using ApplicationSchedule.Application.DTOs.Horarios;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
@@ -555,5 +556,117 @@ public class CurriculoDocenteService : ICurriculoDocenteService
             6 => "Sábado",
             _ => "Desconocido"
         };
+    }
+    public async Task<ReduccionDisponibilidadResponse> ReducirDisponibilidadPorDobleJornadaAsync(
+    string idDocente,
+    string idAsignatura,
+    string periodo,
+    CancellationToken cancellationToken = default)
+    {
+        string periodoLimpio = periodo.Trim();
+
+        Docente? docente = await _context.Docentes
+            .FirstOrDefaultAsync(d => d.IdDocente == idDocente, cancellationToken);
+
+        if (docente is null)
+            throw new InvalidOperationException("Docente no encontrado.");
+
+        Asignatura? asignatura = await _context.Asignaturas
+            .Include(a => a.PlanEstudio)
+            .FirstOrDefaultAsync(a => a.IdAsignatura == idAsignatura, cancellationToken);
+
+        if (asignatura is null)
+            throw new InvalidOperationException("Asignatura no encontrada.");
+
+        // Buscar asignaciones de este docente con esta asignatura en el periodo,
+        // separadas por jornada según el escenario
+        List<Asignacion> asignacionesDiurnas = await _context.Asignaciones
+            .Where(a =>
+                a.IdDocente == idDocente &&
+                a.IdAsignatura == idAsignatura &&
+                a.Periodo == periodoLimpio &&
+                (a.Escenario == EscenarioGeneracion.IngDiurna ||
+                 a.Escenario == EscenarioGeneracion.TapsiDiurna) &&
+                a.HoraInicio != string.Empty)
+            .ToListAsync(cancellationToken);
+
+        List<Asignacion> asignacionesNocturnas = await _context.Asignaciones
+            .Where(a =>
+                a.IdDocente == idDocente &&
+                a.IdAsignatura == idAsignatura &&
+                a.Periodo == periodoLimpio &&
+                (a.Escenario == EscenarioGeneracion.IngNocturna ||
+                 a.Escenario == EscenarioGeneracion.TapsiNocturna))
+            .ToListAsync(cancellationToken);
+
+        // Si no dicta en ambas jornadas, no hay nada que reducir
+        if (asignacionesDiurnas.Count == 0 || asignacionesNocturnas.Count == 0)
+        {
+            return new ReduccionDisponibilidadResponse
+            {
+                IdDocente = idDocente,
+                NombreDocente = docente.Nombre,
+                NombreAsignatura = asignatura.Nombre,
+                Periodo = periodoLimpio,
+                BloquesEliminados = 0,
+                Mensaje = "El docente no dicta esta asignatura en ambas jornadas. No se realizó ninguna reducción."
+            };
+        }
+
+        // Obtener disponibilidad actual del docente
+        List<Disponibilidad> disponibilidades = await _context.Disponibilidades
+            .Where(d => d.IdDocente == idDocente)
+            .ToListAsync(cancellationToken);
+
+        // Eliminar los bloques de disponibilidad que se solapan con alguna asignación diurna
+        List<Disponibilidad> bloquesAEliminar = new();
+
+        foreach (Disponibilidad bloque in disponibilidades)
+        {
+            bool seSolapa = asignacionesDiurnas.Any(a =>
+                a.Dia == bloque.DiaSemana &&
+                HorariosSeSolapan(a.HoraInicio, a.HoraFin, bloque.HoraInicio, bloque.HoraFin));
+
+            if (seSolapa)
+                bloquesAEliminar.Add(bloque);
+        }
+
+        List<string> bloquesAfectados = bloquesAEliminar
+            .Select(b => $"Día {b.DiaSemana} {b.HoraInicio}-{b.HoraFin}")
+            .ToList();
+
+        if (bloquesAEliminar.Count > 0)
+        {
+            _context.Disponibilidades.RemoveRange(bloquesAEliminar);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        return new ReduccionDisponibilidadResponse
+        {
+            IdDocente = idDocente,
+            NombreDocente = docente.Nombre,
+            NombreAsignatura = asignatura.Nombre,
+            Periodo = periodoLimpio,
+            BloquesEliminados = bloquesAEliminar.Count,
+            BloquesAfectados = bloquesAfectados,
+            Mensaje = bloquesAEliminar.Count > 0
+                ? $"Se eliminaron {bloquesAEliminar.Count} bloque(s) de disponibilidad por doble jornada."
+                : "No se encontraron bloques de disponibilidad que se solapen con la jornada diurna."
+        };
+    }
+
+    private static bool HorariosSeSolapan(
+        string inicioA, string finA,
+        string inicioB, string finB)
+    {
+        if (string.IsNullOrEmpty(inicioA) || string.IsNullOrEmpty(finA))
+            return false;
+
+        TimeSpan a1 = TimeSpan.Parse(inicioA);
+        TimeSpan a2 = TimeSpan.Parse(finA);
+        TimeSpan b1 = TimeSpan.Parse(inicioB);
+        TimeSpan b2 = TimeSpan.Parse(finB);
+
+        return a1 < b2 && b1 < a2;
     }
 }

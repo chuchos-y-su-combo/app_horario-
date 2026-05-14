@@ -23,4 +23,10 @@ public interface ICurriculoDocenteService
         string idDocente,
         CancellationToken cancellationToken = default
     );
+    Task<ReduccionDisponibilidadResponse> ReducirDisponibilidadPorDobleJornadaAsync(
+        string idDocente,
+        string idAsignatura,
+        string periodo,
+        CancellationToken cancellationToken = default
+    );
 }
