@@ -17,6 +17,7 @@ public class Asignacion
     public string Periodo { get; set; } = string.Empty;
 
     public string Estado { get; set; } = "Propuesta";
+    public string Escenario { get; set; } = "ING_DIURNA";
 
     public Docente? Docente { get; set; }
 
