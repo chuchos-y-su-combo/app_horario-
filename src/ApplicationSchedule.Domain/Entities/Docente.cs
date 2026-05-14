@@ -19,4 +19,5 @@ public class Docente
     public ICollection<Asignacion> Asignaciones { get; set; } = new List<Asignacion>();
 
     public ICollection<DocenteHabilitado> AsignaturasHabilitadas { get; set; } = new List<DocenteHabilitado>();
+    public ICollection<Disponibilidad> Disponibilidades { get; set; } = new List<Disponibilidad>();
 }

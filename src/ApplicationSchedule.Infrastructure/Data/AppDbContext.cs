@@ -15,7 +15,8 @@ public class AppDbContext : DbContext
     public DbSet<PlanEstudio> PlanesEstudio => Set<PlanEstudio>();
     public DbSet<Docente> Docentes => Set<Docente>();
     public DbSet<Asignatura> Asignaturas => Set<Asignatura>();
-    public DbSet<DocenteHabilitado> DocentesHabilitados => Set<DocenteHabilitado>();   
+    public DbSet<DocenteHabilitado> DocentesHabilitados => Set<DocenteHabilitado>();
+    public DbSet<Disponibilidad> Disponibilidades => Set<Disponibilidad>();   
     public DbSet<Asignacion> Asignaciones => Set<Asignacion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -28,6 +29,7 @@ public class AppDbContext : DbContext
         ConfigurarDocentes(modelBuilder);
         ConfigurarAsignaturas(modelBuilder);
         ConfigurarDocentesHabilitados(modelBuilder);
+        ConfigurarDisponibilidad(modelBuilder);
         ConfigurarAsignaciones(modelBuilder);
     }
 
@@ -267,6 +269,11 @@ public class AppDbContext : DbContext
                 .HasDefaultValue(false)
                 .IsRequired();
 
+            entity.Property(a => a.EsOpcionalTapsiDiurna)
+                .HasColumnName("es_opcional_tapsi_diurna")
+                .HasDefaultValue(false)
+                .IsRequired();
+
             entity.HasOne(a => a.PlanEstudio)
                 .WithMany(p => p.Asignaturas)
                 .HasForeignKey(a => a.IdPlan)
@@ -274,6 +281,45 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(a => a.Codigo)
                 .IsUnique();
+        });
+    }
+
+    private static void ConfigurarDisponibilidad(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Disponibilidad>(entity =>
+        {
+            entity.ToTable("disponibilidad");
+
+            entity.HasKey(d => d.IdDisponibilidad);
+
+            entity.Property(d => d.IdDisponibilidad)
+                .HasColumnName("id_disponibilidad")
+                .HasMaxLength(36)
+                .IsRequired();
+
+            entity.Property(d => d.IdDocente)
+                .HasColumnName("id_docente")
+                .HasMaxLength(36)
+                .IsRequired();
+
+            entity.Property(d => d.DiaSemana)
+                .HasColumnName("dia_semana")
+                .IsRequired();
+
+            entity.Property(d => d.HoraInicio)
+                .HasColumnName("hora_inicio")
+                .HasMaxLength(5)
+                .IsRequired();
+
+            entity.Property(d => d.HoraFin)
+                .HasColumnName("hora_fin")
+                .HasMaxLength(5)
+                .IsRequired();
+
+            entity.HasOne(d => d.Docente)
+                .WithMany(docente => docente.Disponibilidades)
+                .HasForeignKey(d => d.IdDocente)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 
