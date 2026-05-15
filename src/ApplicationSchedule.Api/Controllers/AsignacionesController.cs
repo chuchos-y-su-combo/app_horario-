@@ -78,8 +78,6 @@ public class AsignacionesController : ControllerBase
         return NoContent();
     }
 
-    // ── Issue #10 ──────────────────────────────────────────────────────────
-
     [HttpPost("manual")]
     public async Task<ActionResult<AsignacionResponse>> AsignarManualmente(
         AsignarAsignaturaManualRequest request)
@@ -112,6 +110,62 @@ public class AsignacionesController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return NotFound(new { mensaje = ex.Message });
+        }
+    }
+    [HttpGet("propuestas")]
+    public async Task<ActionResult<List<AsignacionResponse>>> ObtenerPropuestas(
+        [FromQuery] string periodo)
+    {
+        if (string.IsNullOrWhiteSpace(periodo))
+            return BadRequest(new { mensaje = "El parámetro 'periodo' es obligatorio." });
+
+        List<AsignacionResponse> propuestas =
+            await _asignacionService.ObtenerPropuestasPorPeriodoAsync(periodo);
+
+        return Ok(propuestas);
+    }
+
+    [HttpPatch("{idAsignacion}/ajustar")]
+    public async Task<ActionResult<AsignacionResponse>> Ajustar(
+        string idAsignacion,
+        AjustarAsignacionRequest request)
+    {
+        try
+        {
+            AsignacionResponse actualizada =
+                await _asignacionService.AjustarAsync(idAsignacion, request);
+
+            return Ok(actualizada);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { mensaje = ex.Message });
+        }
+    }
+
+    [HttpPost("confirmar")]
+    public async Task<ActionResult<ResultadoConfirmacionResponse>> Confirmar(
+        ConfirmarAsignacionesRequest request)
+    {
+        ResultadoConfirmacionResponse resultado =
+            await _asignacionService.ConfirmarAsync(request);
+
+        return Ok(resultado);
+    }
+
+    [HttpPatch("{idAsignacion}/cancelar")]
+    public async Task<ActionResult<AsignacionResponse>> Cancelar(string idAsignacion)
+    {
+        try
+        {
+            AsignacionResponse cancelada =
+                await _asignacionService.CancelarAsync(idAsignacion);
+
+            return Ok(cancelada);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { mensaje = ex.Message });
         }
     }
 }
