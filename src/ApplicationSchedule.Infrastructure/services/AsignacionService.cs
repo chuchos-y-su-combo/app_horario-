@@ -346,4 +346,204 @@ public class AsignacionService : IAsignacionService
         Periodo = asignacion.Periodo,
         Estado = asignacion.Estado
     };
+    public async Task<List<AsignacionResponse>> ObtenerPropuestasPorPeriodoAsync(string periodo)
+    {
+        string periodoLimpio = periodo.Trim();
+
+        List<Asignacion> propuestas = await _context.Asignaciones
+            .Include(a => a.Docente)
+            .Include(a => a.Asignatura)
+            .Where(a => a.Periodo == periodoLimpio &&
+                        (a.Estado == "Propuesta" || a.Estado == "AsignadaManual"))
+            .OrderBy(a => a.Escenario)
+            .ThenBy(a => a.Docente!.Nombre)
+            .ThenBy(a => a.Dia)
+            .ThenBy(a => a.HoraInicio)
+            .ToListAsync();
+
+        List<AsignacionResponse> respuesta = new();
+
+        foreach (Asignacion asignacion in propuestas)
+        {
+            int asignaturasActuales = await ContarAsignaturasDistintasAsync(
+                asignacion.IdDocente, asignacion.Periodo);
+
+            respuesta.Add(ToResponse(asignacion, asignaturasActuales));
+        }
+
+        return respuesta;
+    }
+
+    public async Task<AsignacionResponse> AjustarAsync(string idAsignacion, AjustarAsignacionRequest request)
+    {
+        Asignacion? asignacion = await _context.Asignaciones
+            .Include(a => a.Docente)
+            .Include(a => a.Asignatura)
+            .FirstOrDefaultAsync(a => a.IdAsignacion == idAsignacion);
+
+        if (asignacion is null)
+            throw new InvalidOperationException("Asignación no encontrada.");
+
+        if (asignacion.Estado == "Confirmada")
+            throw new InvalidOperationException(
+                "No se puede ajustar una asignación que ya fue confirmada.");
+
+        if (asignacion.Estado == "Cancelada")
+            throw new InvalidOperationException(
+                "No se puede ajustar una asignación cancelada.");
+
+        // Cambio de docente
+        if (!string.IsNullOrWhiteSpace(request.IdDocente) &&
+            request.IdDocente != asignacion.IdDocente)
+        {
+            Docente? nuevoDocente = await _context.Docentes
+                .FirstOrDefaultAsync(d => d.IdDocente == request.IdDocente);
+
+            if (nuevoDocente is null)
+                throw new InvalidOperationException("El nuevo docente no fue encontrado.");
+
+            ValidarContratoDocente(nuevoDocente);
+
+            string periodo = request.Periodo?.Trim() ?? asignacion.Periodo;
+            string idAsignatura = request.IdAsignatura ?? asignacion.IdAsignatura;
+
+            int cargaNuevoDocente = await ContarAsignaturasDistintasAsync(request.IdDocente, periodo);
+
+            bool yaAsignadaANuevoDocente = await _context.Asignaciones
+                .AnyAsync(a => a.IdDocente == request.IdDocente &&
+                               a.IdAsignatura == idAsignatura &&
+                               a.Periodo == periodo &&
+                               a.IdAsignacion != idAsignacion);
+
+            if (!yaAsignadaANuevoDocente && cargaNuevoDocente >= nuevoDocente.MaxAsignaturas)
+                throw new InvalidOperationException(
+                    $"El nuevo docente ya alcanzó el límite de {nuevoDocente.MaxAsignaturas} " +
+                    $"asignaturas para el periodo {periodo}.");
+
+            asignacion.IdDocente = request.IdDocente;
+            asignacion.Docente = nuevoDocente;
+        }
+
+        // Cambio de asignatura
+        if (!string.IsNullOrWhiteSpace(request.IdAsignatura) &&
+            request.IdAsignatura != asignacion.IdAsignatura)
+        {
+            Asignatura? nuevaAsignatura = await _context.Asignaturas
+                .FirstOrDefaultAsync(a => a.IdAsignatura == request.IdAsignatura);
+
+            if (nuevaAsignatura is null)
+                throw new InvalidOperationException("La nueva asignatura no fue encontrada.");
+
+            asignacion.IdAsignatura = request.IdAsignatura;
+            asignacion.Asignatura = nuevaAsignatura;
+        }
+
+        // Cambio de bloque horario
+        if (request.Dia.HasValue)
+            asignacion.Dia = request.Dia.Value;
+
+        if (!string.IsNullOrWhiteSpace(request.HoraInicio))
+            asignacion.HoraInicio = request.HoraInicio.Trim();
+
+        if (!string.IsNullOrWhiteSpace(request.HoraFin))
+            asignacion.HoraFin = request.HoraFin.Trim();
+
+        if (!string.IsNullOrWhiteSpace(request.Periodo))
+            asignacion.Periodo = request.Periodo.Trim();
+
+        // Validar que hora inicio < hora fin si ambas están definidas
+        if (!string.IsNullOrEmpty(asignacion.HoraInicio) &&
+            !string.IsNullOrEmpty(asignacion.HoraFin) &&
+            string.CompareOrdinal(asignacion.HoraInicio, asignacion.HoraFin) >= 0)
+        {
+            throw new InvalidOperationException(
+                "La hora de inicio debe ser menor que la hora de fin.");
+        }
+
+        await _context.SaveChangesAsync();
+
+        int asignaturasActuales = await ContarAsignaturasDistintasAsync(
+            asignacion.IdDocente, asignacion.Periodo);
+
+        return ToResponse(asignacion, asignaturasActuales);
+    }
+
+    public async Task<ResultadoConfirmacionResponse> ConfirmarAsync(ConfirmarAsignacionesRequest request)
+    {
+        ResultadoConfirmacionResponse resultado = new();
+
+        foreach (string id in request.IdsAsignacion)
+        {
+            Asignacion? asignacion = await _context.Asignaciones
+                .FirstOrDefaultAsync(a => a.IdAsignacion == id);
+
+            if (asignacion is null)
+            {
+                resultado.Fallidas++;
+                resultado.Errores.Add(new ResultadoFallidoItem
+                {
+                    IdAsignacion = id,
+                    Motivo = "Asignación no encontrada."
+                });
+                continue;
+            }
+
+            if (asignacion.Estado == "Confirmada")
+            {
+                resultado.Fallidas++;
+                resultado.Errores.Add(new ResultadoFallidoItem
+                {
+                    IdAsignacion = id,
+                    Motivo = "La asignación ya estaba confirmada."
+                });
+                continue;
+            }
+
+            if (asignacion.Estado == "Cancelada")
+            {
+                resultado.Fallidas++;
+                resultado.Errores.Add(new ResultadoFallidoItem
+                {
+                    IdAsignacion = id,
+                    Motivo = "No se puede confirmar una asignación cancelada."
+                });
+                continue;
+            }
+
+            asignacion.Estado = "Confirmada";
+            resultado.Confirmadas++;
+            resultado.IdsConfirmadas.Add(id);
+        }
+
+        if (resultado.Confirmadas > 0)
+            await _context.SaveChangesAsync();
+
+        return resultado;
+    }
+
+    public async Task<AsignacionResponse> CancelarAsync(string idAsignacion)
+    {
+        Asignacion? asignacion = await _context.Asignaciones
+            .Include(a => a.Docente)
+            .Include(a => a.Asignatura)
+            .FirstOrDefaultAsync(a => a.IdAsignacion == idAsignacion);
+
+        if (asignacion is null)
+            throw new InvalidOperationException("Asignación no encontrada.");
+
+        if (asignacion.Estado == "Confirmada")
+            throw new InvalidOperationException(
+                "No se puede cancelar una asignación ya confirmada. Elimínela si es necesario.");
+
+        if (asignacion.Estado == "Cancelada")
+            throw new InvalidOperationException("La asignación ya está cancelada.");
+
+        asignacion.Estado = "Cancelada";
+        await _context.SaveChangesAsync();
+
+        int asignaturasActuales = await ContarAsignaturasDistintasAsync(
+            asignacion.IdDocente, asignacion.Periodo);
+
+        return ToResponse(asignacion, asignaturasActuales);
+    }
 }
