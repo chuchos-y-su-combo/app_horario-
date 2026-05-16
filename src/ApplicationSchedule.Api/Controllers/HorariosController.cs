@@ -9,10 +9,14 @@ namespace ApplicationSchedule.Api.Controllers;
 public class HorariosController : ControllerBase
 {
     private readonly IGeneradorHorarioService _generadorHorarioService;
+    private readonly IHorarioExportService _horarioExportService;
 
-    public HorariosController(IGeneradorHorarioService generadorHorarioService)
+    public HorariosController(
+        IGeneradorHorarioService generadorHorarioService,
+        IHorarioExportService horarioExportService)
     {
         _generadorHorarioService = generadorHorarioService;
+        _horarioExportService = horarioExportService;
     }
 
     /// <summary>
@@ -38,5 +42,20 @@ public class HorariosController : ControllerBase
                 mensaje = ex.Message
             });
         }
+    }
+
+    /// <summary>
+    /// RF-22, RF-23: Exporta el horario filtrado por semestre, docente o asignatura a un archivo Excel (.xlsx).
+    /// </summary>
+    [HttpGet("exportar")]
+    public async Task<IActionResult> ExportarHorario(
+        [FromQuery] int? semestre,
+        [FromQuery] string? idDocente,
+        [FromQuery] string? idAsignatura)
+    {
+        var excelBytes = await _horarioExportService.ExportarHorariosAsync(semestre, idDocente, idAsignatura);
+        var nombreArchivo = $"Horarios_Confirmados_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", nombreArchivo);
     }
 }
