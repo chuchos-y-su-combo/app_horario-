@@ -77,7 +77,7 @@ public class EndpointCoverageTests : IntegrationTestBase, IClassFixture<CustomWe
         {
             NombreCompleto = "Test",
             Correo = "test@test.com",
-            Password = "Pass123",
+            Password = "Password123",
             IdRol = 1
         });
         var created = await createResponse.Content.ReadFromJsonAsync<UsuarioResponse>();
@@ -99,15 +99,21 @@ public class EndpointCoverageTests : IntegrationTestBase, IClassFixture<CustomWe
     [Fact(DisplayName = "[PUT /api/usuarios/{id}] Updates user")]
     public async Task PutUsuario_UpdatesUser()
     {
-        // Create
-        var createResponse = await Client.PostAsJsonAsync("/api/usuarios", new CrearUsuarioRequest
+        var userId = Guid.NewGuid().ToString();
+
+        await Factory.ExecuteDbContextAsync(async dbContext =>
         {
-            NombreCompleto = "Original",
-            Correo = "original@test.com",
-            Password = "Pass123",
-            IdRol = 1
+            dbContext.Usuarios.Add(new ApplicationSchedule.Domain.Entities.Usuario
+            {
+                IdUsuario = userId,
+                NombreCompleto = "Original",
+                Correo = "original@test.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password123"),
+                IdRol = 1
+            });
+
+            await dbContext.SaveChangesAsync();
         });
-        var created = await createResponse.Content.ReadFromJsonAsync<UsuarioResponse>();
 
         // Update
         var updateRequest = new ActualizarUsuarioRequest
@@ -116,11 +122,11 @@ public class EndpointCoverageTests : IntegrationTestBase, IClassFixture<CustomWe
             Correo = "updated@test.com",
             IdRol = 2
         };
-        var response = await Client.PutAsJsonAsync($"/api/usuarios/{created!.IdUsuario}", updateRequest);
+        var response = await Client.PutAsJsonAsync($"/api/usuarios/{userId}", updateRequest);
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         // Verify
-        var getResponse = await Client.GetAsync($"/api/usuarios/{created.IdUsuario}");
+        var getResponse = await Client.GetAsync($"/api/usuarios/{userId}");
         var updated = await getResponse.Content.ReadFromJsonAsync<UsuarioResponse>();
         updated!.NombreCompleto.Should().Be("Updated");
     }
@@ -133,7 +139,7 @@ public class EndpointCoverageTests : IntegrationTestBase, IClassFixture<CustomWe
         {
             NombreCompleto = "ToDelete",
             Correo = "delete@test.com",
-            Password = "Pass123",
+            Password = "Password123",
             IdRol = 1
         });
         var created = await createResponse.Content.ReadFromJsonAsync<UsuarioResponse>();
@@ -378,26 +384,36 @@ public class EndpointCoverageTests : IntegrationTestBase, IClassFixture<CustomWe
     [Fact(DisplayName = "[PUT /api/asignaturas/{id}] Updates subject")]
     public async Task PutAsignatura_UpdatesAsignatura()
     {
-        // Create
-        var createResponse = await Client.PostAsJsonAsync("/api/asignaturas", new CrearAsignaturaRequest
+        var asignaturaId = Guid.NewGuid().ToString();
+
+        await Factory.ExecuteDbContextAsync(async dbContext =>
         {
-            IdPlan = PlanDiurno,
-            Codigo = "ENG101",
-            Nombre = "English",
-            Creditos = 2,
-            Semestre = 1
+            dbContext.Asignaturas.Add(new ApplicationSchedule.Domain.Entities.Asignatura
+            {
+                IdAsignatura = asignaturaId,
+                IdPlan = PlanDiurno,
+                Codigo = "ENG101",
+                Nombre = "English",
+                Creditos = 2,
+                Semestre = 1,
+                MinEstudiantes = 15,
+                EsFijaTapsi = false,
+                EsOpcionalTapsiDiurna = false
+            });
+
+            await dbContext.SaveChangesAsync();
         });
-        var created = await createResponse.Content.ReadFromJsonAsync<AsignaturaResponse>();
 
         // Update
         var updateRequest = new ActualizarAsignaturaRequest
         {
+            IdPlan = PlanDiurno,
             Codigo = "ENG201",
             Nombre = "English II",
             Creditos = 3,
             Semestre = 2
         };
-        var response = await Client.PutAsJsonAsync($"/api/asignaturas/{created!.IdAsignatura}", updateRequest);
+        var response = await Client.PutAsJsonAsync($"/api/asignaturas/{asignaturaId}", updateRequest);
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
