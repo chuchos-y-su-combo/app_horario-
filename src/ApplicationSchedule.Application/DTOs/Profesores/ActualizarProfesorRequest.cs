@@ -4,7 +4,7 @@ namespace ApplicationSchedule.Application.DTOs.Profesores;
 
 public class ActualizarProfesorRequest
 {
-    [Required(ErrorMessage = "El nombre del docente es obligatorio.")]
+    [Required(ErrorMessage = "El nombre del profesor es obligatorio.")]
     [MaxLength(150, ErrorMessage = "El nombre no puede superar los 150 caracteres.")]
     public string Nombre { get; set; } = string.Empty;
 

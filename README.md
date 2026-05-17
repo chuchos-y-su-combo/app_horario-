@@ -573,10 +573,10 @@ El coordinador puede revisar las propuestas generadas, ajustar cualquier campo a
 
 | Estado | Origen | Puede ajustarse | Puede confirmarse | Puede cancelarse |
 |--------|---------|:-:|:-:|:-:|
-| `Propuesta` | Generación automática | ✅ | ✅ | ✅ |
-| `AsignadaManual` | Asignación manual | ✅ | ✅ | ✅ |
-| `Confirmada` | Confirmación por coordinador | ❌ | ❌ | ❌ |
-| `Cancelada` | Cancelación | ❌ | ❌ | ❌ |
+| `Propuesta` | Generación automática | Sí | Sí | Sí |
+| `AsignadaManual` | Asignación manual | Sí | Sí | Sí |
+| `Confirmada` | Confirmación por coordinador | No | No | No |
+| `Cancelada` | Cancelación | No | No | No |
 
 ## Endpoints
 
