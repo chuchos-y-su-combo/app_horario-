@@ -22,6 +22,24 @@ public class AsignacionesController : ControllerBase
         return Ok(asignaciones);
     }
 
+    [HttpGet("periodos-historicos")]
+    public async Task<ActionResult<List<string>>> ObtenerPeriodosHistoricos()
+    {
+        List<string> periodos = await _asignacionService.ObtenerPeriodosHistoricosAsync();
+        return Ok(periodos);
+    }
+
+    [HttpGet("consulta-historica")]
+    public async Task<ActionResult<List<AsignacionResponse>>> ObtenerConsultaFiltrada(
+        [FromQuery] int? semestre,
+        [FromQuery] string? idDocente,
+        [FromQuery] string? idAsignatura,
+        [FromQuery] string? periodo)
+    {
+        List<AsignacionResponse> asignaciones = await _asignacionService.ObtenerFiltradasAsync(semestre, idDocente, idAsignatura, periodo);
+        return Ok(asignaciones);
+    }
+
     [HttpGet("docente/{idDocente}")]
     public async Task<ActionResult<List<AsignacionResponse>>> ObtenerPorDocente(
         string idDocente, [FromQuery] string? periodo = null)
