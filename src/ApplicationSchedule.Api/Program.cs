@@ -21,7 +21,11 @@ builder.Services.AddScoped<IProfesorService, ProfesorService>();
 builder.Services.AddScoped<IAsignacionService, AsignacionService>();
 builder.Services.AddScoped<ICurriculoDocenteService, CurriculoDocenteService>();
 builder.Services.AddScoped<IGeneradorHorarioService, GeneradorHorarioService>();
+
 builder.Services.AddScoped<IHorarioExportService, HorarioExportService>();
+
+builder.Services.AddScoped<IReporteCargaService, ReporteCargaService>();
+builder.Services.AddScoped<IConflictoAsignacionService, ConflictoAsignacionService>();
 
 builder.Services.AddControllers();
 
