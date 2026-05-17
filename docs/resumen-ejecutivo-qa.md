@@ -1,4 +1,4 @@
-# Resumen Ejecutivo - QA Testing Sprint
+# Resumen Ejecutivo - Pruebas QA
 
 ## Estado final: completado
 
@@ -36,14 +36,14 @@
    - Tests positivos y negativos
    - Validación de HTTP semantics
 
-2. **QA_TESTING_REPORT.md** (14 KB)
+2. **informe-pruebas-qa.md** (14 KB)
    - Documentación profesional de QA
    - Resumen de casos de prueba por endpoint
    - Hallazgos y correcciones
    - Recomendaciones futuras
    - Matriz de trazabilidad
 
-3. **TESTING_CHANGES.md** (7 KB)
+3. **cambios-pruebas-qa.md** (7 KB)
    - Resumen de cambios realizados
    - Bugs encontrados y estado
    - Métricas de calidad
@@ -143,8 +143,8 @@
 ## Deliverables
 
 1. 40+ tests nuevos en `EndpointCoverageTests.cs`
-2. Reporte QA profesional: `QA_TESTING_REPORT.md` (14KB)
-3. Documentación de cambios: `TESTING_CHANGES.md` (7KB)
+2. Informe de pruebas QA: `informe-pruebas-qa.md` (14KB)
+3. Documentación de cambios: `cambios-pruebas-qa.md` (7KB)
 4. Commit a rama `develop` con todos los cambios
 5. Validación de compilación exitosa
 6. Todos los tests pasando (80+)

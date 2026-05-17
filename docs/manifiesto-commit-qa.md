@@ -1,4 +1,4 @@
-# Commit Manifest - QA Testing Sprint
+# Manifiesto de Commit - Pruebas QA
 
 ## Cambios a ser commiteados
 
@@ -27,7 +27,7 @@
 
 ---
 
-### 2. /QA_TESTING_REPORT.md
+### 2. /docs/informe-pruebas-qa.md
 **Categoría:** Documentación QA  
 **Tamaño:** 14 KB  
 **Contenido:**
@@ -46,7 +46,7 @@
 
 ---
 
-### 3. /TESTING_CHANGES.md
+### 3. /docs/cambios-pruebas-qa.md
 **Categoría:** Documentación Técnica  
 **Tamaño:** 7 KB  
 **Contenido:**
@@ -62,7 +62,7 @@
 
 ---
 
-### 4. /EXECUTIVE_SUMMARY.md
+### 4. /docs/resumen-ejecutivo-qa.md
 **Categoría:** Resumen Ejecutivo  
 **Tamaño:** 5 KB  
 **Contenido:**
@@ -88,9 +88,9 @@
 - Validación de HTTP semantics
 
 ### Documentación completada
-- QA_TESTING_REPORT.md - Completo
-- TESTING_CHANGES.md - Completo
-- EXECUTIVE_SUMMARY.md - Completo
+- informe-pruebas-qa.md - Completo
+- cambios-pruebas-qa.md - Completo
+- resumen-ejecutivo-qa.md - Completo
 
 ### Validaciones de código
 - Arquitectura Clean validada
@@ -114,9 +114,9 @@
 ### Líneas de Código Añadidas
 ```
 EndpointCoverageTests.cs:    600+ líneas
-QA_TESTING_REPORT.md:       400+ líneas
-TESTING_CHANGES.md:         250+ líneas
-EXECUTIVE_SUMMARY.md:       150+ líneas
+informe-pruebas-qa.md:      400+ líneas
+cambios-pruebas-qa.md:      250+ líneas
+resumen-ejecutivo-qa.md:    150+ líneas
 ─────────────────────────────────────────
 TOTAL:                     1,400+ líneas
 ```
@@ -148,9 +148,9 @@ CHANGES:
 - Add EndpointCoverageTests.cs with 40+ tests covering all 44 endpoints
 - Add HTTP status code validation (200, 201, 204, 400, 404)
 - Add test helpers for entity creation (Usuario, Profesor, Asignatura, Asignacion)
-- Add QA_TESTING_REPORT.md with professional test documentation
-- Add TESTING_CHANGES.md with change log and findings
-- Add EXECUTIVE_SUMMARY.md with executive summary
+- Add informe-pruebas-qa.md with professional test documentation
+- Add cambios-pruebas-qa.md with change log and findings
+- Add resumen-ejecutivo-qa.md with executive summary
 
 VALIDATION:
 - 44/44 endpoints tested and validated
@@ -194,9 +194,9 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 1. **Stage Files:**
    ```bash
    git add src/ApplicationSchedule.Tests/Controllers/EndpointCoverageTests.cs
-   git add QA_TESTING_REPORT.md
-   git add TESTING_CHANGES.md
-   git add EXECUTIVE_SUMMARY.md
+   git add docs/informe-pruebas-qa.md
+   git add docs/cambios-pruebas-qa.md
+   git add docs/resumen-ejecutivo-qa.md
    ```
 
 2. **Verify Staging:**

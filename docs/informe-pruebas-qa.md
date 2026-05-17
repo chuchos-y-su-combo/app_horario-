@@ -1,4 +1,4 @@
-# QA Testing Report - ApplicationSchedule
+# Informe de Pruebas QA - ApplicationSchedule
 
 **Proyecto:** Gestión de Horarios Académicos  
 **Versión:** v1.0  
@@ -232,4 +232,4 @@ Tests automatizados en lugar
 **Versión:** 1.0  
 **Estado:** COMPLETADO
 
-Para preguntas o aclaraciones sobre este reporte, consultar el archivo QA_TESTING_REPORT.md.
+Para preguntas o aclaraciones sobre este reporte, consultar el archivo `informe-pruebas-qa.md`.
