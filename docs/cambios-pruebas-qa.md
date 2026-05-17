@@ -8,8 +8,8 @@ Este documento describe los cambios realizados como parte de la auditoría y tes
 
 ## Archivos nuevos creados
 
-### 1. QA_TESTING_REPORT.md
-**Ubicación:** `/QA_TESTING_REPORT.md`  
+### 1. informe-pruebas-qa.md
+**Ubicación:** `/docs/informe-pruebas-qa.md`  
 **Tamaño:** ~14 KB  
 **Contenido:**
 - Resumen ejecutivo del testing
@@ -245,4 +245,4 @@ Todos los requisitos de QA han sido cumplidos:
 **Versión:** 1.0  
 **Estado:** COMPLETADO
 
-Para preguntas o aclaraciones sobre este reporte, consultar el archivo `QA_TESTING_REPORT.md`.
+Para preguntas o aclaraciones sobre este reporte, consultar el archivo `informe-pruebas-qa.md`.
