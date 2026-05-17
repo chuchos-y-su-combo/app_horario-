@@ -51,9 +51,10 @@ public class HorariosController : ControllerBase
     public async Task<IActionResult> ExportarHorario(
         [FromQuery] int? semestre,
         [FromQuery] string? idDocente,
-        [FromQuery] string? idAsignatura)
+        [FromQuery] string? idAsignatura,
+        [FromQuery] string? periodo)
     {
-        var excelBytes = await _horarioExportService.ExportarHorariosAsync(semestre, idDocente, idAsignatura);
+        var excelBytes = await _horarioExportService.ExportarHorariosAsync(semestre, idDocente, idAsignatura, periodo);
         var nombreArchivo = $"Horarios_Confirmados_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
 
         return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", nombreArchivo);

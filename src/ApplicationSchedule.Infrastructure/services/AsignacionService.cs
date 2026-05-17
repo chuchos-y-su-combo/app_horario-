@@ -20,7 +20,53 @@ public class AsignacionService : IAsignacionService
         List<Asignacion> asignaciones = await _context.Asignaciones
             .Include(a => a.Docente)
             .Include(a => a.Asignatura)
-            .OrderBy(a => a.Periodo)
+            .OrderByDescending(a => a.Periodo)
+            .ThenBy(a => a.Docente!.Nombre)
+            .ThenBy(a => a.Dia)
+            .ThenBy(a => a.HoraInicio)
+            .ToListAsync();
+
+        List<AsignacionResponse> respuesta = new();
+
+        foreach (Asignacion asignacion in asignaciones)
+        {
+            int asignaturasActuales = await ContarAsignaturasDistintasAsync(asignacion.IdDocente, asignacion.Periodo);
+            respuesta.Add(ToResponse(asignacion, asignaturasActuales));
+        }
+
+        return respuesta;
+    }
+
+    public async Task<List<string>> ObtenerPeriodosHistoricosAsync()
+    {
+        return await _context.Asignaciones
+            .Select(a => a.Periodo)
+            .Distinct()
+            .OrderByDescending(p => p)
+            .ToListAsync();
+    }
+
+    public async Task<List<AsignacionResponse>> ObtenerFiltradasAsync(int? semestre, string? idDocente, string? idAsignatura, string? periodo)
+    {
+        var query = _context.Set<Asignacion>()
+            .Include(a => a.Docente)
+            .Include(a => a.Asignatura)
+            .AsQueryable();
+
+        if (semestre.HasValue)
+            query = query.Where(a => a.Asignatura!.Semestre == semestre.Value);
+
+        if (!string.IsNullOrWhiteSpace(idDocente))
+            query = query.Where(a => a.IdDocente == idDocente);
+
+        if (!string.IsNullOrWhiteSpace(idAsignatura))
+            query = query.Where(a => a.IdAsignatura == idAsignatura);
+
+        if (!string.IsNullOrWhiteSpace(periodo))
+            query = query.Where(a => a.Periodo == periodo);
+
+        List<Asignacion> asignaciones = await query
+            .OrderByDescending(a => a.Periodo)
             .ThenBy(a => a.Docente!.Nombre)
             .ThenBy(a => a.Dia)
             .ThenBy(a => a.HoraInicio)

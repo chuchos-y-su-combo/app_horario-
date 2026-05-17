@@ -14,13 +14,18 @@ public class HorarioExportService : IHorarioExportService
         _context = context;
     }
 
-    public async Task<byte[]> ExportarHorariosAsync(int? semestre, string? idDocente, string? idAsignatura)
+    public async Task<byte[]> ExportarHorariosAsync(int? semestre, string? idDocente, string? idAsignatura, string? periodo)
     {
         var query = _context.Set<ApplicationSchedule.Domain.Entities.Asignacion>()
             .Include(a => a.Docente)
             .Include(a => a.Asignatura)
             .Where(a => a.Estado == "Confirmada")
             .AsQueryable();
+
+        if (!string.IsNullOrEmpty(periodo))
+        {
+            query = query.Where(a => a.Periodo == periodo);
+        }
 
         if (semestre.HasValue)
         {
