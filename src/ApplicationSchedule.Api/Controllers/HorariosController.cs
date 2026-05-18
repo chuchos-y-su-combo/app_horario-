@@ -96,4 +96,31 @@ public class HorariosController : ControllerBase
 
         return Ok(calendario);
     }
+    /// <summary>
+    /// Issue #40: Devuelve el horario individual de un docente en vista de
+    /// calendario semanal (Lunes-Sábado) para un semestre.
+    /// Incluye datos del docente, total de asignaturas y horas semanales.
+    /// </summary>
+    [HttpGet("calendario/docente/{idDocente}")]
+    public async Task<ActionResult<CalendarioDocenteResponse>> ObtenerCalendarioDocente(
+        string idDocente,
+        [FromQuery] string semestre,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(semestre))
+            return BadRequest(new { mensaje = "El parámetro 'semestre' es obligatorio." });
+
+        try
+        {
+            CalendarioDocenteResponse calendario =
+                await _calendarioSemanalService.ObtenerCalendarioDocenteAsync(
+                    idDocente, semestre, cancellationToken);
+
+            return Ok(calendario);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { mensaje = ex.Message });
+        }
+    }
 }
