@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<DocenteHabilitado> DocentesHabilitados => Set<DocenteHabilitado>();
     public DbSet<Disponibilidad> Disponibilidades => Set<Disponibilidad>();   
     public DbSet<Asignacion> Asignaciones => Set<Asignacion>();
+    public DbSet<BloqueoFranjaAsignatura> BloqueosFranjaAsignatura => Set<BloqueoFranjaAsignatura>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +32,7 @@ public class AppDbContext : DbContext
         ConfigurarDocentesHabilitados(modelBuilder);
         ConfigurarDisponibilidad(modelBuilder);
         ConfigurarAsignaciones(modelBuilder);
+        ConfigurarBloqueosFranjaAsignatura(modelBuilder);
     }
 
 
@@ -386,6 +388,66 @@ public class AppDbContext : DbContext
                 .WithMany(a => a.Asignaciones)
                 .HasForeignKey(a => a.IdAsignatura)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+    private static void ConfigurarBloqueosFranjaAsignatura(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<BloqueoFranjaAsignatura>(entity =>
+        {
+            entity.ToTable("bloqueos_franja_asignatura");
+
+            entity.HasKey(b => b.IdBloqueo);
+
+            entity.Property(b => b.IdBloqueo)
+                .HasColumnName("id_bloqueo")
+                .HasMaxLength(36)
+                .IsRequired();
+
+            entity.Property(b => b.IdAsignatura)
+                .HasColumnName("id_asignatura")
+                .HasMaxLength(36)
+                .IsRequired();
+
+            entity.Property(b => b.Periodo)
+                .HasColumnName("periodo")
+                .HasMaxLength(10)
+                .IsRequired();
+
+            entity.Property(b => b.Dia)
+                .HasColumnName("dia")
+                .IsRequired();
+
+            entity.Property(b => b.HoraInicio)
+                .HasColumnName("hora_inicio")
+                .HasMaxLength(5)
+                .IsRequired();
+
+            entity.Property(b => b.HoraFin)
+                .HasColumnName("hora_fin")
+                .HasMaxLength(5)
+                .IsRequired();
+
+            entity.Property(b => b.Motivo)
+                .HasColumnName("motivo")
+                .HasMaxLength(250);
+
+            entity.Property(b => b.FechaCreacionUtc)
+                .HasColumnName("fecha_creacion_utc")
+                .IsRequired();
+
+            entity.HasOne(b => b.Asignatura)
+                .WithMany(a => a.BloqueosFranja)
+                .HasForeignKey(b => b.IdAsignatura)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(b => new
+            {
+                b.IdAsignatura,
+                b.Periodo,
+                b.Dia,
+                b.HoraInicio,
+                b.HoraFin
+            }).IsUnique();
         });
     }
 }

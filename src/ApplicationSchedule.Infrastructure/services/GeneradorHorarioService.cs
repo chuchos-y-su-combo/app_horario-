@@ -58,6 +58,10 @@ public class GeneradorHorarioService : IGeneradorHorarioService
             .Where(a => a.Periodo == request.Periodo)
             .ToListAsync(cancellationToken);
 
+        List<BloqueoFranjaAsignatura> bloqueosFranja = await _context.BloqueosFranjaAsignatura
+            .Where(b => b.Periodo == request.Periodo)
+            .ToListAsync(cancellationToken);
+
         List<Docente> docentes = await _context.Docentes
             .Include(d => d.Disponibilidades)
             .Include(d => d.AsignaturasHabilitadas)
@@ -112,6 +116,7 @@ public class GeneradorHorarioService : IGeneradorHorarioService
                     asignaturasEscenario,
                     docentes,
                     asignacionesExistentes,
+                    bloqueosFranja,
                     request.Periodo,
                     response,
                     resumen,
@@ -128,6 +133,7 @@ public class GeneradorHorarioService : IGeneradorHorarioService
                         asignatura,
                         docentes,
                         asignacionesExistentes,
+                        bloqueosFranja,
                         request.Periodo,
                         response,
                         resumen
@@ -156,6 +162,7 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         List<Asignatura> asignaturasEscenario,
         List<Docente> docentes,
         List<Asignacion> asignacionesExistentes,
+        List<BloqueoFranjaAsignatura> bloqueosFranja,
         string periodo,
         GenerarPropuestasHorarioResponse response,
         ResumenEscenarioHorarioResponse resumen,
@@ -173,6 +180,7 @@ public class GeneradorHorarioService : IGeneradorHorarioService
                 asignatura,
                 docentes,
                 asignacionesExistentes,
+                bloqueosFranja,
                 periodo,
                 response,
                 resumen
@@ -200,6 +208,7 @@ public class GeneradorHorarioService : IGeneradorHorarioService
                 opcion,
                 docentes,
                 asignacionesExistentes,
+                bloqueosFranja,
                 periodo
             );
 
@@ -249,6 +258,7 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         Asignatura asignatura,
         List<Docente> docentes,
         List<Asignacion> asignacionesExistentes,
+        List<BloqueoFranjaAsignatura> bloqueosFranja,
         string periodo,
         GenerarPropuestasHorarioResponse response,
         ResumenEscenarioHorarioResponse resumen)
@@ -261,6 +271,7 @@ public class GeneradorHorarioService : IGeneradorHorarioService
             asignatura,
             docentes,
             asignacionesExistentes,
+            bloqueosFranja,
             periodo
         );
 
@@ -300,6 +311,7 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         Asignatura asignatura,
         List<Docente> docentes,
         List<Asignacion> asignacionesExistentes,
+        List<BloqueoFranjaAsignatura> bloqueosFranja,
         string periodo)
     {
         List<Docente> docentesCandidatos = docentes
@@ -330,12 +342,24 @@ public class GeneradorHorarioService : IGeneradorHorarioService
                 continue;
             }
 
+
             foreach (Disponibilidad disponibilidad in disponibilidades)
             {
                 string horaInicio = disponibilidad.HoraInicio;
                 string horaFin = CalcularHoraFin(horaInicio, asignatura.Creditos);
 
                 if (!BloqueCabeEnDisponibilidad(horaInicio, horaFin, disponibilidad))
+                {
+                    continue;
+                }
+
+                if (ExisteBloqueoFranjaAsignatura(
+                    asignatura.IdAsignatura,
+                    periodo,
+                    disponibilidad.DiaSemana,
+                    horaInicio,
+                    horaFin,
+                    bloqueosFranja))
                 {
                     continue;
                 }
@@ -510,6 +534,21 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         return inicio >= disponibleInicio && fin <= disponibleFin;
     }
 
+    private static bool ExisteBloqueoFranjaAsignatura(
+        string idAsignatura,
+        string periodo,
+        int dia,
+        string horaInicio,
+        string horaFin,
+        List<BloqueoFranjaAsignatura> bloqueosFranja)
+    {
+        return bloqueosFranja.Any(b =>
+            b.IdAsignatura == idAsignatura &&
+            b.Periodo == periodo &&
+            b.Dia == dia &&
+            HorariosSeCruzan(horaInicio, horaFin, b.HoraInicio, b.HoraFin)
+        );
+    }
     private static bool ExisteCruceDocente(
         string idDocente,
         int dia,
