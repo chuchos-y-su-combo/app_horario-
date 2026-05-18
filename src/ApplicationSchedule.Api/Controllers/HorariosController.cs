@@ -1,9 +1,10 @@
 using ApplicationSchedule.Application.DTOs.Horarios;
 using ApplicationSchedule.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ApplicationSchedule.Api.Controllers;
-
+[Authorize]
 [ApiController]
 [Route("api/horarios")]
 public class HorariosController : ControllerBase

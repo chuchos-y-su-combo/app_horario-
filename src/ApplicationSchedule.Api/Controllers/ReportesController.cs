@@ -2,9 +2,10 @@ using ApplicationSchedule.Application.DTOs.Asignaciones;
 using ApplicationSchedule.Application.DTOs.Horarios;
 using ApplicationSchedule.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ApplicationSchedule.Api.Controllers;
-
+[Authorize]
 [ApiController]
 [Route("api/reportes")]
 public class ReportesController : ControllerBase

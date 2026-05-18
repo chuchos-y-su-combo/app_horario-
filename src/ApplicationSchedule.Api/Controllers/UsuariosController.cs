@@ -1,9 +1,10 @@
 using ApplicationSchedule.Application.DTOs.Usuarios;
 using ApplicationSchedule.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ApplicationSchedule.Api.Controllers;
-
+//[Authorize] //quitar el comentario en caso de que se quiera que solo los de token creen los usuarios
 [ApiController]
 [Route("api/usuarios")]
 public class UsuariosController : ControllerBase

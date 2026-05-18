@@ -4,6 +4,10 @@ using ApplicationSchedule.Infrastructure.Data;
 using ApplicationSchedule.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +18,39 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseSqlite(connectionString);
 });
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+
+var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("Falta la SecretKey del Jwt");
+var issuer = jwtSettings["Issuer"] ?? "ApplicationSchedule";
+var audience = jwtSettings["Audience"] ?? "ApplicationScheduleClients";
+
+var keyBytes = Encoding.UTF8.GetBytes(secretKey);
+
+builder.Services.AddAuthentication(config =>
+{
+    config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(config =>
+{
+    config.RequireHttpsMetadata = false;
+    config.SaveToken = true;
+    config.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+
+        ValidateIssuer = true,
+        ValidIssuer = issuer,
+
+        ValidateAudience = true,
+        ValidAudience = audience,
+
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
 
 builder.Services.AddScoped<IAsignaturaService, AsignaturaService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
@@ -28,6 +65,7 @@ builder.Services.AddScoped<IHorarioExportService, HorarioExportService>();
 builder.Services.AddScoped<IReporteCargaService, ReporteCargaService>();
 builder.Services.AddScoped<IConflictoAsignacionService, ConflictoAsignacionService>();
 
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddControllers();
 
@@ -78,6 +116,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("FrontendLocal");
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 
