@@ -46,7 +46,7 @@ public class AsignacionService : IAsignacionService
             .ToListAsync();
     }
 
-    public async Task<List<AsignacionResponse>> ObtenerFiltradasAsync(int? semestre, string? idDocente, string? idAsignatura, string? periodo)
+    public async Task<List<AsignacionResponse>> ObtenerFiltradasAsync(int? semestre, string? idDocente, string? idAsignatura, string? periodo, string? estado = null)
     {
         var query = _context.Set<Asignacion>()
             .Include(a => a.Docente)
@@ -64,6 +64,9 @@ public class AsignacionService : IAsignacionService
 
         if (!string.IsNullOrWhiteSpace(periodo))
             query = query.Where(a => a.Periodo == periodo);
+
+        if (!string.IsNullOrWhiteSpace(estado))
+            query = query.Where(a => a.Estado == estado);
 
         List<Asignacion> asignaciones = await query
             .OrderByDescending(a => a.Periodo)
