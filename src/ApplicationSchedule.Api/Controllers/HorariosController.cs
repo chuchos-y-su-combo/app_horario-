@@ -10,13 +10,16 @@ public class HorariosController : ControllerBase
 {
     private readonly IGeneradorHorarioService _generadorHorarioService;
     private readonly IHorarioExportService _horarioExportService;
+    private readonly ICalendarioSemanalService _calendarioSemanalService;
 
     public HorariosController(
         IGeneradorHorarioService generadorHorarioService,
-        IHorarioExportService horarioExportService)
+        IHorarioExportService horarioExportService,
+        ICalendarioSemanalService calendarioSemanalService)
     {
         _generadorHorarioService = generadorHorarioService;
         _horarioExportService = horarioExportService;
+        _calendarioSemanalService = calendarioSemanalService;
     }
 
     /// <summary>
@@ -37,15 +40,12 @@ public class HorariosController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new
-            {
-                mensaje = ex.Message
-            });
+            return BadRequest(new { mensaje = ex.Message });
         }
     }
 
     /// <summary>
-    /// RF-22, RF-23: Exporta el horario filtrado por semestre, docente o asignatura a un archivo Excel (.xlsx).
+    /// Exporta el horario filtrado por semestre, docente o asignatura a Excel.
     /// </summary>
     [HttpGet("exportar")]
     public async Task<IActionResult> ExportarHorario(
@@ -54,9 +54,46 @@ public class HorariosController : ControllerBase
         [FromQuery] string? idAsignatura,
         [FromQuery] string? periodo)
     {
-        var excelBytes = await _horarioExportService.ExportarHorariosAsync(semestre, idDocente, idAsignatura, periodo);
+        var excelBytes = await _horarioExportService.ExportarHorariosAsync(
+            semestre, idDocente, idAsignatura, periodo);
+
         var nombreArchivo = $"Horarios_Confirmados_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
 
-        return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", nombreArchivo);
+        return File(
+            excelBytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            nombreArchivo);
+    }
+
+    /// <summary>
+    /// Issue #39: Devuelve el horario en vista de calendario semanal (Lunes-Sábado),
+    /// filtrable por plan de estudios y jornada.
+    /// Solo incluye asignaciones con bloque horario definido.
+    /// </summary>
+    [HttpGet("calendario")]
+    public async Task<ActionResult<CalendarioSemanalResponse>> ObtenerCalendario(
+        [FromQuery] string semestre,
+        [FromQuery] string? idPlan = null,
+        [FromQuery] string? jornada = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(semestre))
+            return BadRequest(new { mensaje = "El parámetro 'semestre' es obligatorio." });
+
+        if (jornada is not null &&
+            !jornada.Equals("Diurna", StringComparison.OrdinalIgnoreCase) &&
+            !jornada.Equals("Nocturna", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                mensaje = "El parámetro 'jornada' debe ser 'Diurna' o 'Nocturna'."
+            });
+        }
+
+        CalendarioSemanalResponse calendario =
+            await _calendarioSemanalService.ObtenerCalendarioAsync(
+                semestre, idPlan, jornada, cancellationToken);
+
+        return Ok(calendario);
     }
 }
