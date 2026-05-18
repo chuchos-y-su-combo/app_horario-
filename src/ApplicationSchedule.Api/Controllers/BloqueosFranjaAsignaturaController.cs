@@ -2,10 +2,11 @@ using ApplicationSchedule.Application.DTOs.Bloqueos;
 using ApplicationSchedule.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ApplicationSchedule.Application.Security;
 
 namespace ApplicationSchedule.Api.Controllers;
 
-[Authorize]
+[Authorize(Roles = RolesSistema.AdministradorOCoordinador)]
 [ApiController]
 [Route("api/asignaturas")]
 public class BloqueosFranjaAsignaturaController : ControllerBase

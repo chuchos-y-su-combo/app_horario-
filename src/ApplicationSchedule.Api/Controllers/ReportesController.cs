@@ -3,9 +3,10 @@ using ApplicationSchedule.Application.DTOs.Horarios;
 using ApplicationSchedule.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using ApplicationSchedule.Application.Security;
 
 namespace ApplicationSchedule.Api.Controllers;
-[Authorize]
+[Authorize(Roles = RolesSistema.AdministradorOCoordinador)]
 [ApiController]
 [Route("api/reportes")]
 public class ReportesController : ControllerBase
