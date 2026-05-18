@@ -1,1025 +1,1422 @@
 # ApplicationSchedule API
 
-Backend para la gestión de horarios académicos.
+Backend para la gestión de horarios académicos universitarios.
 
-El sistema permite administrar usuarios, roles, docentes, asignaturas, asignaciones académicas, currículo docente, disponibilidad docente y reglas especiales para estudiantes provenientes de TAPSI.
+Este proyecto hace parte de una aplicación de escritorio para la planeación, generación, revisión y exportación de horarios académicos. El backend está construido en **C#**, **ASP.NET Core Web API**, **Entity Framework Core** y **SQLite**.
 
-Está desarrollado en C# con ASP.NET Core, Entity Framework Core y SQLite.
-
----
-
-## Tecnologías utilizadas
-
-- C#
-- .NET 10.0
-- ASP.NET Core Web API
-- Entity Framework Core
-- SQLite
-- ClosedXML
-- Swagger / OpenAPI
-- xUnit
-- FluentAssertions
-- BCrypt para hash de contraseñas
-- Git Flow
-- GitHub / GitHub Desktop
+La finalidad del backend es exponer servicios REST para que el equipo de frontend pueda integrarlos en una aplicación de escritorio. Aunque la aplicación final será visual y local, el backend funciona como una API local que centraliza reglas de negocio, persistencia y validaciones.
 
 ---
 
-## Estado actual del proyecto
+## 1. Contexto del proyecto
 
-| Requerimiento          | Estado | Descripción |
-|------------------------|---|---|
-| Req 2                  | Implementado | Crear y gestionar cuentas con rol administrador o coordinador |
-| Req 3                  | Implementado | Registrar docentes con nombre, identificación y tipo de contrato |
-| Req 4                  | Implementado | Registrar asignaturas con nombre, código, créditos, semestre y plan de estudios |
-| Req 5                  | Implementado | Limitar carga docente según contrato |
-| Req 6                  | Implementado | Cargar currículo docente desde Excel |
-| Req 7                  | Implementado | Marcar materias obligatorias TAPSI como fijas |
-| Req 8                  | Implementado | Contemplar asignatura adicional requerida para TAPSI jornada diurna |
-| Disponibilidad docente | Implementado | Importar disponibilidad docente desde el Excel actual de coordinación |
-| Req 9                  | Implementado | Generar automáticamente propuestas de asignación para los 4 escenarios |
-| Issue #10              | Implementado | Asignar asignaturas a docentes de forma manual |
-| Issue #11              | Implementado | Reducir disponibilidad de un docente que dicta la misma materia en jornada diurna y nocturna |
-| Issue #12              | Implementado | Revisar y ajustar manualmente la propuesta generada antes de confirmarla |
-| Issue #16              | Implementado | Generar reporte de horas asignadas vs carga contractual por docente |
-| Issue #18              | Implementado | Alertar cuando una asignación genera conflicto |
-| Issue #39              | Implementado | Mostrar el horario en vista de calendario semanal filtrable por plan y jornada |
-| Issue #40              | Implementado | Mostrar el horario individual de cada docente y colocar asignaturas en un día de la semana |
-| Issue #34             | Implementado | El sistema debe requerir autenticación con correo y contraseña para acceder |
+La universidad requiere un sistema que apoye la organización de horarios académicos considerando restricciones reales de coordinación, docentes, asignaturas, planes de estudio y jornadas.
+
+El sistema permite gestionar:
+
+- Usuarios con rol administrador o coordinador.
+- Docentes.
+- Asignaturas.
+- Planes de estudio.
+- Disponibilidad docente.
+- Currículo docente.
+- Asignaciones manuales.
+- Generación automática de propuestas de horario.
+- Revisión y ajuste de propuestas.
+- Validación de conflictos.
+- Exportación de horarios.
+- Historial de asignaciones.
+- Bloqueo de franjas horarias para asignaturas específicas.
 
 ---
 
-## Objetivo del sistema
+## 2. Tecnologías utilizadas
 
-El objetivo del sistema es apoyar la gestión académica necesaria para la construcción de horarios universitarios.
-
-El sistema permite:
-
-- Gestionar usuarios administradores y coordinadores.
-- Registrar docentes y asignaturas.
-- Asociar asignaturas a planes de estudio.
-- Controlar la carga docente según tipo de contrato.
-- Importar currículo docente y disponibilidad desde Excel.
-- Marcar materias TAPSI obligatorias como fijas.
-- Generar automáticamente propuestas de asignación para 4 escenarios.
-- Asignar asignaturas a docentes de forma manual.
-- Colocar asignaciones en un día y bloque horario específico.
-- Revisar, ajustar y confirmar propuestas antes de publicar el horario.
-- Generar reporte de horas asignadas vs carga contractual por docente.
-- Detectar y alertar conflictos en las asignaciones del semestre.
-- Mostrar el horario en vista de calendario semanal filtrable por plan y jornada.
-- Mostrar el horario individual de cada docente en vista de calendario semanal.
-
----
-
-## Base de datos
-
-El proyecto utiliza SQLite adaptado desde el modelo original en MySQL Workbench.
-
-### Adaptaciones para SQLite
-
-| MySQL original | SQLite |
+| Tecnología | Uso |
 |---|---|
-| `CREATE DATABASE` | No se usa |
-| `CHAR(36)` | `TEXT` |
-| `ENUM` | `TEXT CHECK (...)` |
-| `TINYINT(1)` | `INTEGER CHECK (0, 1)` |
-| `TIME` | `TEXT` con formato `HH:mm` |
-
-### Tablas principales
-
-```txt
-roles, usuarios, planes_estudio, docentes, asignaturas,
-docentes_habilitados, disponibilidad, asignaciones, bloqueos
-```
+| C# | Lenguaje principal del backend |
+| .NET | Plataforma de ejecución |
+| ASP.NET Core Web API | Exposición de endpoints REST |
+| Entity Framework Core | Acceso a datos |
+| SQLite | Base de datos local |
+| Swagger / OpenAPI | Pruebas y documentación interactiva de endpoints |
+| xUnit | Pruebas automatizadas |
+| FluentAssertions | Validaciones legibles en pruebas |
+| Excel .xlsx | Importación de disponibilidad y currículo docente |
+| Git | Control de versiones |
+| GitHub | Repositorio remoto y Pull Requests |
+| GitHub Desktop | Flujo visual para ramas, commits y push |
 
 ---
 
-## Estructura del proyecto
+## 3. Arquitectura general
+
+El proyecto está organizado por capas para separar responsabilidades y facilitar mantenimiento.
 
 ```txt
 src/
-├── ApplicationSchedule.Api           → Controladores, Program.cs, Swagger
-├── ApplicationSchedule.Application   → DTOs, Interfaces
-├── ApplicationSchedule.Domain        → Entidades
-├── ApplicationSchedule.Infrastructure → DbContext, Servicios
-└── ApplicationSchedule.Tests         → Pruebas de integración
-database/
-docs/
-README.md
+├── ApplicationSchedule.Api
+│   ├── Controllers
+│   └── Program.cs
+│
+├── ApplicationSchedule.Application
+│   ├── DTOs
+│   └── Interfaces
+│
+├── ApplicationSchedule.Domain
+│   └── Entities
+│
+├── ApplicationSchedule.Infrastructure
+│   ├── Data
+│   └── services
+│
+└── ApplicationSchedule.Tests
+    ├── Controllers
+    └── Infrastructure
 ```
 
 ---
 
-## Configuración
+## 4. Responsabilidad de cada capa
 
-Cadena de conexión en `src/ApplicationSchedule.Api/appsettings.json`:
+### 4.1. ApplicationSchedule.Api
+
+Contiene los controladores y la configuración principal de la API.
+
+Responsabilidades:
+
+- Recibir peticiones HTTP.
+- Validar entrada básica.
+- Devolver respuestas HTTP.
+- Configurar Swagger.
+- Configurar autenticación.
+- Registrar servicios en inyección de dependencias.
+- Inicializar la base de datos local.
+
+Ejemplos de controladores:
+
+```txt
+Controllers/
+├── AuthController.cs
+├── UsuariosController.cs
+├── ProfesoresController.cs
+├── AsignaturasController.cs
+├── AsignacionesController.cs
+├── HorariosController.cs
+├── BloqueosFranjaAsignaturaController.cs
+```
+
+---
+
+### 4.2. ApplicationSchedule.Application
+
+Contiene DTOs e interfaces.
+
+Responsabilidades:
+
+- Definir qué datos recibe la API.
+- Definir qué datos devuelve la API.
+- Definir interfaces de servicios.
+- Evitar que los controladores dependan directamente de la capa Infrastructure.
+
+Ejemplos:
+
+```txt
+DTOs/
+├── Asignaturas
+├── Profesores
+├── Asignaciones
+├── Horarios
+├── Bloqueos
+└── Usuarios
+
+Interfaces/
+├── IAsignaturaService.cs
+├── IProfesorService.cs
+├── IAsignacionService.cs
+├── IGeneradorHorarioService.cs
+├── IConflictoAsignacionService.cs
+├── IBloqueoFranjaAsignaturaService.cs
+```
+
+---
+
+### 4.3. ApplicationSchedule.Domain
+
+Contiene las entidades principales del dominio.
+
+Responsabilidades:
+
+- Representar los objetos principales del sistema.
+- Mantener la estructura base del modelo.
+- No depender de controladores ni de infraestructura.
+
+Ejemplos:
+
+```txt
+Entities/
+├── Usuario.cs
+├── Rol.cs
+├── Docente.cs
+├── Asignatura.cs
+├── PlanEstudio.cs
+├── Disponibilidad.cs
+├── Asignacion.cs
+├── DocenteHabilitado.cs
+├── BloqueoFranjaAsignatura.cs
+```
+
+---
+
+### 4.4. ApplicationSchedule.Infrastructure
+
+Contiene la implementación concreta de los servicios, acceso a datos y reglas de negocio.
+
+Responsabilidades:
+
+- Implementar servicios.
+- Consultar y modificar SQLite mediante Entity Framework Core.
+- Parsear archivos Excel.
+- Aplicar reglas de negocio.
+- Generar propuestas de horario.
+- Detectar conflictos.
+- Exportar reportes.
+
+Ejemplos:
+
+```txt
+Data/
+└── AppDbContext.cs
+
+services/
+├── AsignaturaService.cs
+├── ProfesorService.cs
+├── AsignacionService.cs
+├── GeneradorHorarioService.cs
+├── ConflictoAsignacionService.cs
+├── BloqueoFranjaAsignaturaService.cs
+├── DisponibilidadExcelParser.cs
+```
+
+---
+
+## 5. Base de datos
+
+El sistema utiliza **SQLite** como base de datos local.
+
+Tablas principales:
+
+```txt
+roles
+usuarios
+planes_estudio
+docentes
+asignaturas
+disponibilidades
+asignaciones
+docentes_habilitados
+bloqueos_franja_asignatura
+```
+
+SQLite permite que la aplicación funcione localmente sin depender de un servidor externo de base de datos.
+
+---
+
+## 6. Estado de requerimientos implementados
+
+| Issue / Req | Estado | Descripción |
+|---|---:|---|
+| #1 | Implementado | Crear base de datos del sistema. |
+| #2 | Implementado | Crear y gestionar cuentas con rol administrador o coordinador. |
+| #3 | Implementado | Registrar docentes con nombre, identificación y tipo de contrato. |
+| #4 | Implementado | Registrar asignaturas con nombre, código, créditos, semestre y plan de estudios. |
+| #5 | Implementado | Limitar carga según contrato: tiempo completo máximo 5 asignaturas, tiempo parcial máximo 3. |
+| #6 | Implementado | Importar disponibilidad docente desde archivo Excel actual de coordinación. |
+| #7 | Implementado | Marcar las 5 materias obligatorias TAPSI como fijas en la generación de horarios. |
+| #8 | Implementado | Contemplar asignatura adicional requerida para TAPSI jornada diurna. |
+| #9 | Implementado | Generar automáticamente propuestas de asignación para los 4 planes/jornadas. |
+| #10 | Implementado | Permitir asignar asignaturas a docentes de forma manual. |
+| #11 | Implementado | Reducir disponibilidad de un docente que dicta la misma materia en jornada diurna y nocturna. |
+| #12 | Implementado | Permitir al coordinador revisar y ajustar manualmente la propuesta generada antes de confirmarla. |
+| #13 | Implementado | Exportar horario filtrado por semestre. |
+| #14 | Implementado | Exportar horario filtrado por docente. |
+| #15 | Implementado | Exportar horario filtrado por asignatura. |
+| #16 | Implementado | Generar reporte de horas de clase asignadas vs carga contractual por docente. |
+| #17 | Implementado | Mostrar horario individual de cada docente. |
+| #18 | Implementado | Alertar cuando una asignación genera conflicto. |
+| #19 | Implementado | Conservar historial de asignaciones de semestres anteriores para consulta. |
+| #20 | Implementado | Cargar currículo docente y determinar automáticamente asignaturas que puede dictar. |
+| #34 | Implementado | Autenticación con correo y contraseña. |
+| #36 | Implementado | Bloquear franjas horarias para una asignatura específica. |
+| #38 | Implementado | Exportación disponible al menos en formato Excel .xlsx. |
+| #39 | Implementado | Mostrar horario en vista de calendario semanal filtrable por plan. |
+| #40 | Implementado | Mostrar horario individual de cada docente. |
+
+---
+
+## 7. Requerimiento 36: bloqueo de franjas horarias por asignatura
+
+### 7.1. Descripción
+
+El coordinador puede bloquear una franja horaria para una asignatura específica.
+
+Esto significa que una asignatura no podrá ser programada en un periodo, día y rango de horas definido.
+
+Ejemplo:
+
+```txt
+Asignatura: Cálculo Diferencial
+Periodo: 2026-1
+Día: Lunes
+Bloqueo: 08:00 - 10:00
+```
+
+Resultado:
+
+```txt
+La asignatura Cálculo Diferencial no podrá programarse el lunes entre 08:00 y 10:00 durante el periodo 2026-1.
+```
+
+---
+
+### 7.2. Tabla creada
+
+```txt
+bloqueos_franja_asignatura
+```
+
+Campos principales:
+
+| Campo | Descripción |
+|---|---|
+| id_bloqueo | Identificador único del bloqueo |
+| id_asignatura | Asignatura afectada |
+| periodo | Periodo académico |
+| dia | Día de la semana |
+| hora_inicio | Hora inicial bloqueada |
+| hora_fin | Hora final bloqueada |
+| motivo | Motivo opcional del bloqueo |
+| fecha_creacion_utc | Fecha de creación del registro |
+
+---
+
+### 7.3. Reglas implementadas
+
+El sistema valida que:
+
+- La asignatura exista.
+- El periodo sea obligatorio.
+- El día esté entre 1 y 6.
+- La hora de inicio sea menor que la hora de fin.
+- No exista otro bloqueo solapado para la misma asignatura, periodo y día.
+- El generador automático no use franjas bloqueadas.
+- Las asignaciones manuales no puedan hacerse sobre franjas bloqueadas.
+- Los ajustes manuales no puedan mover una asignatura a una franja bloqueada.
+- El reporte de conflictos detecte asignaciones existentes que caen dentro de una franja bloqueada.
+
+---
+
+### 7.4. Integración con Excel
+
+El archivo Excel de coordinación se usa para importar disponibilidad docente y datos relacionados con los profesores.
+
+El Req 36 **no reemplaza** esa disponibilidad. La complementa.
+
+Flujo correcto:
+
+```txt
+Excel indica cuándo puede dictar clase un docente.
+Req 36 indica cuándo NO se puede dictar una asignatura específica.
+El generador cruza ambas restricciones.
+```
+
+Ejemplo:
+
+```txt
+Docente disponible:
+Lunes 08:00 - 12:00
+
+Bloqueo de asignatura:
+Lunes 08:00 - 10:00
+
+Resultado:
+La asignatura no se programa de 08:00 a 10:00.
+El sistema puede intentar ubicarla de 10:00 a 12:00 o en otra disponibilidad válida.
+```
+
+Si una asignación ya existía antes de crear el bloqueo, el sistema no la elimina automáticamente. En ese caso, el reporte de conflictos debe alertar que hay una asignación ubicada dentro de una franja bloqueada.
+
+---
+
+## 8. Endpoints principales
+
+### 8.1. Autenticación
+
+```http
+POST /api/auth/login
+```
+
+Body de ejemplo:
 
 ```json
 {
-  "ConnectionStrings": {
-    "DefaultConnection": "Data Source=horarios.db"
-  }
+  "correo": "coordinador@test.com",
+  "password": "Password123"
 }
 ```
 
-La base se crea automáticamente con `context.Database.EnsureCreated()`.
-
-`.gitignore` recomendado:
-
-```gitignore
-*.db
-*.db-shm
-*.db-wal
-bin/
-obj/
-.vs/
-.idea/
-*.user
-*.dll
-*.pdb
-```
-
 ---
 
-## Datos base creados automáticamente
-
-| Roles | ID |
-|---|---|
-| Administrador | 1 |
-| Coordinador | 2 |
-
-| Plan de estudios | ID | Jornada |
-|---|---|---|
-| Plan de Estudios 1020 Jornada Diurna | `11111111-1111-1111-1111-111111111111` | Diurna |
-| Plan de Estudios Jornada Noche | `22222222-2222-2222-2222-222222222222` | Nocturna |
-
----
-
-# Requerimientos base (Req 2 al Req 9)
-
-## Req 2 — Usuarios
+### 8.2. Usuarios
 
 ```http
-GET    /api/usuarios
 POST   /api/usuarios
-GET    /api/usuarios/{idUsuario}
-PUT    /api/usuarios/{idUsuario}
-PATCH  /api/usuarios/{idUsuario}/password
-DELETE /api/usuarios/{idUsuario}
+GET    /api/usuarios
+GET    /api/usuarios/{id}
+PUT    /api/usuarios/{id}
+DELETE /api/usuarios/{id}
 ```
 
-## Req 3 — Docentes
+Body de ejemplo para crear usuario:
+
+```json
+{
+  "nombreCompleto": "Coordinador Pruebas",
+  "correo": "coordinador@test.com",
+  "password": "Password123",
+  "idRol": 2
+}
+```
+
+---
+
+### 8.3. Docentes
 
 ```http
-GET    /api/profesores
 POST   /api/profesores
-GET    /api/profesores/{idProfesor}
-PUT    /api/profesores/{idProfesor}
-DELETE /api/profesores/{idProfesor}
+GET    /api/profesores
+GET    /api/profesores/{id}
+PUT    /api/profesores/{id}
+DELETE /api/profesores/{id}
 ```
 
-Tipos de contrato: `TC` (máx. 5 asignaturas) y `TP` (máx. 3 asignaturas).
+Body de ejemplo:
 
-## Req 4 — Asignaturas
+```json
+{
+  "nombre": "Docente Prueba",
+  "identificacion": "123456789",
+  "tipoContrato": "TC"
+}
+```
+
+Tipos de contrato:
+
+```txt
+TC = Tiempo completo
+TP = Tiempo parcial
+```
+
+Reglas:
+
+```txt
+TC: máximo 5 asignaturas
+TP: máximo 3 asignaturas
+```
+
+---
+
+### 8.4. Asignaturas
 
 ```http
-GET    /api/asignaturas
 POST   /api/asignaturas
-GET    /api/asignaturas/{idAsignatura}
-GET    /api/asignaturas/plan/{idPlan}
-PUT    /api/asignaturas/{idAsignatura}
-DELETE /api/asignaturas/{idAsignatura}
+GET    /api/asignaturas
+GET    /api/asignaturas/{id}
+PUT    /api/asignaturas/{id}
+DELETE /api/asignaturas/{id}
 ```
 
-## Req 5 — Límite de carga docente
+Body de ejemplo:
 
-El sistema cuenta asignaturas **distintas** por docente y periodo, no bloques horarios.
+```json
+{
+  "idPlan": "11111111-1111-1111-1111-111111111111",
+  "codigo": "103007",
+  "nombre": "Técnicas de programación",
+  "creditos": 3,
+  "semestre": 1,
+  "minEstudiantes": 15,
+  "esFijaTapsi": true,
+  "esOpcionalTapsiDiurna": false
+}
+```
+
+---
+
+### 8.5. Asignaciones manuales
 
 ```http
-GET    /api/asignaciones
 POST   /api/asignaciones
-GET    /api/asignaciones/docente/{idDocente}
-GET    /api/asignaciones/docente/{idDocente}/resumen?periodo=2026-1
-DELETE /api/asignaciones/{idAsignacion}
+GET    /api/asignaciones
+GET    /api/asignaciones/{id}
+PUT    /api/asignaciones/{id}
+DELETE /api/asignaciones/{id}
 ```
 
-## Req 6 y Disponibilidad — Excel
+Body de ejemplo:
 
-```http
-POST /api/profesores/importar-excel
-GET  /api/profesores/{idProfesor}/asignaturas-habilitadas
-GET  /api/profesores/{idProfesor}/disponibilidad
+```json
+{
+  "idDocente": "ID_DOCENTE",
+  "idAsignatura": "ID_ASIGNATURA",
+  "dia": 1,
+  "horaInicio": "08:00",
+  "horaFin": "10:00",
+  "periodo": "2026-1"
+}
 ```
 
-## Req 7 — TAPSI fijas
+Validaciones principales:
 
-```http
-GET  /api/asignaturas/tapsi/fijas
-POST /api/asignaturas/tapsi/marcar-fijas
-```
+- El docente debe existir.
+- La asignatura debe existir.
+- No debe exceder la carga contractual.
+- No debe existir cruce horario del docente.
+- No debe existir duplicado exacto.
+- No debe caer en una franja bloqueada por el Req 36.
 
-## Req 8 — TAPSI jornada diurna
+---
 
-```http
-GET  /api/asignaturas/tapsi/diurna/opciones-adicionales
-GET  /api/asignaturas/tapsi/diurna/plan
-POST /api/asignaturas/tapsi/diurna/marcar-opciones-adicionales
-```
-
-## Req 9 — Generación automática de propuestas
-
-Escenarios: `ING_DIURNA`, `ING_NOCTURNA`, `TAPSI_DIURNA`, `TAPSI_NOCTURNA`.
+### 8.6. Generación automática de horarios
 
 ```http
 POST /api/horarios/generar-propuestas
 ```
 
----
-
-# Issue #10: asignación manual de asignaturas
-
-## Descripción
-
-El coordinador asigna manualmente una asignatura a un docente para un semestre, sin bloque horario. El bloque se puede completar después con el Issue #40.
-
-## Reglas de negocio
-
-- Valida existencia de docente y asignatura.
-- Respeta límite de carga por contrato.
-- Si hay currículo cargado, valida que el docente esté habilitado (`ForzarSinCurriculo = true` para omitir).
-- No permite duplicar la misma asignatura en el mismo semestre.
-- La asignación queda con estado `AsignadaManual`, `Dia = 0`, horas vacías.
-
-## Endpoints
-
-```http
-POST /api/asignaciones/manual
-GET  /api/asignaciones/docente/{idDocente}/asignaturas-disponibles?periodo=2026-1
-```
-
-### POST /api/asignaciones/manual
+Body de ejemplo:
 
 ```json
 {
-  "idDocente": "uuid",
-  "idAsignatura": "uuid",
   "periodo": "2026-1",
-  "forzarSinCurriculo": false
+  "escenarios": [
+    "ING_DIURNA",
+    "ING_NOCTURNA",
+    "TAPSI_DIURNA",
+    "TAPSI_NOCTURNA"
+  ],
+  "semestreIngenieria": 1,
+  "borrarPropuestasPrevias": true
 }
 ```
 
-Respuesta (201): asignación con `"estado": "AsignadaManual"`, `"dia": 0`, `"horaInicio": ""`.
+El generador evalúa:
+
+- Plan de estudios.
+- Jornada.
+- Semestre.
+- Disponibilidad docente.
+- Docentes habilitados.
+- Carga máxima por contrato.
+- Cruces de horario.
+- Materias fijas TAPSI.
+- Materias adicionales TAPSI.
+- Homologaciones TAPSI.
+- Bloqueos de franja por asignatura.
 
 ---
 
-# Issue #11: reducción de disponibilidad por doble jornada
-
-## Descripción
-
-Cuando un docente dicta la misma asignatura en jornada diurna y nocturna, el sistema elimina los bloques de disponibilidad que se solapan con la jornada diurna.
-
-## Endpoint
+### 8.7. Bloqueos de franja por asignatura
 
 ```http
-POST /api/curriculos-docentes/{idDocente}/reducir-disponibilidad?idAsignatura={id}&periodo=2026-1
+GET    /api/asignaturas/bloqueos-franja?periodo=2026-1
+GET    /api/asignaturas/{idAsignatura}/bloqueos-franja?periodo=2026-1
+POST   /api/asignaturas/{idAsignatura}/bloqueos-franja
+DELETE /api/asignaturas/bloqueos-franja/{idBloqueo}
 ```
 
-Respuesta (200):
+Body de ejemplo para crear bloqueo:
 
 ```json
 {
-  "bloquesEliminados": 1,
-  "bloquesAfectados": ["Día 1 08:00-10:00"],
-  "mensaje": "Se eliminaron 1 bloque(s) de disponibilidad por doble jornada."
+  "periodo": "2026-1",
+  "dia": 1,
+  "horaInicio": "08:00",
+  "horaFin": "10:00",
+  "motivo": "Laboratorio no disponible para esta asignatura"
+}
+```
+
+Respuesta esperada:
+
+```json
+{
+  "idBloqueo": "GUID",
+  "idAsignatura": "ID_ASIGNATURA",
+  "codigoAsignatura": "103007",
+  "nombreAsignatura": "Técnicas de programación",
+  "periodo": "2026-1",
+  "dia": 1,
+  "diaNombre": "Lunes",
+  "horaInicio": "08:00",
+  "horaFin": "10:00",
+  "motivo": "Laboratorio no disponible para esta asignatura",
+  "fechaCreacionUtc": "2026-05-18T00:00:00Z"
 }
 ```
 
 ---
 
-# Issue #12: revisión y ajuste de propuestas
-
-## Descripción
-
-El coordinador revisa las propuestas generadas, ajusta campos, cancela las que no aplican y confirma en bloque.
-
-## Estados de una asignación
-
-| Estado | Puede ajustarse | Puede confirmarse | Puede cancelarse |
-|--------|:-:|:-:|:-:|
-| `Propuesta` | ✅ | ✅ | ✅ |
-| `AsignadaManual` | ✅ | ✅ | ✅ |
-| `Confirmada` | ❌ | ❌ | ❌ |
-| `Cancelada` | ❌ | ❌ | ❌ |
-
-## Endpoints
+### 8.8. Conflictos de horario
 
 ```http
-GET   /api/asignaciones/propuestas?periodo=2026-1
-PATCH /api/asignaciones/{idAsignacion}/ajustar
-POST  /api/asignaciones/confirmar
-PATCH /api/asignaciones/{idAsignacion}/cancelar
+GET /api/horarios/conflictos?periodo=2026-1
 ```
 
-### PATCH /api/asignaciones/{id}/ajustar
+Conflictos detectados:
 
-Todos los campos son opcionales. Solo se actualiza lo que se envíe.
+- Cruce de horario.
+- Exceso de carga.
+- Asignatura sin docente.
+- Docente con asignatura sin horario.
+- Franja bloqueada por asignatura.
+
+---
+
+### 8.9. Exportaciones
+
+El sistema permite exportar horarios en formato Excel `.xlsx`.
+
+Filtros soportados:
+
+```txt
+Por semestre
+Por docente
+Por asignatura
+```
+
+---
+
+### 8.10. Horario individual docente
+
+El sistema permite consultar el horario individual de cada docente.
+
+Uso esperado:
+
+```txt
+El frontend podrá mostrar una vista semanal del docente con sus asignaciones.
+```
+
+---
+
+## 9. Materias fijas TAPSI
+
+El sistema contempla materias obligatorias TAPSI que deben tratarse como fijas en la generación de horarios.
+
+Materias TAPSI fijas:
+
+| Código | Asignatura |
+|---|---|
+| 104030 | Cálculo Diferencial |
+| 103007 | Técnicas de Programación |
+| 103018 | Programación Orientada a Objetos |
+| 103004 | Teoría de Sistemas |
+| 103027 | Sistemas Operativos |
+
+Estas materias:
+
+- No deben moverse arbitrariamente.
+- No deben cruzarse.
+- Deben respetarse como restricciones fuertes.
+- Deben ubicarse en franjas separadas.
+
+---
+
+## 10. Homologaciones TAPSI
+
+Para la generación de horarios TAPSI, el sistema asume que ciertas asignaturas homologables ya fueron homologadas.
+
+Esto evita que el generador intente programar materias que no deberían aparecer como pendientes para TAPSI.
+
+Ejemplos de asignaturas homologables:
+
+```txt
+Matemáticas básicas
+Álgebra lineal
+Fundamentos de ingeniería
+Lógica de programación
+Fundamentos de programación orientada a objetos
+```
+
+---
+
+## 11. Importación desde Excel
+
+El sistema permite trabajar con el archivo Excel actual de coordinación.
+
+El Excel puede contener:
+
+- Disponibilidad general.
+- Hojas por docente.
+- Horarios disponibles.
+- Información de asignaturas o espacios asociados.
+- Información útil para cargar disponibilidad al sistema.
+
+El archivo Excel no se reemplaza por otro formato. Se mantiene como entrada válida del sistema porque corresponde al archivo usado por coordinación.
+
+Flujo esperado:
+
+```txt
+1. Coordinación entrega el Excel.
+2. El backend procesa el archivo.
+3. Se cargan disponibilidades y/o currículo docente.
+4. El generador automático usa esa información.
+5. El coordinador puede revisar y ajustar.
+6. El coordinador puede bloquear franjas específicas por asignatura.
+7. El sistema valida conflictos.
+8. El sistema genera exportaciones.
+```
+
+---
+
+## 12. Flujo completo de uso
+
+### Paso 1: ejecutar la API
+
+```powershell
+dotnet run --project .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
+```
+
+Swagger:
+
+```txt
+http://localhost:5213/swagger
+```
+
+---
+
+### Paso 2: crear usuario coordinador
+
+```http
+POST /api/usuarios
+```
 
 ```json
 {
-  "idDocente": "nuevo-uuid",
-  "idAsignatura": "nuevo-uuid",
-  "dia": 3,
+  "nombreCompleto": "Coordinador Pruebas",
+  "correo": "coordinador@test.com",
+  "password": "Password123",
+  "idRol": 2
+}
+```
+
+---
+
+### Paso 3: iniciar sesión
+
+```http
+POST /api/auth/login
+```
+
+```json
+{
+  "correo": "coordinador@test.com",
+  "password": "Password123"
+}
+```
+
+Copiar el token y usarlo en Swagger o Postman como:
+
+```txt
+Bearer TOKEN_GENERADO
+```
+
+---
+
+### Paso 4: registrar docentes
+
+```http
+POST /api/profesores
+```
+
+```json
+{
+  "nombre": "Docente Prueba",
+  "identificacion": "123456789",
+  "tipoContrato": "TC"
+}
+```
+
+---
+
+### Paso 5: registrar asignaturas
+
+```http
+POST /api/asignaturas
+```
+
+```json
+{
+  "idPlan": "11111111-1111-1111-1111-111111111111",
+  "codigo": "REQ36001",
+  "nombre": "Asignatura Prueba Bloqueo",
+  "creditos": 2,
+  "semestre": 1,
+  "minEstudiantes": 15,
+  "esFijaTapsi": false,
+  "esOpcionalTapsiDiurna": false
+}
+```
+
+---
+
+### Paso 6: importar disponibilidad desde Excel
+
+Usar el endpoint correspondiente de importación disponible en Swagger.
+
+El archivo esperado es un `.xlsx`.
+
+El Excel se usa para alimentar disponibilidad y datos relacionados con docentes. El Req 36 funciona como una restricción adicional guardada en SQLite.
+
+---
+
+### Paso 7: crear bloqueo de franja por asignatura
+
+```http
+POST /api/asignaturas/{idAsignatura}/bloqueos-franja
+```
+
+```json
+{
+  "periodo": "2026-1",
+  "dia": 1,
+  "horaInicio": "08:00",
+  "horaFin": "10:00",
+  "motivo": "Franja bloqueada por coordinación"
+}
+```
+
+---
+
+### Paso 8: generar propuestas de horario
+
+```http
+POST /api/horarios/generar-propuestas
+```
+
+```json
+{
+  "periodo": "2026-1",
+  "escenarios": [
+    "ING_DIURNA",
+    "ING_NOCTURNA",
+    "TAPSI_DIURNA",
+    "TAPSI_NOCTURNA"
+  ],
+  "semestreIngenieria": 1,
+  "borrarPropuestasPrevias": true
+}
+```
+
+---
+
+### Paso 9: revisar conflictos
+
+```http
+GET /api/horarios/conflictos?periodo=2026-1
+```
+
+---
+
+### Paso 10: ajustar, confirmar y exportar
+
+El coordinador puede:
+
+- Revisar la propuesta.
+- Ajustar horarios.
+- Confirmar asignaciones.
+- Exportar horarios filtrados.
+
+---
+
+## 13. Instalación y ejecución local
+
+### 13.1. Restaurar paquetes
+
+```powershell
+dotnet restore .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
+```
+
+---
+
+### 13.2. Compilar
+
+```powershell
+dotnet build .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
+```
+
+---
+
+### 13.3. Ejecutar pruebas
+
+```powershell
+dotnet test .\src\ApplicationSchedule.Tests\ApplicationSchedule.Tests.csproj
+```
+
+---
+
+### 13.4. Ejecutar API
+
+```powershell
+dotnet run --project .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
+```
+
+---
+
+### 13.5. Abrir Swagger
+
+```txt
+http://localhost:5213/swagger
+```
+
+---
+
+## 14. Pruebas manuales del Req 36
+
+### 14.1. Crear asignatura
+
+```http
+POST /api/asignaturas
+```
+
+```json
+{
+  "idPlan": "11111111-1111-1111-1111-111111111111",
+  "codigo": "REQ36001",
+  "nombre": "Asignatura Prueba Bloqueo",
+  "creditos": 2,
+  "semestre": 1,
+  "minEstudiantes": 15,
+  "esFijaTapsi": false,
+  "esOpcionalTapsiDiurna": false
+}
+```
+
+Guardar el `idAsignatura`.
+
+---
+
+### 14.2. Crear docente
+
+```http
+POST /api/profesores
+```
+
+```json
+{
+  "nombre": "Docente Prueba Req 36",
+  "identificacion": "REQ36001",
+  "tipoContrato": "TC"
+}
+```
+
+Guardar el `idProfesor`.
+
+---
+
+### 14.3. Crear bloqueo
+
+```http
+POST /api/asignaturas/{idAsignatura}/bloqueos-franja
+```
+
+```json
+{
+  "periodo": "2026-1",
+  "dia": 1,
+  "horaInicio": "08:00",
+  "horaFin": "10:00",
+  "motivo": "Franja bloqueada para validar Req 36"
+}
+```
+
+Resultado esperado:
+
+```txt
+201 Created
+```
+
+---
+
+### 14.4. Intentar asignar dentro de la franja bloqueada
+
+```http
+POST /api/asignaciones
+```
+
+```json
+{
+  "idDocente": "PEGAR_ID_DOCENTE",
+  "idAsignatura": "PEGAR_ID_ASIGNATURA",
+  "dia": 1,
+  "horaInicio": "09:00",
+  "horaFin": "11:00",
+  "periodo": "2026-1"
+}
+```
+
+Resultado esperado:
+
+```txt
+400 Bad Request
+```
+
+Motivo:
+
+```txt
+La asignatura tiene bloqueada la franja del día 1 entre 08:00 y 10:00.
+```
+
+---
+
+### 14.5. Intentar asignar fuera de la franja bloqueada
+
+```http
+POST /api/asignaciones
+```
+
+```json
+{
+  "idDocente": "PEGAR_ID_DOCENTE",
+  "idAsignatura": "PEGAR_ID_ASIGNATURA",
+  "dia": 1,
   "horaInicio": "10:00",
   "horaFin": "12:00",
   "periodo": "2026-1"
 }
 ```
 
-### POST /api/asignaciones/confirmar
+Resultado esperado:
 
-```json
-{
-  "idsAsignacion": ["uuid-1", "uuid-2", "uuid-3"]
-}
+```txt
+201 Created
 ```
 
-Respuesta:
+Motivo:
 
-```json
-{
-  "confirmadas": 2,
-  "fallidas": 1,
-  "idsConfirmadas": ["uuid-1", "uuid-2"],
-  "errores": [{ "idAsignacion": "uuid-3", "motivo": "No se puede confirmar una asignación cancelada." }]
-}
-```
-
-## Flujo de uso
-
-```
-1. POST /api/horarios/generar-propuestas
-2. GET  /api/asignaciones/propuestas?periodo=2026-1
-3. PATCH /api/asignaciones/{id}/ajustar         (corregir lo necesario)
-4. PATCH /api/asignaciones/{id}/cancelar         (descartar las que no aplican)
-5. POST  /api/asignaciones/confirmar             (aprobar en bloque)
+```txt
+10:00 - 12:00 no se cruza con 08:00 - 10:00.
 ```
 
 ---
 
-# Issue #16: reporte de horas vs carga contractual
-
-## Descripción
-
-El sistema compara las horas de clase asignadas a cada docente contra su carga contractual de referencia.
-
-## Horas contractuales de referencia
-
-| Contrato | Horas semanales |
-|---|---|
-| TC | 40 |
-| TP | 20 |
-
-## Clasificación del estado de carga
-
-| Condición | EstadoCarga |
-|---|---|
-| Sin asignaturas | `Sin asignaciones` |
-| Horas > contractuales | `Excedida` |
-| Horas ≥ 90% contractuales | `Completa` |
-| Horas < 90% contractuales | `Parcial` |
-
-## Endpoints
+### 14.6. Consultar bloqueos
 
 ```http
-GET /api/reportes/carga-docente?semestre=2026-1
-GET /api/reportes/carga-docente/{idDocente}?semestre=2026-1
+GET /api/asignaturas/bloqueos-franja?periodo=2026-1
 ```
 
-Respuesta (200):
+Resultado esperado:
 
-```json
-{
-  "semestre": "2026-1",
-  "totalDocentes": 10,
-  "docentesConCargaCompleta": 4,
-  "docentesConCargaParcial": 3,
-  "docentesConCargaExcedida": 1,
-  "docentesSinAsignaciones": 2,
-  "docentes": [
-    {
-      "nombreDocente": "Carlos Pérez",
-      "tipoContrato": "TC",
-      "asignaturasAsignadas": 3,
-      "totalHorasSemanales": 6.0,
-      "horasContractuales": 40.0,
-      "diferenciaHoras": -34.0,
-      "porcentajeCarga": 15.0,
-      "estadoCarga": "Parcial",
-      "asignaturas": [...]
-    }
-  ]
-}
+```txt
+200 OK
 ```
 
 ---
 
-# Issue #18: alertas de conflictos
-
-## Descripción
-
-El sistema analiza todas las asignaciones activas de un semestre y detecta cuatro tipos de conflictos.
-
-## Tipos de conflicto
-
-| Tipo | Severidad | Descripción |
-|---|---|---|
-| `CruceHorario` | Error | Dos asignaciones del mismo docente se solapan en día y hora |
-| `ExcesoCarga` | Error | El docente supera el máximo de asignaturas de su contrato |
-| `AsignaturaSinDocente` | Advertencia | Una asignatura no tiene docente asignado en el semestre |
-| `DocenteSinHorario` | Advertencia | Una asignación no tiene bloque horario definido |
-
-## Endpoint
+### 14.7. Eliminar bloqueo
 
 ```http
-GET /api/reportes/conflictos?semestre=2026-1
+DELETE /api/asignaturas/bloqueos-franja/{idBloqueo}
 ```
 
-Respuesta (200):
+Resultado esperado:
 
-```json
-{
-  "semestre": "2026-1",
-  "totalConflictos": 2,
-  "tieneConflictos": true,
-  "conflictos": [
-    {
-      "tipoConflicto": "CruceHorario",
-      "severidad": "Error",
-      "descripcion": "El docente 'Carlos Pérez' tiene cruce horario el día 1 entre 'Cálculo I' (08:00-10:00) y 'Álgebra' (09:00-11:00).",
-      "idDocente": "...",
-      "nombreDocente": "Carlos Pérez",
-      "idAsignacion1": "...",
-      "idAsignacion2": "...",
-      "detalleHorario": "Día 1: 08:00-10:00 vs 09:00-11:00"
-    }
-  ]
-}
-```
-
-## Flujo de uso recomendado
-
-```
-1. GET /api/reportes/conflictos?semestre=2026-1
-2. Corregir errores:
-   - CruceHorario  → PATCH /api/asignaciones/{id}/asignar-dia
-   - ExcesoCarga   → DELETE /api/asignaciones/{id}
-3. Resolver advertencias:
-   - AsignaturaSinDocente → POST /api/asignaciones/manual
-   - DocenteSinHorario   → PATCH /api/asignaciones/{id}/asignar-dia
-4. Repetir hasta que totalConflictos sea 0.
-5. POST /api/asignaciones/confirmar
+```txt
+204 No Content
 ```
 
 ---
 
-# Issue #39: calendario semanal filtrable
+## 15. Pruebas automatizadas
 
-## Descripción
+El proyecto incluye pruebas automatizadas para validar funcionamiento general y reglas críticas del backend.
 
-El sistema muestra el horario en vista de calendario semanal (Lunes a Sábado), filtrable por plan de estudios y jornada. Solo aparecen asignaciones con bloque horario definido.
+Ejecutar:
 
-## Endpoint
-
-```http
-GET /api/horarios/calendario?semestre=2026-1
-GET /api/horarios/calendario?semestre=2026-1&jornada=Diurna
-GET /api/horarios/calendario?semestre=2026-1&jornada=Nocturna
-GET /api/horarios/calendario?semestre=2026-1&idPlan=11111111-1111-1111-1111-111111111111
-GET /api/horarios/calendario?semestre=2026-1&idPlan=11111111-1111-1111-1111-111111111111&jornada=Diurna
+```powershell
+dotnet test .\src\ApplicationSchedule.Tests\ApplicationSchedule.Tests.csproj
 ```
 
-Parámetros:
+Pruebas recomendadas para esta rama:
 
-| Parámetro | Obligatorio | Valores válidos |
-|---|---|---|
-| `semestre` | ✅ | Ej: `2026-1` |
-| `jornada` | ❌ | `Diurna` o `Nocturna` |
-| `idPlan` | ❌ | UUID del plan de estudios |
-
-Respuesta (200):
-
-```json
-{
-  "semestre": "2026-1",
-  "idPlanFiltro": null,
-  "jornadaFiltro": "Diurna",
-  "dias": [
-    {
-      "numeroDia": 1,
-      "nombreDia": "Lunes",
-      "bloques": [
-        {
-          "idAsignacion": "...",
-          "horaInicio": "08:00",
-          "horaFin": "10:00",
-          "nombreAsignatura": "Cálculo I",
-          "codigoAsignatura": "MAT001",
-          "nombreDocente": "Carlos Pérez",
-          "escenario": "ING_DIURNA",
-          "jornada": "Diurna",
-          "nombrePlan": "Plan de Estudios 1020 Jornada Diurna",
-          "idPlan": "11111111-1111-1111-1111-111111111111",
-          "estado": "Confirmada"
-        }
-      ]
-    }
-  ]
-}
+```txt
+- Crear bloqueo de franja.
+- Consultar bloqueo de franja.
+- Eliminar bloqueo de franja.
+- Rechazar asignación manual en franja bloqueada.
+- Permitir asignación manual fuera de la franja bloqueada.
+- Verificar que el generador automático evite franjas bloqueadas.
+- Verificar conflictos por franja bloqueada.
 ```
 
 ---
 
-# Issue #40: horario individual del docente y asignación de día
+## 16. Validaciones principales del sistema
 
-## Descripción
+### 16.1. Carga contractual
 
-El sistema permite dos cosas relacionadas:
-
-1. **Ver el horario individual de un docente** en vista de calendario semanal con datos de carga.
-2. **Colocar una asignación en un día de la semana**, con o sin bloque horario. Una vez con día y hora definidos, la asignación aparece en el calendario.
-
----
-
-## Parte A — Ver horario individual del docente
-
-### Endpoint
-
-```http
-GET /api/horarios/calendario/docente/{idDocente}?semestre=2026-1
-```
-
-Devuelve el calendario semanal del docente con su información de carga.
-
-- Las asignaciones **con** bloque horario aparecen en su día correspondiente.
-- Las asignaciones **sin** bloque horario cuentan en `TotalAsignaturas` pero no en `TotalHorasSemanales` ni en el calendario.
-
-Respuesta (200):
-
-```json
-{
-  "idDocente": "...",
-  "nombreDocente": "Carlos Pérez",
-  "identificacion": "1001",
-  "tipoContrato": "TC",
-  "maxAsignaturas": 5,
-  "semestre": "2026-1",
-  "totalAsignaturas": 3,
-  "totalHorasSemanales": 6.0,
-  "dias": [
-    {
-      "numeroDia": 1,
-      "nombreDia": "Lunes",
-      "bloques": [
-        {
-          "horaInicio": "08:00",
-          "horaFin": "10:00",
-          "nombreAsignatura": "Cálculo I",
-          "codigoAsignatura": "MAT001",
-          "escenario": "ING_DIURNA",
-          "estado": "Confirmada"
-        }
-      ]
-    }
-  ]
-}
-```
-
-Errores posibles:
-
-- `400`: falta el parámetro `semestre`.
-- `404`: docente no encontrado.
-
----
-
-## Parte B — Colocar una asignación en un día
-
-### Endpoint
-
-```http
-PATCH /api/asignaciones/{idAsignacion}/asignar-dia
-```
-
-Coloca una asignación existente en un día de la semana. La hora es opcional: si no se envía, la asignación queda registrada en el día pero sin hora definida y no aparece en el calendario hasta completarla.
-
-Solo aplica a asignaciones en estado `Propuesta` o `AsignadaManual`.
-
-Body:
-
-```json
-{
-  "dia": 3,
-  "horaInicio": "10:00",
-  "horaFin": "12:00"
-}
-```
-
-O solo el día sin hora:
-
-```json
-{
-  "dia": 3
-}
-```
-
-Respuesta exitosa (200): devuelve la asignación actualizada.
-
-Reglas de validación:
-
-- `dia` es obligatorio (1 = Lunes … 6 = Sábado).
-- Si se envía `horaInicio`, se debe enviar también `horaFin` y viceversa.
-- `horaInicio` debe ser menor que `horaFin`.
-- No se puede modificar una asignación `Confirmada` o `Cancelada`.
-
-Errores posibles (400):
-
-- Asignación no encontrada.
-- Asignación ya confirmada o cancelada.
-- Solo se envió una de las dos horas.
-- Hora de inicio mayor o igual que hora de fin.
-
----
-
-## Flujo completo Issue #40
-
-```
-1. Crear asignación manual (sin día ni hora):
-   POST /api/asignaciones/manual
-
-2. Colocarla en un día con horario:
-   PATCH /api/asignaciones/{id}/asignar-dia
-   { "dia": 3, "horaInicio": "10:00", "horaFin": "12:00" }
-
-3. Verificar que aparece en el calendario semanal general:
-   GET /api/horarios/calendario?semestre=2026-1
-
-4. Verificar que aparece en el calendario individual del docente:
-   GET /api/horarios/calendario/docente/{idDocente}?semestre=2026-1
-
-5. Detectar conflictos antes de confirmar:
-   GET /api/reportes/conflictos?semestre=2026-1
-
-6. Confirmar:
-   POST /api/asignaciones/confirmar
-```
-
----
-# Issue #34: El sistema debe requerir autenticación con correo y contraseña para acceder
-## Descripción
-
-El sistema permite iniciar sesión desde una cuenta de usuario ya creada.
-### Endpoint
-
-```http
-POST /api/auth/login
-```
-Body
-```http
-{
-  "correo": "admin@cuenta.com",
-  "password":  "contraseniaSuperSegura23"
-}
-```
----
-## Flujo completo Issue #34
-
-```
-1. Crear un usuario de forma manual(si no hay usuarios creados) :
-   POST  /api/usuarios
-
-2. iniciar sesión:
-   POST /api/auth/login
-   {"correo": "prueba@uam.com", "password": "123123prueba"
-}
-
-3. Copiar el token generado (sin comillas) y cuando se vaya a utilizar colocar en headers: 
-    
-    key: Authorization Value: Bearer LlaveGenerada 
-```
----
-# Cambios de base de datos acumulados
-
-## Estado del campo `estado` en `asignaciones`
-
-```sql
-estado TEXT NOT NULL CHECK(estado IN ('Propuesta', 'Confirmada', 'Cancelada', 'AsignadaManual'))
-```
-
-## Columna en `asignaturas` (Req 8)
-
-```sql
-ALTER TABLE asignaturas
-ADD COLUMN es_opcional_tapsi_diurna INTEGER NOT NULL DEFAULT 0
-CHECK (es_opcional_tapsi_diurna IN (0, 1));
-```
-
-## Tabla `disponibilidad`
-
-```sql
-CREATE TABLE IF NOT EXISTS disponibilidad (
-    id_disponibilidad TEXT PRIMARY KEY,
-    id_docente TEXT NOT NULL,
-    dia_semana INTEGER NOT NULL CHECK (dia_semana BETWEEN 1 AND 6),
-    hora_inicio TEXT NOT NULL,
-    hora_fin TEXT NOT NULL,
-    FOREIGN KEY (id_docente) REFERENCES docentes(id_docente) ON DELETE CASCADE
-);
+```txt
+TC: máximo 5 asignaturas.
+TP: máximo 3 asignaturas.
 ```
 
 ---
 
-# Todos los endpoints
+### 16.2. Cruces de horario
 
-## Usuarios
+El sistema evita que un mismo docente tenga dos asignaciones en el mismo día y horario.
 
-```http
-GET    /api/usuarios
-POST   /api/usuarios
-GET    /api/usuarios/{idUsuario}
-PUT    /api/usuarios/{idUsuario}
-PATCH  /api/usuarios/{idUsuario}/password
-DELETE /api/usuarios/{idUsuario}
+---
+
+### 16.3. Materias TAPSI fijas
+
+El sistema identifica materias TAPSI obligatorias y las trata como restricciones fuertes durante la generación.
+
+---
+
+### 16.4. Disponibilidad docente
+
+La disponibilidad importada desde Excel se usa para decidir en qué franjas puede dictar clase un docente.
+
+---
+
+### 16.5. Bloqueo de franjas por asignatura
+
+Aunque un docente esté disponible, una asignatura no puede programarse en una franja bloqueada para ella.
+
+---
+
+## 17. Recomendaciones para frontend
+
+El frontend puede consumir la API localmente desde:
+
+```txt
+http://localhost:5213
 ```
 
-## Docentes
+Pantallas sugeridas:
 
-```http
-GET    /api/profesores
-POST   /api/profesores
-GET    /api/profesores/{idProfesor}
-PUT    /api/profesores/{idProfesor}
-DELETE /api/profesores/{idProfesor}
-POST   /api/profesores/importar-excel
-GET    /api/profesores/{idProfesor}/asignaturas-habilitadas
-GET    /api/profesores/{idProfesor}/disponibilidad
+```txt
+- Login.
+- Gestión de usuarios.
+- Gestión de docentes.
+- Gestión de asignaturas.
+- Importación de Excel.
+- Vista semanal de horario.
+- Generación automática de propuestas.
+- Revisión de conflictos.
+- Ajuste manual de asignaciones.
+- Bloqueo de franjas por asignatura.
+- Exportaciones.
 ```
 
-## Asignaturas
+Para el Req 36, se recomienda una pantalla donde el coordinador pueda:
 
-```http
-GET    /api/asignaturas
-POST   /api/asignaturas
-GET    /api/asignaturas/{idAsignatura}
-GET    /api/asignaturas/plan/{idPlan}
-PUT    /api/asignaturas/{idAsignatura}
-DELETE /api/asignaturas/{idAsignatura}
-GET    /api/asignaturas/tapsi/fijas
-POST   /api/asignaturas/tapsi/marcar-fijas
-GET    /api/asignaturas/tapsi/diurna/opciones-adicionales
-GET    /api/asignaturas/tapsi/diurna/plan
-POST   /api/asignaturas/tapsi/diurna/marcar-opciones-adicionales
-```
-
-## Asignaciones
-
-```http
-GET    /api/asignaciones
-POST   /api/asignaciones
-GET    /api/asignaciones/docente/{idDocente}
-GET    /api/asignaciones/docente/{idDocente}/resumen?periodo=2026-1
-DELETE /api/asignaciones/{idAsignacion}
-
-# Issue #10 — Manual
-POST   /api/asignaciones/manual
-GET    /api/asignaciones/docente/{idDocente}/asignaturas-disponibles?periodo=2026-1
-
-# Issue #12 — Revisión
-GET    /api/asignaciones/propuestas?periodo=2026-1
-PATCH  /api/asignaciones/{idAsignacion}/ajustar
-POST   /api/asignaciones/confirmar
-PATCH  /api/asignaciones/{idAsignacion}/cancelar
-
-# Issue #40 — Colocar en día
-PATCH  /api/asignaciones/{idAsignacion}/asignar-dia
-```
-
-## Currículo y disponibilidad
-
-```http
-POST /api/curriculos-docentes/{idDocente}/reducir-disponibilidad?idAsignatura={id}&periodo=2026-1
-```
-
-## Horarios
-
-```http
-POST /api/horarios/generar-propuestas
-GET  /api/horarios/exportar?periodo=2026-1
-GET  /api/horarios/calendario?semestre=2026-1
-GET  /api/horarios/calendario/docente/{idDocente}?semestre=2026-1
-```
-
-## Reportes
-
-```http
-GET /api/reportes/carga-docente?semestre=2026-1
-GET /api/reportes/carga-docente/{idDocente}?semestre=2026-1
-GET /api/reportes/conflictos?semestre=2026-1
+```txt
+1. Seleccionar periodo.
+2. Seleccionar asignatura.
+3. Seleccionar día.
+4. Seleccionar hora inicio.
+5. Seleccionar hora fin.
+6. Escribir motivo opcional.
+7. Guardar bloqueo.
+8. Ver bloqueos existentes.
+9. Eliminar bloqueos.
 ```
 
 ---
 
-# Cómo ejecutar el proyecto
+## 18. Consideraciones importantes
+
+- El sistema está diseñado para ejecutarse localmente.
+- La API puede ser consumida por una aplicación de escritorio.
+- SQLite permite trabajar sin servidor externo de base de datos.
+- El archivo Excel sigue siendo una entrada válida para coordinación.
+- Los bloqueos del Req 36 se guardan en SQLite, no en el Excel.
+- Los bloqueos no eliminan asignaciones existentes automáticamente.
+- Si una asignación existente queda dentro de una franja bloqueada, debe aparecer como conflicto.
+
+---
+
+## 19. Solución de errores comunes
+
+### 19.1. Error: no se puede encontrar un proyecto para restaurar
+
+Ejecutar el comando apuntando al `.csproj`:
 
 ```powershell
 dotnet restore .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
-dotnet build   .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
+```
+
+---
+
+### 19.2. Error: puerto ocupado
+
+Cerrar la consola anterior donde se esté ejecutando la API o cambiar el puerto en `launchSettings.json`.
+
+---
+
+### 19.3. Error: no aparece tabla nueva en SQLite
+
+Si la base ya existía antes del cambio, `EnsureCreated()` no siempre crea nuevas tablas sobre una base ya creada.
+
+Soluciones:
+
+```txt
+1. Ejecutar nuevamente la API y verificar que Program.cs cree la tabla con CREATE TABLE IF NOT EXISTS.
+2. Aplicar el script SQL manualmente.
+3. En ambiente de pruebas, eliminar la base local si no hay datos importantes.
+```
+
+---
+
+### 19.4. Error: 401 Unauthorized en Swagger o Postman
+
+Debes iniciar sesión y enviar el token:
+
+```txt
+Authorization: Bearer TOKEN
+```
+
+---
+
+## 20. Comandos útiles
+
+```powershell
+dotnet restore .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
+dotnet build .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
+dotnet test .\src\ApplicationSchedule.Tests\ApplicationSchedule.Tests.csproj
 dotnet run --project .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
 ```
 
-API: `http://localhost:5213`
-Swagger: `http://localhost:5213/swagger`
-
 ---
 
-# Cómo ejecutar las pruebas
+## 21. Flujo Git recomendado para el Req 36
 
-```powershell
-dotnet build .\src\ApplicationSchedule.Tests\ApplicationSchedule.Tests.csproj
-dotnet test  .\src\ApplicationSchedule.Tests\ApplicationSchedule.Tests.csproj
-```
-
-Con detalle:
-
-```powershell
-dotnet test .\src\ApplicationSchedule.Tests\ApplicationSchedule.Tests.csproj --logger "console;verbosity=detailed"
-```
-
----
-
-# Guía de pruebas manuales en Swagger
-
-## Paso 1 — Crear docente y asignatura
-
-```http
-POST /api/profesores
-{ "nombre": "Carlos Pérez", "identificacion": "1001", "tipoContrato": "TC" }
-
-POST /api/asignaturas
-{ "idPlan": "11111111-1111-1111-1111-111111111111", "codigo": "MAT001", "nombre": "Cálculo I", "creditos": 4, "semestre": 1 }
-```
-
-## Paso 2 — Asignar manualmente (Issue #10)
-
-```http
-POST /api/asignaciones/manual
-{ "idDocente": "...", "idAsignatura": "...", "periodo": "2026-1", "forzarSinCurriculo": false }
-```
-
-## Paso 3 — Colocar en un día con horario (Issue #40)
-
-```http
-PATCH /api/asignaciones/{id}/asignar-dia
-{ "dia": 3, "horaInicio": "10:00", "horaFin": "12:00" }
-```
-
-## Paso 4 — Ver en el calendario semanal (Issue #39)
-
-```http
-GET /api/horarios/calendario?semestre=2026-1
-GET /api/horarios/calendario?semestre=2026-1&jornada=Diurna
-```
-
-## Paso 5 — Ver horario individual del docente (Issue #40)
-
-```http
-GET /api/horarios/calendario/docente/{idDocente}?semestre=2026-1
-```
-
-## Paso 6 — Detectar conflictos (Issue #18)
-
-```http
-GET /api/reportes/conflictos?semestre=2026-1
-```
-
-Corregir todos los `Error` antes de confirmar.
-
-## Paso 7 — Confirmar propuestas (Issue #12)
-
-```http
-POST /api/asignaciones/confirmar
-{ "idsAsignacion": ["uuid-1", "uuid-2"] }
-```
-
-## Paso 8 — Reporte de carga docente (Issue #16)
-
-```http
-GET /api/reportes/carga-docente?semestre=2026-1
-```
-
----
-
-# Git Flow
-
-| Issue | Rama sugerida |
-|---|---|
-| Issue #10 | `feature/asignacion-manual-docente` |
-| Issue #11 | `feature/reduccion-disponibilidad-doble-jornada` |
-| Issue #12 | `feature/revision-ajuste-confirmacion-propuestas` |
-| Issue #16 | `feature/reporte-carga-docente` |
-| Issue #18 | `feature/alertas-conflictos-asignaciones` |
-| Issue #39 | `feature/calendario-semanal` |
-| Issue #40 | `feature/horario-individual-docente` |
+Crear rama:
 
 ```bash
-git checkout develop
-git pull origin develop
-git checkout -b feature/horario-individual-docente
+git checkout -b feature/req36-bloqueo-franjas-asignatura
+```
+
+Agregar cambios:
+
+```bash
 git add .
-git commit -m "feat(horarios): horario individual docente y asignación de día a bloque"
-git push origin feature/horario-individual-docente
+```
+
+Commit:
+
+```bash
+git commit -m "feat(horarios): bloquear franjas horarias por asignatura"
+```
+
+Subir rama:
+
+```bash
+git push origin feature/req36-bloqueo-franjas-asignatura
+```
+
+Pull Request:
+
+```txt
+Base: develop
+Compare: feature/req36-bloqueo-franjas-asignatura
 ```
 
 ---
 
-# Alcance actual
+## 22. Descripción sugerida del Pull Request
 
-## Implementado
+```md
+## Descripción
 
-- Gestión de usuarios y roles.
-- Registro de docentes con límite de carga por contrato.
-- Registro de asignaturas con planes de estudio.
-- Materias TAPSI fijas y opciones diurnas.
-- Importación de currículo y disponibilidad desde Excel.
-- Generación automática de propuestas para 4 escenarios.
-- **Issue #10:** Asignación manual sin bloque horario.
-- **Issue #11:** Reducción de disponibilidad por doble jornada.
-- **Issue #12:** Ajuste, cancelación y confirmación de propuestas.
-- **Issue #16:** Reporte de horas asignadas vs carga contractual.
-- **Issue #18:** Detección de cruces, exceso de carga, asignaturas sin docente y docentes sin horario.
-- **Issue #39:** Calendario semanal filtrable por plan y jornada.
-- **Issue #40:** Horario individual de docente en vista semanal.
-- **Issue #40:** Endpoint para colocar una asignación en un día y bloque horario.
+Se implementa el Req 36: el coordinador puede bloquear franjas horarias para una asignatura específica.
 
-## Pendiente o futuro
+## Cambios principales
 
-- Validación automática de conflictos al crear asignaciones.
-- Interfaz visual del frontend.
-- Reglas avanzadas de selección de materia adicional TAPSI diurna.
+- Se crea la entidad `BloqueoFranjaAsignatura`.
+- Se crea la tabla `bloqueos_franja_asignatura`.
+- Se agregan DTOs para crear y consultar bloqueos.
+- Se agrega la interfaz `IBloqueoFranjaAsignaturaService`.
+- Se agrega el servicio `BloqueoFranjaAsignaturaService`.
+- Se agrega el controlador `BloqueosFranjaAsignaturaController`.
+- Se agregan endpoints para crear, consultar y eliminar bloqueos.
+- Se integra la validación con asignaciones manuales.
+- Se integra la validación con ajustes manuales.
+- Se integra la validación con el generador automático.
+- Se integra la validación con el reporte de conflictos.
+- Se actualiza `README.md`.
+- Se agregan pruebas automatizadas.
+
+## Integración con Excel
+
+El Excel sigue siendo la fuente para cargar disponibilidad docente.  
+El Req 36 no modifica el Excel, sino que agrega una restricción adicional en SQLite.
+
+Flujo:
+
+```txt
+Disponibilidad desde Excel
++ Bloqueos de franja por asignatura
++ Carga contractual
++ Cruces de horario
++ Reglas TAPSI
+= Generación y validación de horarios
+```
+
+## Pruebas realizadas
+
+```powershell
+dotnet restore .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
+dotnet build .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
+dotnet test .\src\ApplicationSchedule.Tests\ApplicationSchedule.Tests.csproj
+```
+
+## Resultado esperado
+
+- La API compila correctamente.
+- Las pruebas pasan correctamente.
+- El coordinador puede crear bloqueos de franja.
+- El generador automático evita franjas bloqueadas.
+- Las asignaciones manuales dentro de una franja bloqueada son rechazadas.
+- El reporte de conflictos detecta asignaciones existentes en franjas bloqueadas.
+
+## Issue relacionado
+
+Closes #36
+```
 
 ---
 
-# Checklist antes de Pull Request
+## 23. Cierre del requerimiento
+
+Para cerrar el Req 36:
+
+1. Confirmar que `dotnet build` funciona correctamente.
+2. Confirmar que `dotnet test` funciona correctamente.
+3. Confirmar pruebas manuales en Swagger o Postman.
+4. Hacer commit en la rama feature.
+5. Subir la rama a GitHub.
+6. Crear Pull Request hacia `develop`.
+7. Revisar pestaña `Files changed`.
+8. Verificar que no se suban archivos innecesarios.
+9. Hacer merge del Pull Request.
+10. Mover el issue o tarjeta del proyecto a `Done`.
+
+Comentario sugerido para cerrar el issue:
+
+```md
+Req 36 completado.
+
+Se implementó el bloqueo de franjas horarias por asignatura, incluyendo:
+
+- Persistencia en SQLite.
+- Endpoints de creación, consulta y eliminación.
+- Validación en asignaciones manuales.
+- Validación en generación automática de horarios.
+- Detección en reporte de conflictos.
+- Pruebas ejecutadas correctamente.
+- README actualizado.
+```
+
+---
+
+## 24. Archivos que no se deben subir
+
+Evitar subir archivos generados localmente:
 
 ```txt
-[ ] dotnet build sin errores.
-[ ] dotnet test sin fallos.
-[ ] Swagger abre correctamente.
+bin/
+obj/
+.vs/
+*.db
+*.db-shm
+*.db-wal
+```
 
-# Issue #10
-[ ] POST /api/asignaciones/manual crea con estado "AsignadaManual".
-[ ] Límite de carga se respeta. Duplicado rechazado con 400.
+Estos archivos deben estar ignorados en `.gitignore`.
 
-# Issue #11
-[ ] Reduce disponibilidad solo cuando hay doble jornada.
-[ ] Con una sola jornada responde bloquesEliminados: 0.
+---
 
-# Issue #12
-[ ] Ajuste solo aplica a Propuesta y AsignadaManual.
-[ ] Confirmación en bloque reporta fallidas sin interrumpir exitosas.
-[ ] Cancelar rechaza Confirmadas con 400.
+## 25. Estado actual del backend
 
-# Issue #16
-[ ] Reporte general del semestre con todos los docentes.
-[ ] Reporte individual con detalle de asignaturas.
-[ ] EstadoCarga clasifica correctamente.
+El backend cuenta con funcionalidades para:
 
-# Issue #18
-[ ] Detecta CruceHorario, ExcesoCarga, AsignaturaSinDocente, DocenteSinHorario.
-[ ] Bloques en días distintos no generan cruce.
-[ ] tieneConflictos es false cuando no hay conflictos.
+```txt
+- Autenticación.
+- Gestión de usuarios.
+- Gestión de docentes.
+- Gestión de asignaturas.
+- Importación desde Excel.
+- Gestión de disponibilidad.
+- Gestión de currículo docente.
+- Asignación manual.
+- Generación automática.
+- Validación de conflictos.
+- Materias fijas TAPSI.
+- Homologaciones TAPSI.
+- Exportación de horarios.
+- Historial de asignaciones.
+- Bloqueo de franjas por asignatura.
+```
 
-# Issue #39
-[ ] GET /api/horarios/calendario retorna 6 días siempre.
-[ ] Filtro por jornada funciona (Diurna / Nocturna).
-[ ] Filtro por idPlan funciona.
-[ ] Asignaciones sin horario no aparecen en el calendario.
-[ ] Retorna 400 con jornada inválida.
+---
 
-# Issue #40
-[ ] GET /api/horarios/calendario/docente/{id} retorna 6 días y datos del docente.
-[ ] Solo muestra asignaciones del docente consultado.
-[ ] TotalHorasSemanales y TotalAsignaturas correctos.
-[ ] PATCH /api/asignaciones/{id}/asignar-dia guarda día correctamente.
-[ ] Con día y hora, la asignación aparece en el calendario.
-[ ] Sin hora, no aparece en el calendario pero sí cuenta en TotalAsignaturas.
-[ ] Rechaza si solo se envía una de las dos horas.
-[ ] Rechaza si horaInicio >= horaFin.
-[ ] Rechaza si la asignación está Confirmada.
-[ ] Retorna 404 si el docente no existe.
+## 26. Responsabilidad del backend y frontend
 
-# General
-[ ] No se sube horarios.db ni bin/ ni obj/.
-[ ] README actualizado.
-[ ] PR apunta a develop.
-[ ] Issues enlazados al PR.
+Este backend está diseñado para integrarse con el frontend de escritorio del proyecto.
+
+Responsabilidad del backend:
+
+```txt
+- Exponer endpoints.
+- Aplicar reglas de negocio.
+- Persistir datos.
+- Validar restricciones.
+- Generar propuestas.
+- Detectar conflictos.
+- Exportar información.
+```
+
+Responsabilidad del frontend:
+
+```txt
+- Mostrar pantallas.
+- Consumir endpoints.
+- Permitir interacción visual del coordinador.
+- Presentar calendarios, tablas y formularios.
+```
+
+---
+
+## 27. Checklist final
+
+```txt
+[ ] dotnet restore ejecutado correctamente
+[ ] dotnet build ejecutado correctamente
+[ ] dotnet test ejecutado correctamente
+[ ] API ejecuta correctamente
+[ ] Swagger abre correctamente
+[ ] README.md actualizado
+[ ] Req 36 probado manualmente
+[ ] Req 36 probado automáticamente
+[ ] Rama feature creada
+[ ] Commit realizado con prefijo feat
+[ ] Push origin realizado
+[ ] Pull Request creado hacia develop
+[ ] PR contiene Closes #36
+[ ] Files changed revisados
+[ ] PR mergeado
+[ ] Issue o tarjeta Req 36 cerrada/movida a Done
 ```

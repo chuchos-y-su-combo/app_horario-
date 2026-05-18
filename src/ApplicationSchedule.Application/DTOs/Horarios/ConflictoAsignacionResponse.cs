@@ -18,7 +18,7 @@ public class AlertaConflicto
 {
     /// <summary>
     /// Tipo de conflicto detectado.
-    /// CruceHorario | ExcesoCarga | AsignaturasSinDocente | DocenteSinHorario
+    /// CruceHorario | ExcesoCarga | AsignaturasSinDocente | DocenteSinHorario | FranjaBloqueadaAsignatura
     /// </summary>
     public string TipoConflicto { get; set; } = string.Empty;
 
