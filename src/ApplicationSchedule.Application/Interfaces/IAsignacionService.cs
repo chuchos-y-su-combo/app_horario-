@@ -8,7 +8,7 @@ public interface IAsignacionService
 
     Task<List<string>> ObtenerPeriodosHistoricosAsync();
 
-    Task<List<AsignacionResponse>> ObtenerFiltradasAsync(int? semestre, string? idDocente, string? idAsignatura, string? periodo);
+    Task<List<AsignacionResponse>> ObtenerFiltradasAsync(int? semestre, string? idDocente, string? idAsignatura, string? periodo, string? estado = null);
 
     Task<List<AsignacionResponse>> ObtenerPorDocenteAsync(string idDocente, string? periodo = null);
 

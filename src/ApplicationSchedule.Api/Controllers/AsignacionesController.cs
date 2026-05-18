@@ -38,7 +38,21 @@ public class AsignacionesController : ControllerBase
         [FromQuery] string? idAsignatura,
         [FromQuery] string? periodo)
     {
+        // La consulta histórica retorna todo tipo de estado (Propuestas y Confirmadas) de un periodo particular
         List<AsignacionResponse> asignaciones = await _asignacionService.ObtenerFiltradasAsync(semestre, idDocente, idAsignatura, periodo);
+        return Ok(asignaciones);
+    }
+
+    [HttpGet("exportar-json")]
+    public async Task<ActionResult<List<AsignacionResponse>>> ObtenerExportacionJson(
+        [FromQuery] int? semestre,
+        [FromQuery] string? idDocente,
+        [FromQuery] string? idAsignatura,
+        [FromQuery] string? periodo)
+    {
+        // A diferencia de la histórica, este endpoint filtra específicamente por Estado == "Confirmada" 
+        // tal y como lo hace la exportación en Excel, entregándolo en JSON con los parámetros seleccionados.
+        List<AsignacionResponse> asignaciones = await _asignacionService.ObtenerFiltradasAsync(semestre, idDocente, idAsignatura, periodo, "Confirmada");
         return Ok(asignaciones);
     }
 
