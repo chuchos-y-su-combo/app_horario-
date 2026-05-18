@@ -43,6 +43,8 @@ Está desarrollado en C# con ASP.NET Core, Entity Framework Core y SQLite.
 | Issue #12 | Implementado | Revisar y ajustar manualmente la propuesta generada antes de confirmarla |
 | Issue #16 | Implementado | Generar reporte de horas asignadas vs carga contractual por docente |
 | Issue #18 | Implementado | Alertar cuando una asignación genera conflicto |
+| Issue #39 | Implementado | Mostrar el horario en vista de calendario semanal filtrable por plan y jornada |
+| Issue #40 | Implementado | Mostrar el horario individual de cada docente y colocar asignaturas en un día de la semana |
 
 ---
 
@@ -53,58 +55,41 @@ El objetivo del sistema es apoyar la gestión académica necesaria para la const
 El sistema permite:
 
 - Gestionar usuarios administradores y coordinadores.
-- Registrar docentes.
-- Registrar asignaturas.
+- Registrar docentes y asignaturas.
 - Asociar asignaturas a planes de estudio.
 - Controlar la carga docente según tipo de contrato.
-- Importar currículo docente desde Excel.
-- Importar disponibilidad docente desde el Excel actual de coordinación.
+- Importar currículo docente y disponibilidad desde Excel.
 - Marcar materias TAPSI obligatorias como fijas.
-- Contemplar una materia adicional para estudiantes TAPSI de jornada diurna.
-- Registrar asignaciones académicas.
-- Consultar disponibilidad y asignaturas habilitadas por docente.
-- Asignar asignaturas a docentes de forma manual, con validación de currículo y límite de carga.
-- Consultar las asignaturas disponibles para asignar a un docente en un semestre determinado.
-- Reducir automáticamente la disponibilidad de un docente que dicta la misma asignatura en jornada diurna y nocturna.
-- Revisar, ajustar y confirmar manualmente las propuestas de asignación generadas.
-- Generar reporte de horas de clase asignadas vs carga contractual por docente.
+- Generar automáticamente propuestas de asignación para 4 escenarios.
+- Asignar asignaturas a docentes de forma manual.
+- Colocar asignaciones en un día y bloque horario específico.
+- Revisar, ajustar y confirmar propuestas antes de publicar el horario.
+- Generar reporte de horas asignadas vs carga contractual por docente.
 - Detectar y alertar conflictos en las asignaciones del semestre.
+- Mostrar el horario en vista de calendario semanal filtrable por plan y jornada.
+- Mostrar el horario individual de cada docente en vista de calendario semanal.
 
 ---
 
 ## Base de datos
 
-El proyecto utiliza SQLite.
+El proyecto utiliza SQLite adaptado desde el modelo original en MySQL Workbench.
 
-La base de datos fue adaptada desde el modelo oficial inicialmente planteado para MySQL Workbench.
-
-### Adaptaciones realizadas para SQLite
+### Adaptaciones para SQLite
 
 | MySQL original | SQLite |
 |---|---|
 | `CREATE DATABASE` | No se usa |
-| `USE gestion_horarios` | No se usa |
 | `CHAR(36)` | `TEXT` |
-| `VARCHAR` | `TEXT` |
 | `ENUM` | `TEXT CHECK (...)` |
 | `TINYINT(1)` | `INTEGER CHECK (0, 1)` |
 | `TIME` | `TEXT` con formato `HH:mm` |
-| `AUTO_INCREMENT` | `INTEGER PRIMARY KEY AUTOINCREMENT` |
 
----
-
-## Tablas principales del modelo
+### Tablas principales
 
 ```txt
-roles
-usuarios
-planes_estudio
-docentes
-asignaturas
-docentes_habilitados
-disponibilidad
-asignaciones
-bloqueos
+roles, usuarios, planes_estudio, docentes, asignaturas,
+docentes_habilitados, disponibilidad, asignaciones, bloqueos
 ```
 
 ---
@@ -113,63 +98,21 @@ bloqueos
 
 ```txt
 src/
-├── ApplicationSchedule.Api
-│   └── Controllers
-├── ApplicationSchedule.Application
-│   ├── DTOs
-│   └── Interfaces
-├── ApplicationSchedule.Domain
-│   └── Entities
-├── ApplicationSchedule.Infrastructure
-│   ├── Data
-│   └── Services
-└── ApplicationSchedule.Tests
-    ├── Controllers
-    └── Infrastructure
-
+├── ApplicationSchedule.Api           → Controladores, Program.cs, Swagger
+├── ApplicationSchedule.Application   → DTOs, Interfaces
+├── ApplicationSchedule.Domain        → Entidades
+├── ApplicationSchedule.Infrastructure → DbContext, Servicios
+└── ApplicationSchedule.Tests         → Pruebas de integración
 database/
 docs/
 README.md
-.gitignore
 ```
 
 ---
 
-## Capas del proyecto
+## Configuración
 
-### ApplicationSchedule.Api
-
-Contiene los controladores de la API, configuración principal, Swagger y punto de entrada del backend.
-
-### ApplicationSchedule.Application
-
-Contiene DTOs e interfaces. En esta capa se definen los contratos que luego implementa la infraestructura.
-
-### ApplicationSchedule.Domain
-
-Contiene las entidades principales del sistema:
-
-```txt
-Usuario, Rol, Docente, Asignatura, Disponibilidad, Asignacion, PlanEstudio, DocenteHabilitado
-```
-
-### ApplicationSchedule.Infrastructure
-
-Contiene la conexión con SQLite, configuración de Entity Framework Core y servicios que acceden a la base de datos.
-
-### ApplicationSchedule.Tests
-
-Contiene pruebas automáticas del sistema.
-
----
-
-## Configuración de la base de datos
-
-La cadena de conexión se encuentra en:
-
-```txt
-src/ApplicationSchedule.Api/appsettings.json
-```
+Cadena de conexión en `src/ApplicationSchedule.Api/appsettings.json`:
 
 ```json
 {
@@ -179,13 +122,7 @@ src/ApplicationSchedule.Api/appsettings.json
 }
 ```
 
-La base se crea automáticamente al ejecutar la API mediante `context.Database.EnsureCreated()`.
-
----
-
-## Importante sobre `horarios.db`
-
-El archivo `horarios.db` es local y no debe subirse al repositorio.
+La base se crea automáticamente con `context.Database.EnsureCreated()`.
 
 `.gitignore` recomendado:
 
@@ -193,8 +130,6 @@ El archivo `horarios.db` es local y no debe subirse al repositorio.
 *.db
 *.db-shm
 *.db-wal
-*.sqlite
-src/ApplicationSchedule.Api/horarios.db
 bin/
 obj/
 .vs/
@@ -204,33 +139,25 @@ obj/
 *.pdb
 ```
 
-Si se cambia la estructura de la base de datos en desarrollo, se puede borrar `horarios.db` para que se regenere. Si ya contiene información importante, ejecutar el script SQL de actualización correspondiente.
-
 ---
 
-## Datos base
+## Datos base creados automáticamente
 
-El sistema crea automáticamente los roles base:
-
-| ID | Rol |
+| Roles | ID |
 |---|---|
-| 1 | Administrador |
-| 2 | Coordinador |
+| Administrador | 1 |
+| Coordinador | 2 |
 
-Y dos planes de estudio base:
-
-| ID | Nombre | Jornada |
+| Plan de estudios | ID | Jornada |
 |---|---|---|
-| `11111111-1111-1111-1111-111111111111` | Plan de Estudios 1020 Jornada Diurna | Diurna |
-| `22222222-2222-2222-2222-222222222222` | Plan de Estudios Jornada Noche | Nocturna |
+| Plan de Estudios 1020 Jornada Diurna | `11111111-1111-1111-1111-111111111111` | Diurna |
+| Plan de Estudios Jornada Noche | `22222222-2222-2222-2222-222222222222` | Nocturna |
 
 ---
 
-# Requerimiento 2: usuarios con rol administrador o coordinador
+# Requerimientos base (Req 2 al Req 9)
 
-El sistema permite crear y gestionar cuentas de usuario con rol Administrador o Coordinador.
-
-## Endpoints
+## Req 2 — Usuarios
 
 ```http
 GET    /api/usuarios
@@ -241,25 +168,7 @@ PATCH  /api/usuarios/{idUsuario}/password
 DELETE /api/usuarios/{idUsuario}
 ```
 
-## Validaciones
-
-- El correo debe ser único.
-- El rol debe existir (1 = Administrador, 2 = Coordinador).
-- La contraseña se almacena como hash usando BCrypt.
-- El correo se normaliza a minúsculas.
-
----
-
-# Requerimiento 3: registro de docentes
-
-El sistema permite registrar docentes con nombre, identificación y tipo de contrato.
-
-| Entrada permitida | Valor guardado |
-|---|---|
-| `TC` o `Tiempo Completo` | `TC` |
-| `TP` o `Parcial` | `TP` |
-
-## Endpoints
+## Req 3 — Docentes
 
 ```http
 GET    /api/profesores
@@ -269,31 +178,9 @@ PUT    /api/profesores/{idProfesor}
 DELETE /api/profesores/{idProfesor}
 ```
 
-## Crear docente
+Tipos de contrato: `TC` (máx. 5 asignaturas) y `TP` (máx. 3 asignaturas).
 
-```json
-{
-  "nombre": "Carlos Pérez",
-  "identificacion": "1001",
-  "tipoContrato": "TC"
-}
-```
-
-Respuesta: `"maxAsignaturas": 5` para TC, `3` para TP.
-
-## Validaciones
-
-- La identificación debe ser única.
-- El máximo de asignaturas se calcula automáticamente según el contrato.
-- No se puede eliminar un docente con asignaciones registradas.
-
----
-
-# Requerimiento 4: registro de asignaturas
-
-El sistema permite registrar asignaturas con nombre, código, créditos, semestre y plan de estudios.
-
-## Endpoints
+## Req 4 — Asignaturas
 
 ```http
 GET    /api/asignaturas
@@ -304,41 +191,9 @@ PUT    /api/asignaturas/{idAsignatura}
 DELETE /api/asignaturas/{idAsignatura}
 ```
 
-## Crear asignatura
+## Req 5 — Límite de carga docente
 
-```json
-{
-  "idPlan": "11111111-1111-1111-1111-111111111111",
-  "codigo": "MAT001",
-  "nombre": "Cálculo I",
-  "creditos": 4,
-  "semestre": 1,
-  "minEstudiantes": 15,
-  "esFijaTapsi": false,
-  "esOpcionalTapsiDiurna": false
-}
-```
-
-## Validaciones
-
-- El plan de estudios debe existir.
-- El código debe ser único.
-- Créditos entre 1 y 20. Semestre entre 1 y 12.
-
----
-
-# Requerimiento 5: límite de carga docente
-
-El sistema limita la carga docente según el tipo de contrato.
-
-| Tipo de contrato | Máximo de asignaturas |
-|---|---|
-| `TC` | 5 |
-| `TP` | 3 |
-
-El sistema cuenta asignaturas **distintas**, no bloques horarios.
-
-## Endpoints
+El sistema cuenta asignaturas **distintas** por docente y periodo, no bloques horarios.
 
 ```http
 GET    /api/asignaciones
@@ -348,86 +203,22 @@ GET    /api/asignaciones/docente/{idDocente}/resumen?periodo=2026-1
 DELETE /api/asignaciones/{idAsignacion}
 ```
 
-## Crear asignación con bloque horario
-
-```json
-{
-  "idDocente": "ID_DEL_DOCENTE",
-  "idAsignatura": "ID_DE_LA_ASIGNATURA",
-  "dia": 1,
-  "horaInicio": "08:00",
-  "horaFin": "10:00",
-  "periodo": "2026-1"
-}
-```
-
----
-
-# Requerimiento 6: carga de currículo docente desde Excel
-
-El sistema permite importar desde Excel las asignaturas que cada docente está habilitado para dictar.
-
-## Endpoints
+## Req 6 y Disponibilidad — Excel
 
 ```http
 POST /api/profesores/importar-excel
 GET  /api/profesores/{idProfesor}/asignaturas-habilitadas
-```
-
----
-
-# Importación de disponibilidad docente desde Excel
-
-El sistema importa la disponibilidad docente desde el archivo Excel actual de coordinación.
-
-Equivalencia de días: 1 = Lunes, 2 = Martes, 3 = Miércoles, 4 = Jueves, 5 = Viernes, 6 = Sábado.
-
-## Endpoints
-
-```http
-POST /api/profesores/importar-excel
 GET  /api/profesores/{idProfesor}/disponibilidad
 ```
 
----
-
-# Requerimiento 7: materias TAPSI fijas
-
-El sistema marca automáticamente como fijas las 5 materias obligatorias TAPSI:
-
-| Código | Asignatura |
-|---|---|
-| 104030 | Cálculo Diferencial |
-| 103007 | Técnicas de Programación |
-| 103018 | Programación Orientada a Objetos |
-| 103004 | Teoría de Sistemas |
-| 103027 | Sistemas Operativos |
-
-## Endpoints
+## Req 7 — TAPSI fijas
 
 ```http
 GET  /api/asignaturas/tapsi/fijas
 POST /api/asignaturas/tapsi/marcar-fijas
 ```
 
----
-
-# Requerimiento 8: TAPSI jornada diurna
-
-Para jornada diurna, los estudiantes TAPSI deben añadir una asignatura entre:
-
-| Código | Asignatura |
-|---|---|
-| 103093 | Ingeniería de Software II |
-| 103126 | Redes LAN |
-| 109183 | Programación Back End |
-
-| Jornada | Tope de créditos |
-|---|---|
-| Diurna | 18 |
-| Extendida / Nocturna | 15 |
-
-## Endpoints
+## Req 8 — TAPSI jornada diurna
 
 ```http
 GET  /api/asignaturas/tapsi/diurna/opciones-adicionales
@@ -435,20 +226,9 @@ GET  /api/asignaturas/tapsi/diurna/plan
 POST /api/asignaturas/tapsi/diurna/marcar-opciones-adicionales
 ```
 
----
+## Req 9 — Generación automática de propuestas
 
-# Requerimiento 9: generación automática de propuestas
-
-El sistema genera propuestas de asignación para los cuatro escenarios:
-
-- Ingeniería diurna (`ING_DIURNA`)
-- Ingeniería nocturna (`ING_NOCTURNA`)
-- TAPSI diurna (`TAPSI_DIURNA`)
-- TAPSI nocturna (`TAPSI_NOCTURNA`)
-
-Las propuestas se almacenan en `asignaciones` con estado `Propuesta`.
-
-## Endpoint
+Escenarios: `ING_DIURNA`, `ING_NOCTURNA`, `TAPSI_DIURNA`, `TAPSI_NOCTURNA`.
 
 ```http
 POST /api/horarios/generar-propuestas
@@ -456,21 +236,19 @@ POST /api/horarios/generar-propuestas
 
 ---
 
-# Issue #10: asignación manual de asignaturas a docentes
+# Issue #10: asignación manual de asignaturas
 
 ## Descripción
 
-El coordinador puede asignar manualmente una asignatura a un docente para un semestre, sin necesidad de definir el bloque horario en ese momento.
+El coordinador asigna manualmente una asignatura a un docente para un semestre, sin bloque horario. El bloque se puede completar después con el Issue #40.
 
 ## Reglas de negocio
 
-- El docente debe existir.
-- La asignatura debe existir.
-- Se respeta el límite de carga según contrato (TC: 5, TP: 3).
-- Si el docente tiene currículo cargado, se valida que esté habilitado para esa asignatura.
-  - `ForzarSinCurriculo = true` permite omitir esta validación de forma excepcional.
-- No se permite asignar la misma asignatura al mismo docente dos veces en el mismo semestre.
-- La asignación queda con estado `AsignadaManual`, `Dia = 0`, `HoraInicio = ""`, `HoraFin = ""`.
+- Valida existencia de docente y asignatura.
+- Respeta límite de carga por contrato.
+- Si hay currículo cargado, valida que el docente esté habilitado (`ForzarSinCurriculo = true` para omitir).
+- No permite duplicar la misma asignatura en el mismo semestre.
+- La asignación queda con estado `AsignadaManual`, `Dia = 0`, horas vacías.
 
 ## Endpoints
 
@@ -481,51 +259,16 @@ GET  /api/asignaciones/docente/{idDocente}/asignaturas-disponibles?periodo=2026-
 
 ### POST /api/asignaciones/manual
 
-Body:
-
 ```json
 {
-  "idDocente": "uuid-del-docente",
-  "idAsignatura": "uuid-de-la-asignatura",
+  "idDocente": "uuid",
+  "idAsignatura": "uuid",
   "periodo": "2026-1",
   "forzarSinCurriculo": false
 }
 ```
 
-Respuesta exitosa (201 Created):
-
-```json
-{
-  "idAsignacion": "...",
-  "nombreDocente": "Juan Pérez",
-  "tipoContrato": "TC",
-  "maxAsignaturas": 5,
-  "asignaturasActuales": 1,
-  "nombreAsignatura": "Cálculo I",
-  "dia": 0,
-  "horaInicio": "",
-  "horaFin": "",
-  "periodo": "2026-1",
-  "estado": "AsignadaManual"
-}
-```
-
-Errores posibles (400): docente no encontrado, asignatura no encontrada, contrato no válido, no habilitado por currículo, límite de carga alcanzado, asignatura ya asignada en el semestre.
-
-### GET /api/asignaciones/docente/{idDocente}/asignaturas-disponibles
-
-Devuelve todas las asignaturas del sistema con dos indicadores:
-
-- `habilitadaPorCurriculo`: si el docente está habilitado por currículo para esa materia.
-- `yaAsignadaEnPeriodo`: si ya tiene esa materia asignada en el semestre consultado.
-
-## Flujo de uso
-
-```
-1. GET  /api/asignaciones/docente/{id}/asignaturas-disponibles?periodo=2026-1
-2. POST /api/asignaciones/manual  → queda con estado "AsignadaManual"
-3. (Opcional) Completar el bloque horario luego desde el flujo del Issue #12.
-```
+Respuesta (201): asignación con `"estado": "AsignadaManual"`, `"dia": 0`, `"horaInicio": ""`.
 
 ---
 
@@ -533,13 +276,7 @@ Devuelve todas las asignaturas del sistema con dos indicadores:
 
 ## Descripción
 
-El sistema detecta cuando un docente dicta la misma asignatura en jornada diurna y nocturna en el mismo semestre, y elimina automáticamente los bloques de disponibilidad que se solapan con la jornada diurna ya asignada.
-
-## Reglas de negocio
-
-- Si el docente no tiene asignaciones en ambas jornadas para esa asignatura en el semestre, no se realiza ninguna reducción.
-- Se eliminan los bloques de disponibilidad que coinciden en día y se solapan en horario con algún bloque de la jornada diurna.
-- Jornadas diurnas: `ING_DIURNA`, `TAPSI_DIURNA`. Jornadas nocturnas: `ING_NOCTURNA`, `TAPSI_NOCTURNA`.
+Cuando un docente dicta la misma asignatura en jornada diurna y nocturna, el sistema elimina los bloques de disponibilidad que se solapan con la jornada diurna.
 
 ## Endpoint
 
@@ -547,14 +284,10 @@ El sistema detecta cuando un docente dicta la misma asignatura en jornada diurna
 POST /api/curriculos-docentes/{idDocente}/reducir-disponibilidad?idAsignatura={id}&periodo=2026-1
 ```
 
-Respuesta (200 OK):
+Respuesta (200):
 
 ```json
 {
-  "idDocente": "...",
-  "nombreDocente": "Carlos Pérez",
-  "nombreAsignatura": "Cálculo I",
-  "periodo": "2026-1",
   "bloquesEliminados": 1,
   "bloquesAfectados": ["Día 1 08:00-10:00"],
   "mensaje": "Se eliminaron 1 bloque(s) de disponibilidad por doble jornada."
@@ -563,20 +296,20 @@ Respuesta (200 OK):
 
 ---
 
-# Issue #12: revisión y ajuste manual de propuestas antes de confirmar
+# Issue #12: revisión y ajuste de propuestas
 
 ## Descripción
 
-El coordinador puede revisar las propuestas generadas, ajustar cualquier campo antes de confirmarlas, cancelar las que no deben incluirse y confirmarlas individualmente o en bloque.
+El coordinador revisa las propuestas generadas, ajusta campos, cancela las que no aplican y confirma en bloque.
 
-## Estados posibles de una asignación
+## Estados de una asignación
 
-| Estado | Origen | Puede ajustarse | Puede confirmarse | Puede cancelarse |
-|--------|---------|:-:|:-:|:-:|
-| `Propuesta` | Generación automática | Sí | Sí | Sí |
-| `AsignadaManual` | Asignación manual | Sí | Sí | Sí |
-| `Confirmada` | Confirmación por coordinador | No | No | No |
-| `Cancelada` | Cancelación | No | No | No |
+| Estado | Puede ajustarse | Puede confirmarse | Puede cancelarse |
+|--------|:-:|:-:|:-:|
+| `Propuesta` | ✅ | ✅ | ✅ |
+| `AsignadaManual` | ✅ | ✅ | ✅ |
+| `Confirmada` | ❌ | ❌ | ❌ |
+| `Cancelada` | ❌ | ❌ | ❌ |
 
 ## Endpoints
 
@@ -587,7 +320,7 @@ POST  /api/asignaciones/confirmar
 PATCH /api/asignaciones/{idAsignacion}/cancelar
 ```
 
-### PATCH /api/asignaciones/{idAsignacion}/ajustar
+### PATCH /api/asignaciones/{id}/ajustar
 
 Todos los campos son opcionales. Solo se actualiza lo que se envíe.
 
@@ -617,51 +350,43 @@ Respuesta:
   "confirmadas": 2,
   "fallidas": 1,
   "idsConfirmadas": ["uuid-1", "uuid-2"],
-  "errores": [
-    { "idAsignacion": "uuid-3", "motivo": "No se puede confirmar una asignación cancelada." }
-  ]
+  "errores": [{ "idAsignacion": "uuid-3", "motivo": "No se puede confirmar una asignación cancelada." }]
 }
 ```
 
-## Flujo de uso completo
+## Flujo de uso
 
 ```
 1. POST /api/horarios/generar-propuestas
 2. GET  /api/asignaciones/propuestas?periodo=2026-1
-3. PATCH /api/asignaciones/{id}/ajustar         (corregir lo que sea necesario)
+3. PATCH /api/asignaciones/{id}/ajustar         (corregir lo necesario)
 4. PATCH /api/asignaciones/{id}/cancelar         (descartar las que no aplican)
-5. POST  /api/asignaciones/confirmar             (aprobar todo en bloque)
+5. POST  /api/asignaciones/confirmar             (aprobar en bloque)
 ```
 
 ---
 
-# Issue #16: reporte de horas asignadas vs carga contractual
+# Issue #16: reporte de horas vs carga contractual
 
 ## Descripción
 
-El sistema genera un reporte que compara las horas de clase asignadas a cada docente contra su carga contractual, para que el coordinador pueda identificar docentes con carga incompleta, completa o excedida.
-
-## Lógica de cálculo
-
-Las horas se calculan sumando la diferencia entre `HoraFin` y `HoraInicio` de cada bloque de asignación activo (`Propuesta`, `AsignadaManual`, `Confirmada`).
-
-Las asignaciones sin bloque horario definido (creadas con el flujo manual del Issue #10) suman 0 horas pero sí cuentan como asignatura asignada.
+El sistema compara las horas de clase asignadas a cada docente contra su carga contractual de referencia.
 
 ## Horas contractuales de referencia
 
-| Tipo de contrato | Horas semanales de referencia |
+| Contrato | Horas semanales |
 |---|---|
-| `TC` | 40 horas |
-| `TP` | 20 horas |
+| TC | 40 |
+| TP | 20 |
 
 ## Clasificación del estado de carga
 
 | Condición | EstadoCarga |
 |---|---|
-| Sin asignaturas en el semestre | `Sin asignaciones` |
-| Horas asignadas > horas contractuales | `Excedida` |
-| Horas asignadas ≥ 90% de las contractuales | `Completa` |
-| Horas asignadas < 90% de las contractuales | `Parcial` |
+| Sin asignaturas | `Sin asignaciones` |
+| Horas > contractuales | `Excedida` |
+| Horas ≥ 90% contractuales | `Completa` |
+| Horas < 90% contractuales | `Parcial` |
 
 ## Endpoints
 
@@ -670,11 +395,7 @@ GET /api/reportes/carga-docente?semestre=2026-1
 GET /api/reportes/carga-docente/{idDocente}?semestre=2026-1
 ```
 
-### GET /api/reportes/carga-docente
-
-Devuelve el reporte completo con todos los docentes del semestre y un resumen de conteos.
-
-Respuesta (200 OK):
+Respuesta (200):
 
 ```json
 {
@@ -686,69 +407,36 @@ Respuesta (200 OK):
   "docentesSinAsignaciones": 2,
   "docentes": [
     {
-      "idDocente": "...",
       "nombreDocente": "Carlos Pérez",
-      "identificacion": "1001",
       "tipoContrato": "TC",
-      "maxAsignaturas": 5,
       "asignaturasAsignadas": 3,
       "totalHorasSemanales": 6.0,
       "horasContractuales": 40.0,
       "diferenciaHoras": -34.0,
       "porcentajeCarga": 15.0,
       "estadoCarga": "Parcial",
-      "semestre": "2026-1",
-      "asignaturas": [
-        {
-          "nombreAsignatura": "Cálculo I",
-          "codigoAsignatura": "MAT001",
-          "escenario": "ING_DIURNA",
-          "estado": "Confirmada",
-          "horasSemanales": 2.0
-        }
-      ]
+      "asignaturas": [...]
     }
   ]
 }
 ```
 
-### GET /api/reportes/carga-docente/{idDocente}
-
-Devuelve el reporte individual de un docente con el detalle por asignatura.
-
-Errores posibles (404): docente no encontrado.
-
-## Flujo de uso recomendado
-
-```
-1. Al final del proceso de asignación, ejecutar:
-   GET /api/reportes/carga-docente?semestre=2026-1
-
-2. Identificar docentes con EstadoCarga "Parcial" o "Sin asignaciones"
-   y completar su carga con el flujo del Issue #10 o #12.
-
-3. Para ver el detalle de un docente específico:
-   GET /api/reportes/carga-docente/{idDocente}?semestre=2026-1
-```
-
 ---
 
-# Issue #18: alertas de conflictos en asignaciones
+# Issue #18: alertas de conflictos
 
 ## Descripción
 
-El sistema analiza todas las asignaciones activas de un semestre y detecta cuatro tipos de conflictos, clasificados por severidad, para que el coordinador pueda corregirlos antes de confirmar el horario.
+El sistema analiza todas las asignaciones activas de un semestre y detecta cuatro tipos de conflictos.
 
-## Tipos de conflicto detectados
+## Tipos de conflicto
 
 | Tipo | Severidad | Descripción |
 |---|---|---|
 | `CruceHorario` | Error | Dos asignaciones del mismo docente se solapan en día y hora |
-| `ExcesoCarga` | Error | El docente supera el número máximo de asignaturas de su contrato |
-| `AsignaturaSinDocente` | Advertencia | Una asignatura no tiene ningún docente asignado en el semestre |
-| `DocenteSinHorario` | Advertencia | Una asignatura asignada no tiene bloque horario definido aún |
-
-Los estados analizados son: `Propuesta`, `AsignadaManual` y `Confirmada`. Las asignaciones `Cancelada` se ignoran.
+| `ExcesoCarga` | Error | El docente supera el máximo de asignaturas de su contrato |
+| `AsignaturaSinDocente` | Advertencia | Una asignatura no tiene docente asignado en el semestre |
+| `DocenteSinHorario` | Advertencia | Una asignación no tiene bloque horario definido |
 
 ## Endpoint
 
@@ -756,23 +444,12 @@ Los estados analizados son: `Propuesta`, `AsignadaManual` y `Confirmada`. Las as
 GET /api/reportes/conflictos?semestre=2026-1
 ```
 
-Respuesta sin conflictos (200 OK):
+Respuesta (200):
 
 ```json
 {
   "semestre": "2026-1",
-  "totalConflictos": 0,
-  "tieneConflictos": false,
-  "conflictos": []
-}
-```
-
-Respuesta con conflictos (200 OK):
-
-```json
-{
-  "semestre": "2026-1",
-  "totalConflictos": 3,
+  "totalConflictos": 2,
   "tieneConflictos": true,
   "conflictos": [
     {
@@ -784,52 +461,214 @@ Respuesta con conflictos (200 OK):
       "idAsignacion1": "...",
       "idAsignacion2": "...",
       "detalleHorario": "Día 1: 08:00-10:00 vs 09:00-11:00"
-    },
-    {
-      "tipoConflicto": "ExcesoCarga",
-      "severidad": "Error",
-      "descripcion": "El docente 'Ana Gómez' (TP) tiene 4 asignaturas asignadas, superando su límite de 3.",
-      "idDocente": "...",
-      "nombreDocente": "Ana Gómez"
-    },
-    {
-      "tipoConflicto": "AsignaturaSinDocente",
-      "severidad": "Advertencia",
-      "descripcion": "La asignatura 'Física I' (FIS001) no tiene ningún docente asignado en el semestre 2026-1.",
-      "nombreAsignatura": "Física I"
-    },
-    {
-      "tipoConflicto": "DocenteSinHorario",
-      "severidad": "Advertencia",
-      "descripcion": "El docente 'Luis Torres' tiene la asignatura 'Programación I' sin bloque horario definido (estado: AsignadaManual).",
-      "idDocente": "...",
-      "nombreDocente": "Luis Torres",
-      "idAsignacion1": "...",
-      "nombreAsignatura": "Programación I"
     }
   ]
 }
 ```
 
-Errores posibles (400): falta el parámetro `semestre`.
-
 ## Flujo de uso recomendado
 
 ```
-1. Después de generar o ajustar propuestas, ejecutar:
+1. GET /api/reportes/conflictos?semestre=2026-1
+2. Corregir errores:
+   - CruceHorario  → PATCH /api/asignaciones/{id}/asignar-dia
+   - ExcesoCarga   → DELETE /api/asignaciones/{id}
+3. Resolver advertencias:
+   - AsignaturaSinDocente → POST /api/asignaciones/manual
+   - DocenteSinHorario   → PATCH /api/asignaciones/{id}/asignar-dia
+4. Repetir hasta que totalConflictos sea 0.
+5. POST /api/asignaciones/confirmar
+```
+
+---
+
+# Issue #39: calendario semanal filtrable
+
+## Descripción
+
+El sistema muestra el horario en vista de calendario semanal (Lunes a Sábado), filtrable por plan de estudios y jornada. Solo aparecen asignaciones con bloque horario definido.
+
+## Endpoint
+
+```http
+GET /api/horarios/calendario?semestre=2026-1
+GET /api/horarios/calendario?semestre=2026-1&jornada=Diurna
+GET /api/horarios/calendario?semestre=2026-1&jornada=Nocturna
+GET /api/horarios/calendario?semestre=2026-1&idPlan=11111111-1111-1111-1111-111111111111
+GET /api/horarios/calendario?semestre=2026-1&idPlan=11111111-1111-1111-1111-111111111111&jornada=Diurna
+```
+
+Parámetros:
+
+| Parámetro | Obligatorio | Valores válidos |
+|---|---|---|
+| `semestre` | ✅ | Ej: `2026-1` |
+| `jornada` | ❌ | `Diurna` o `Nocturna` |
+| `idPlan` | ❌ | UUID del plan de estudios |
+
+Respuesta (200):
+
+```json
+{
+  "semestre": "2026-1",
+  "idPlanFiltro": null,
+  "jornadaFiltro": "Diurna",
+  "dias": [
+    {
+      "numeroDia": 1,
+      "nombreDia": "Lunes",
+      "bloques": [
+        {
+          "idAsignacion": "...",
+          "horaInicio": "08:00",
+          "horaFin": "10:00",
+          "nombreAsignatura": "Cálculo I",
+          "codigoAsignatura": "MAT001",
+          "nombreDocente": "Carlos Pérez",
+          "escenario": "ING_DIURNA",
+          "jornada": "Diurna",
+          "nombrePlan": "Plan de Estudios 1020 Jornada Diurna",
+          "idPlan": "11111111-1111-1111-1111-111111111111",
+          "estado": "Confirmada"
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+# Issue #40: horario individual del docente y asignación de día
+
+## Descripción
+
+El sistema permite dos cosas relacionadas:
+
+1. **Ver el horario individual de un docente** en vista de calendario semanal con datos de carga.
+2. **Colocar una asignación en un día de la semana**, con o sin bloque horario. Una vez con día y hora definidos, la asignación aparece en el calendario.
+
+---
+
+## Parte A — Ver horario individual del docente
+
+### Endpoint
+
+```http
+GET /api/horarios/calendario/docente/{idDocente}?semestre=2026-1
+```
+
+Devuelve el calendario semanal del docente con su información de carga.
+
+- Las asignaciones **con** bloque horario aparecen en su día correspondiente.
+- Las asignaciones **sin** bloque horario cuentan en `TotalAsignaturas` pero no en `TotalHorasSemanales` ni en el calendario.
+
+Respuesta (200):
+
+```json
+{
+  "idDocente": "...",
+  "nombreDocente": "Carlos Pérez",
+  "identificacion": "1001",
+  "tipoContrato": "TC",
+  "maxAsignaturas": 5,
+  "semestre": "2026-1",
+  "totalAsignaturas": 3,
+  "totalHorasSemanales": 6.0,
+  "dias": [
+    {
+      "numeroDia": 1,
+      "nombreDia": "Lunes",
+      "bloques": [
+        {
+          "horaInicio": "08:00",
+          "horaFin": "10:00",
+          "nombreAsignatura": "Cálculo I",
+          "codigoAsignatura": "MAT001",
+          "escenario": "ING_DIURNA",
+          "estado": "Confirmada"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Errores posibles:
+
+- `400`: falta el parámetro `semestre`.
+- `404`: docente no encontrado.
+
+---
+
+## Parte B — Colocar una asignación en un día
+
+### Endpoint
+
+```http
+PATCH /api/asignaciones/{idAsignacion}/asignar-dia
+```
+
+Coloca una asignación existente en un día de la semana. La hora es opcional: si no se envía, la asignación queda registrada en el día pero sin hora definida y no aparece en el calendario hasta completarla.
+
+Solo aplica a asignaciones en estado `Propuesta` o `AsignadaManual`.
+
+Body:
+
+```json
+{
+  "dia": 3,
+  "horaInicio": "10:00",
+  "horaFin": "12:00"
+}
+```
+
+O solo el día sin hora:
+
+```json
+{
+  "dia": 3
+}
+```
+
+Respuesta exitosa (200): devuelve la asignación actualizada.
+
+Reglas de validación:
+
+- `dia` es obligatorio (1 = Lunes … 6 = Sábado).
+- Si se envía `horaInicio`, se debe enviar también `horaFin` y viceversa.
+- `horaInicio` debe ser menor que `horaFin`.
+- No se puede modificar una asignación `Confirmada` o `Cancelada`.
+
+Errores posibles (400):
+
+- Asignación no encontrada.
+- Asignación ya confirmada o cancelada.
+- Solo se envió una de las dos horas.
+- Hora de inicio mayor o igual que hora de fin.
+
+---
+
+## Flujo completo Issue #40
+
+```
+1. Crear asignación manual (sin día ni hora):
+   POST /api/asignaciones/manual
+
+2. Colocarla en un día con horario:
+   PATCH /api/asignaciones/{id}/asignar-dia
+   { "dia": 3, "horaInicio": "10:00", "horaFin": "12:00" }
+
+3. Verificar que aparece en el calendario semanal general:
+   GET /api/horarios/calendario?semestre=2026-1
+
+4. Verificar que aparece en el calendario individual del docente:
+   GET /api/horarios/calendario/docente/{idDocente}?semestre=2026-1
+
+5. Detectar conflictos antes de confirmar:
    GET /api/reportes/conflictos?semestre=2026-1
 
-2. Revisar los conflictos de severidad "Error" primero:
-   - CruceHorario  → ajustar el bloque horario con PATCH /api/asignaciones/{id}/ajustar
-   - ExcesoCarga   → eliminar una asignación con DELETE /api/asignaciones/{id}
-
-3. Revisar las advertencias:
-   - AsignaturaSinDocente → asignar un docente con POST /api/asignaciones/manual
-   - DocenteSinHorario    → completar el horario con PATCH /api/asignaciones/{id}/ajustar
-
-4. Repetir el análisis hasta que totalConflictos sea 0.
-
-5. Confirmar las propuestas limpias:
+6. Confirmar:
    POST /api/asignaciones/confirmar
 ```
 
@@ -837,13 +676,13 @@ Errores posibles (400): falta el parámetro `semestre`.
 
 # Cambios de base de datos acumulados
 
-## Estado del campo `estado` en la tabla `asignaciones`
+## Estado del campo `estado` en `asignaciones`
 
 ```sql
 estado TEXT NOT NULL CHECK(estado IN ('Propuesta', 'Confirmada', 'Cancelada', 'AsignadaManual'))
 ```
 
-## Columna agregada a `asignaturas` (Req 8)
+## Columna en `asignaturas` (Req 8)
 
 ```sql
 ALTER TABLE asignaturas
@@ -866,7 +705,7 @@ CREATE TABLE IF NOT EXISTS disponibilidad (
 
 ---
 
-# Endpoints principales
+# Todos los endpoints
 
 ## Usuarios
 
@@ -887,6 +726,9 @@ POST   /api/profesores
 GET    /api/profesores/{idProfesor}
 PUT    /api/profesores/{idProfesor}
 DELETE /api/profesores/{idProfesor}
+POST   /api/profesores/importar-excel
+GET    /api/profesores/{idProfesor}/asignaturas-habilitadas
+GET    /api/profesores/{idProfesor}/disponibilidad
 ```
 
 ## Asignaturas
@@ -898,6 +740,11 @@ GET    /api/asignaturas/{idAsignatura}
 GET    /api/asignaturas/plan/{idPlan}
 PUT    /api/asignaturas/{idAsignatura}
 DELETE /api/asignaturas/{idAsignatura}
+GET    /api/asignaturas/tapsi/fijas
+POST   /api/asignaturas/tapsi/marcar-fijas
+GET    /api/asignaturas/tapsi/diurna/opciones-adicionales
+GET    /api/asignaturas/tapsi/diurna/plan
+POST   /api/asignaturas/tapsi/diurna/marcar-opciones-adicionales
 ```
 
 ## Asignaciones
@@ -909,52 +756,40 @@ GET    /api/asignaciones/docente/{idDocente}
 GET    /api/asignaciones/docente/{idDocente}/resumen?periodo=2026-1
 DELETE /api/asignaciones/{idAsignacion}
 
-# Issue #10 — Asignación manual
-POST /api/asignaciones/manual
-GET  /api/asignaciones/docente/{idDocente}/asignaturas-disponibles?periodo=2026-1
+# Issue #10 — Manual
+POST   /api/asignaciones/manual
+GET    /api/asignaciones/docente/{idDocente}/asignaturas-disponibles?periodo=2026-1
 
-# Issue #12 — Revisión y confirmación
-GET   /api/asignaciones/propuestas?periodo=2026-1
-PATCH /api/asignaciones/{idAsignacion}/ajustar
-POST  /api/asignaciones/confirmar
-PATCH /api/asignaciones/{idAsignacion}/cancelar
+# Issue #12 — Revisión
+GET    /api/asignaciones/propuestas?periodo=2026-1
+PATCH  /api/asignaciones/{idAsignacion}/ajustar
+POST   /api/asignaciones/confirmar
+PATCH  /api/asignaciones/{idAsignacion}/cancelar
+
+# Issue #40 — Colocar en día
+PATCH  /api/asignaciones/{idAsignacion}/asignar-dia
 ```
 
-## Excel, currículo y disponibilidad
+## Currículo y disponibilidad
 
 ```http
-POST /api/profesores/importar-excel
-GET  /api/profesores/{idProfesor}/asignaturas-habilitadas
-GET  /api/profesores/{idProfesor}/disponibilidad
-
-# Issue #11 — Reducción de disponibilidad por doble jornada
 POST /api/curriculos-docentes/{idDocente}/reducir-disponibilidad?idAsignatura={id}&periodo=2026-1
-```
-
-## TAPSI
-
-```http
-GET  /api/asignaturas/tapsi/fijas
-POST /api/asignaturas/tapsi/marcar-fijas
-GET  /api/asignaturas/tapsi/diurna/opciones-adicionales
-GET  /api/asignaturas/tapsi/diurna/plan
-POST /api/asignaturas/tapsi/diurna/marcar-opciones-adicionales
 ```
 
 ## Horarios
 
 ```http
 POST /api/horarios/generar-propuestas
+GET  /api/horarios/exportar?periodo=2026-1
+GET  /api/horarios/calendario?semestre=2026-1
+GET  /api/horarios/calendario/docente/{idDocente}?semestre=2026-1
 ```
 
-## Reportes (Issues #16 y #18)
+## Reportes
 
 ```http
-# Issue #16 — Carga docente
 GET /api/reportes/carga-docente?semestre=2026-1
 GET /api/reportes/carga-docente/{idDocente}?semestre=2026-1
-
-# Issue #18 — Conflictos
 GET /api/reportes/conflictos?semestre=2026-1
 ```
 
@@ -962,23 +797,20 @@ GET /api/reportes/conflictos?semestre=2026-1
 
 # Cómo ejecutar el proyecto
 
-Desde la raíz del proyecto:
-
 ```powershell
 dotnet restore .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
 dotnet build   .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
 dotnet run --project .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
 ```
 
-La API queda disponible en `http://localhost:5213`.
-Swagger queda disponible en `http://localhost:5213/swagger`.
+API: `http://localhost:5213`
+Swagger: `http://localhost:5213/swagger`
 
 ---
 
 # Cómo ejecutar las pruebas
 
 ```powershell
-dotnet build .\src\ApplicationSchedule.Api\ApplicationSchedule.Api.csproj
 dotnet build .\src\ApplicationSchedule.Tests\ApplicationSchedule.Tests.csproj
 dotnet test  .\src\ApplicationSchedule.Tests\ApplicationSchedule.Tests.csproj
 ```
@@ -993,136 +825,67 @@ dotnet test .\src\ApplicationSchedule.Tests\ApplicationSchedule.Tests.csproj --l
 
 # Guía de pruebas manuales en Swagger
 
-## Paso 1 — Crear un docente
+## Paso 1 — Crear docente y asignatura
 
 ```http
 POST /api/profesores
-```
+{ "nombre": "Carlos Pérez", "identificacion": "1001", "tipoContrato": "TC" }
 
-```json
-{
-  "nombre": "Carlos Pérez",
-  "identificacion": "1001",
-  "tipoContrato": "TC"
-}
-```
-
-Guardar el `idProfesor` de la respuesta.
-
-## Paso 2 — Crear asignaturas
-
-```http
 POST /api/asignaturas
+{ "idPlan": "11111111-1111-1111-1111-111111111111", "codigo": "MAT001", "nombre": "Cálculo I", "creditos": 4, "semestre": 1 }
 ```
 
-```json
-{
-  "idPlan": "11111111-1111-1111-1111-111111111111",
-  "codigo": "MAT001",
-  "nombre": "Cálculo I",
-  "creditos": 4,
-  "semestre": 1
-}
-```
-
-Guardar el `idAsignatura` de la respuesta.
-
-## Paso 3 — Ver asignaturas disponibles para el docente (Issue #10)
-
-```http
-GET /api/asignaciones/docente/{idDocente}/asignaturas-disponibles?periodo=2026-1
-```
-
-## Paso 4 — Asignar una asignatura manualmente (Issue #10)
+## Paso 2 — Asignar manualmente (Issue #10)
 
 ```http
 POST /api/asignaciones/manual
+{ "idDocente": "...", "idAsignatura": "...", "periodo": "2026-1", "forzarSinCurriculo": false }
 ```
 
-```json
-{
-  "idDocente": "ID_DEL_DOCENTE",
-  "idAsignatura": "ID_DE_LA_ASIGNATURA",
-  "periodo": "2026-1",
-  "forzarSinCurriculo": false
-}
-```
-
-La respuesta debe tener `"estado": "AsignadaManual"`, `"dia": 0`, `"horaInicio": ""`.
-
-## Paso 5 — Consultar propuestas pendientes (Issue #12)
+## Paso 3 — Colocar en un día con horario (Issue #40)
 
 ```http
-GET /api/asignaciones/propuestas?periodo=2026-1
+PATCH /api/asignaciones/{id}/asignar-dia
+{ "dia": 3, "horaInicio": "10:00", "horaFin": "12:00" }
 ```
 
-## Paso 6 — Ajustar una propuesta (Issue #12)
+## Paso 4 — Ver en el calendario semanal (Issue #39)
 
 ```http
-PATCH /api/asignaciones/{idAsignacion}/ajustar
+GET /api/horarios/calendario?semestre=2026-1
+GET /api/horarios/calendario?semestre=2026-1&jornada=Diurna
 ```
 
-```json
-{
-  "dia": 3,
-  "horaInicio": "10:00",
-  "horaFin": "12:00"
-}
+## Paso 5 — Ver horario individual del docente (Issue #40)
+
+```http
+GET /api/horarios/calendario/docente/{idDocente}?semestre=2026-1
 ```
 
-## Paso 7 — Detectar conflictos antes de confirmar (Issue #18)
+## Paso 6 — Detectar conflictos (Issue #18)
 
 ```http
 GET /api/reportes/conflictos?semestre=2026-1
 ```
 
-Revisar y corregir todos los conflictos de severidad `Error` antes de continuar.
+Corregir todos los `Error` antes de confirmar.
 
-## Paso 8 — Cancelar propuestas que no aplican (Issue #12)
-
-```http
-PATCH /api/asignaciones/{idAsignacion}/cancelar
-```
-
-## Paso 9 — Confirmar propuestas aprobadas en bloque (Issue #12)
+## Paso 7 — Confirmar propuestas (Issue #12)
 
 ```http
 POST /api/asignaciones/confirmar
+{ "idsAsignacion": ["uuid-1", "uuid-2"] }
 ```
 
-```json
-{
-  "idsAsignacion": ["uuid-1", "uuid-2", "uuid-3"]
-}
-```
-
-## Paso 10 — Generar el reporte de carga docente (Issue #16)
+## Paso 8 — Reporte de carga docente (Issue #16)
 
 ```http
 GET /api/reportes/carga-docente?semestre=2026-1
 ```
 
-Identifica docentes con carga `Parcial` o `Sin asignaciones` para completar su carga.
-
-## Paso 11 — Reducir disponibilidad por doble jornada (Issue #11)
-
-```http
-POST /api/curriculos-docentes/{idDocente}/reducir-disponibilidad?idAsignatura={idAsignatura}&periodo=2026-1
-```
-
-## Paso 12 — Volver a verificar conflictos (Issue #18)
-
-```http
-GET /api/reportes/conflictos?semestre=2026-1
-```
-
-Repetir hasta que `totalConflictos` sea 0 y luego confirmar.
-
 ---
 
-# Git Flow recomendado
-
-## Ramas por issue
+# Git Flow
 
 | Issue | Rama sugerida |
 |---|---|
@@ -1131,21 +894,16 @@ Repetir hasta que `totalConflictos` sea 0 y luego confirmar.
 | Issue #12 | `feature/revision-ajuste-confirmacion-propuestas` |
 | Issue #16 | `feature/reporte-carga-docente` |
 | Issue #18 | `feature/alertas-conflictos-asignaciones` |
-
-## Crear rama desde develop
+| Issue #39 | `feature/calendario-semanal` |
+| Issue #40 | `feature/horario-individual-docente` |
 
 ```bash
 git checkout develop
 git pull origin develop
-git checkout -b feature/alertas-conflictos-asignaciones
-```
-
-## Guardar y publicar cambios
-
-```bash
+git checkout -b feature/horario-individual-docente
 git add .
-git commit -m "feat(reportes): alertas de conflictos en asignaciones"
-git push origin feature/alertas-conflictos-asignaciones
+git commit -m "feat(horarios): horario individual docente y asignación de día a bloque"
+git push origin feature/horario-individual-docente
 ```
 
 ---
@@ -1157,84 +915,78 @@ git push origin feature/alertas-conflictos-asignaciones
 - Gestión de usuarios y roles.
 - Registro de docentes con límite de carga por contrato.
 - Registro de asignaturas con planes de estudio.
-- Materias TAPSI fijas y opciones adicionales para jornada diurna.
-- Importación de currículo docente desde Excel.
-- Importación de disponibilidad docente desde Excel.
-- Generación automática de propuestas para 4 escenarios (Req 9).
-- Pruebas automáticas.
-- **Issue #10:** Asignación manual de asignaturas a docentes.
-- **Issue #10:** Consulta de asignaturas disponibles para un docente por semestre.
+- Materias TAPSI fijas y opciones diurnas.
+- Importación de currículo y disponibilidad desde Excel.
+- Generación automática de propuestas para 4 escenarios.
+- **Issue #10:** Asignación manual sin bloque horario.
 - **Issue #11:** Reducción de disponibilidad por doble jornada.
-- **Issue #12:** Consulta de propuestas pendientes por semestre.
-- **Issue #12:** Ajuste manual de propuestas campo por campo.
-- **Issue #12:** Cancelación de propuestas.
-- **Issue #12:** Confirmación individual y en bloque de propuestas.
-- **Issue #16:** Reporte de horas asignadas vs carga contractual por docente.
-- **Issue #16:** Reporte individual por docente con detalle de asignaturas.
-- **Issue #18:** Detección de cruces horarios entre asignaciones del mismo docente.
-- **Issue #18:** Detección de exceso de carga por contrato.
-- **Issue #18:** Detección de asignaturas sin docente asignado en el semestre.
-- **Issue #18:** Detección de docentes con asignaturas sin bloque horario definido.
+- **Issue #12:** Ajuste, cancelación y confirmación de propuestas.
+- **Issue #16:** Reporte de horas asignadas vs carga contractual.
+- **Issue #18:** Detección de cruces, exceso de carga, asignaturas sin docente y docentes sin horario.
+- **Issue #39:** Calendario semanal filtrable por plan y jornada.
+- **Issue #40:** Horario individual de docente en vista semanal.
+- **Issue #40:** Endpoint para colocar una asignación en un día y bloque horario.
 
 ## Pendiente o futuro
 
-- Validación automática de conflictos al momento de crear asignaciones.
+- Validación automática de conflictos al crear asignaciones.
 - Interfaz visual del frontend.
-- Normalización del formato de Excel de disponibilidad.
-- Reglas avanzadas de selección automática de la materia adicional TAPSI diurna.
+- Reglas avanzadas de selección de materia adicional TAPSI diurna.
 
 ---
 
 # Checklist antes de Pull Request
 
 ```txt
-[ ] La API compila correctamente (dotnet build).
-[ ] Los tests compilan correctamente.
-[ ] Los tests pasan (dotnet test).
-[ ] Swagger abre correctamente en http://localhost:5213/swagger.
+[ ] dotnet build sin errores.
+[ ] dotnet test sin fallos.
+[ ] Swagger abre correctamente.
 
 # Issue #10
 [ ] POST /api/asignaciones/manual crea con estado "AsignadaManual".
-[ ] GET  /api/asignaciones/docente/{id}/asignaturas-disponibles responde correctamente.
-[ ] El límite de carga se respeta en asignaciones manuales.
-[ ] El duplicado en el mismo semestre es rechazado con 400.
+[ ] Límite de carga se respeta. Duplicado rechazado con 400.
 
 # Issue #11
-[ ] POST /api/curriculos-docentes/{id}/reducir-disponibilidad funciona.
-[ ] Solo elimina bloques cuando hay asignaciones en ambas jornadas.
-[ ] Si no hay doble jornada, responde con bloquesEliminados: 0.
+[ ] Reduce disponibilidad solo cuando hay doble jornada.
+[ ] Con una sola jornada responde bloquesEliminados: 0.
 
 # Issue #12
-[ ] GET  /api/asignaciones/propuestas devuelve solo Propuesta y AsignadaManual.
-[ ] PATCH /api/asignaciones/{id}/ajustar actualiza solo los campos enviados.
-[ ] PATCH /api/asignaciones/{id}/ajustar rechaza con 400 si ya está Confirmada.
-[ ] PATCH /api/asignaciones/{id}/cancelar cambia estado a Cancelada.
-[ ] PATCH /api/asignaciones/{id}/cancelar rechaza con 400 si ya está Confirmada.
-[ ] POST  /api/asignaciones/confirmar confirma en bloque correctamente.
-[ ] POST  /api/asignaciones/confirmar reporta fallidas sin interrumpir las exitosas.
+[ ] Ajuste solo aplica a Propuesta y AsignadaManual.
+[ ] Confirmación en bloque reporta fallidas sin interrumpir exitosas.
+[ ] Cancelar rechaza Confirmadas con 400.
 
 # Issue #16
-[ ] GET /api/reportes/carga-docente?semestre=2026-1 retorna todos los docentes.
-[ ] GET /api/reportes/carga-docente/{id}?semestre=2026-1 retorna el docente correcto.
-[ ] Las horas se calculan correctamente con los bloques horarios.
-[ ] Las asignaciones sin horario suman 0 horas pero cuentan como asignatura asignada.
-[ ] El EstadoCarga clasifica correctamente (Sin asignaciones / Parcial / Completa / Excedida).
-[ ] Retorna 400 si falta el semestre.
-[ ] Retorna 404 si el docente no existe.
+[ ] Reporte general del semestre con todos los docentes.
+[ ] Reporte individual con detalle de asignaturas.
+[ ] EstadoCarga clasifica correctamente.
 
 # Issue #18
-[ ] GET /api/reportes/conflictos?semestre=2026-1 detecta cruces horarios.
-[ ] Detecta exceso de carga por contrato.
-[ ] Detecta asignaturas sin docente en el semestre.
-[ ] Detecta docentes con asignaturas sin bloque horario.
+[ ] Detecta CruceHorario, ExcesoCarga, AsignaturaSinDocente, DocenteSinHorario.
 [ ] Bloques en días distintos no generan cruce.
-[ ] Retorna 400 si falta el semestre.
 [ ] tieneConflictos es false cuando no hay conflictos.
 
+# Issue #39
+[ ] GET /api/horarios/calendario retorna 6 días siempre.
+[ ] Filtro por jornada funciona (Diurna / Nocturna).
+[ ] Filtro por idPlan funciona.
+[ ] Asignaciones sin horario no aparecen en el calendario.
+[ ] Retorna 400 con jornada inválida.
+
+# Issue #40
+[ ] GET /api/horarios/calendario/docente/{id} retorna 6 días y datos del docente.
+[ ] Solo muestra asignaciones del docente consultado.
+[ ] TotalHorasSemanales y TotalAsignaturas correctos.
+[ ] PATCH /api/asignaciones/{id}/asignar-dia guarda día correctamente.
+[ ] Con día y hora, la asignación aparece en el calendario.
+[ ] Sin hora, no aparece en el calendario pero sí cuenta en TotalAsignaturas.
+[ ] Rechaza si solo se envía una de las dos horas.
+[ ] Rechaza si horaInicio >= horaFin.
+[ ] Rechaza si la asignación está Confirmada.
+[ ] Retorna 404 si el docente no existe.
+
 # General
-[ ] No se sube horarios.db.
-[ ] No se suben archivos bin/ ni obj/.
+[ ] No se sube horarios.db ni bin/ ni obj/.
 [ ] README actualizado.
-[ ] El PR apunta hacia develop.
-[ ] Los issues quedan enlazados al PR.
+[ ] PR apunta a develop.
+[ ] Issues enlazados al PR.
 ```
