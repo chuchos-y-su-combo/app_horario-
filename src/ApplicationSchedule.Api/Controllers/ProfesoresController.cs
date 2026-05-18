@@ -1,9 +1,10 @@
 using ApplicationSchedule.Application.DTOs.Profesores;
 using ApplicationSchedule.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ApplicationSchedule.Api.Controllers;
-
+[Authorize]
 [ApiController]
 [Route("api/profesores")]
 public class ProfesoresController : ControllerBase
