@@ -25,13 +25,21 @@ public class AuthService : IAuthService
     public async Task<LoginResponse> LoginAsync(LoginRequest request)
     {
         string correoNormalizado = request.Correo.Trim().ToLower();
+
         Usuario? usuario = await _context.Usuarios
+            .Include(u => u.Rol)
             .FirstOrDefaultAsync(u => u.Correo == correoNormalizado);
 
         if (usuario is null || !BCrypt.Net.BCrypt.Verify(request.Password, usuario.PasswordHash))
+        {
             throw new UnauthorizedAccessException("Credenciales incorrectas.");
+        }
 
-        string token = GenerarToken(usuario);
+        string nombreRol = usuario.Rol?.NombreRol
+            ?? throw new InvalidOperationException("El usuario no tiene un rol asignado.");
+
+        string token = GenerarToken(usuario, nombreRol);
+
         DateTime expiracion = DateTime.UtcNow.AddMinutes(60);
 
         return new LoginResponse
@@ -40,12 +48,12 @@ public class AuthService : IAuthService
             IdUsuario = usuario.IdUsuario,
             NombreCompleto = usuario.NombreCompleto,
             Correo = usuario.Correo,
-            Rol = string.Empty,
+            Rol = nombreRol,
             Expiracion = expiracion
         };
     }
 
-    private string GenerarToken(Usuario usuario)
+    private string GenerarToken(Usuario usuario, string nombreRol)
     {
         string secretKey = _configuration["Jwt:SecretKey"]
             ?? throw new InvalidOperationException("La clave no está configurada.");
@@ -59,8 +67,16 @@ public class AuthService : IAuthService
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, usuario.IdUsuario),
+            new Claim(ClaimTypes.NameIdentifier, usuario.IdUsuario),
+
             new Claim(JwtRegisteredClaimNames.Email, usuario.Correo),
+            new Claim(ClaimTypes.Email, usuario.Correo),
+
             new Claim(ClaimTypes.Name, usuario.NombreCompleto),
+
+            new Claim(ClaimTypes.Role, nombreRol),
+            new Claim("idRol", usuario.IdRol.ToString()),
+
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 

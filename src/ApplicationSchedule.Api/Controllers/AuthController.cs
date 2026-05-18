@@ -1,9 +1,11 @@
 using ApplicationSchedule.Application.DTOs.Auth;
 using ApplicationSchedule.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ApplicationSchedule.Api.Controllers;
 
+[AllowAnonymous]
 [ApiController]
 [Route("api/auth")]
 public class AuthController : ControllerBase

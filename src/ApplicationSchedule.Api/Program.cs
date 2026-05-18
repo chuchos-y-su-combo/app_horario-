@@ -51,7 +51,7 @@ builder.Services.AddAuthentication(config =>
     };
 });
 
-
+builder.Services.AddAuthorization();
 builder.Services.AddScoped<IAsignaturaService, AsignaturaService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IProfesorService, ProfesorService>();

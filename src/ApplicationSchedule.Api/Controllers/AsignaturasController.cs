@@ -3,9 +3,10 @@ using ApplicationSchedule.Application.Interfaces;
 using ApplicationSchedule.Application.DTOs.Tapsi;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using ApplicationSchedule.Application.Security;
 
 namespace ApplicationSchedule.Api.Controllers;
-[Authorize]
+[Authorize(Roles = RolesSistema.AdministradorOCoordinador)]
 [ApiController]
 [Route("api/asignaturas")]
 public class AsignaturasController : ControllerBase
