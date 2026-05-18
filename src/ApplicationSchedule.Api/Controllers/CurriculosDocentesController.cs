@@ -3,6 +3,7 @@ using ApplicationSchedule.Application.Interfaces;
 using ApplicationSchedule.Application.DTOs.Disponibilidades;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using ApplicationSchedule.Application.Security;
 
 namespace ApplicationSchedule.Api.Controllers;
 
@@ -11,7 +12,7 @@ namespace ApplicationSchedule.Api.Controllers;
 /// y consultar las asignaturas que cada docente puede dictar.
 /// </summary>
 [ApiController]
-[Authorize]
+[Authorize(Roles = RolesSistema.AdministradorOCoordinador)]
 [Route("api/profesores")]
 public class CurriculosDocentesController : ControllerBase
 {
