@@ -204,7 +204,14 @@ public class AsignacionService : IAsignacionService
 
         if (bloqueDuplicado)
             throw new InvalidOperationException("Esta asignación ya existe para el mismo docente, asignatura, día, horario y periodo.");
-
+        
+        await ValidarFranjaAsignaturaNoBloqueadaAsync(
+            idAsignatura,
+            periodo,
+            request.Dia,
+            horaInicio,
+            horaFin
+        );
         var asignacion = new Asignacion
         {
             IdAsignacion = Guid.NewGuid().ToString(),
@@ -506,6 +513,14 @@ public class AsignacionService : IAsignacionService
                 "La hora de inicio debe ser menor que la hora de fin.");
         }
 
+        await ValidarFranjaAsignaturaNoBloqueadaAsync(
+            asignacion.IdAsignatura,
+            asignacion.Periodo,
+            asignacion.Dia,
+            asignacion.HoraInicio,
+            asignacion.HoraFin
+        );
+
         await _context.SaveChangesAsync();
 
         int asignaturasActuales = await ContarAsignaturasDistintasAsync(
@@ -639,11 +654,70 @@ public class AsignacionService : IAsignacionService
             asignacion.HoraFin = request.HoraFin!.Trim();
         }
 
+        await ValidarFranjaAsignaturaNoBloqueadaAsync(
+            asignacion.IdAsignatura,
+            asignacion.Periodo,
+            asignacion.Dia,
+            asignacion.HoraInicio,
+            asignacion.HoraFin
+        );
+
         await _context.SaveChangesAsync();
 
         int asignaturasActuales = await ContarAsignaturasDistintasAsync(
             asignacion.IdDocente, asignacion.Periodo);
 
         return ToResponse(asignacion, asignaturasActuales);
+    }
+
+    private async Task ValidarFranjaAsignaturaNoBloqueadaAsync(
+        string idAsignatura,
+        string periodo,
+        int dia,
+        string horaInicio,
+        string horaFin)
+    {
+        if (dia < 1 || string.IsNullOrWhiteSpace(horaInicio) || string.IsNullOrWhiteSpace(horaFin))
+            return;
+
+        List<BloqueoFranjaAsignatura> bloqueos = await _context.BloqueosFranjaAsignatura
+            .Where(b =>
+                b.IdAsignatura == idAsignatura &&
+                b.Periodo == periodo &&
+                b.Dia == dia)
+            .ToListAsync();
+
+        BloqueoFranjaAsignatura? bloqueoEncontrado = bloqueos.FirstOrDefault(b =>
+            HorariosSeCruzan(horaInicio, horaFin, b.HoraInicio, b.HoraFin));
+
+        if (bloqueoEncontrado is null)
+            return;
+
+        string motivo = string.IsNullOrWhiteSpace(bloqueoEncontrado.Motivo)
+            ? "sin motivo registrado"
+            : bloqueoEncontrado.Motivo;
+
+        throw new InvalidOperationException(
+            $"La asignatura tiene bloqueada la franja del día {dia} " +
+            $"entre {bloqueoEncontrado.HoraInicio} y {bloqueoEncontrado.HoraFin} " +
+            $"para el periodo {periodo}. Motivo: {motivo}."
+        );
+    }
+
+    private static bool HorariosSeCruzan(
+        string inicioA,
+        string finA,
+        string inicioB,
+        string finB)
+    {
+        if (!TimeSpan.TryParse(inicioA, out TimeSpan aInicio) ||
+            !TimeSpan.TryParse(finA, out TimeSpan aFin) ||
+            !TimeSpan.TryParse(inicioB, out TimeSpan bInicio) ||
+            !TimeSpan.TryParse(finB, out TimeSpan bFin))
+        {
+            return false;
+        }
+
+        return aInicio < bFin && bInicio < aFin;
     }
 }

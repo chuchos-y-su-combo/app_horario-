@@ -18,6 +18,7 @@ public class DatabaseModelTests : IntegrationTestBase, IClassFixture<CustomWebAp
     {
         await Factory.ExecuteDbContextAsync(async dbContext =>
         {
+            dbContext.Model.FindEntityType(typeof(BloqueoFranjaAsignatura))!.GetTableName().Should().Be("bloqueos_franja_asignatura");
             dbContext.Model.FindEntityType(typeof(Rol))!.GetTableName().Should().Be("roles");
             dbContext.Model.FindEntityType(typeof(Usuario))!.GetTableName().Should().Be("usuarios");
             dbContext.Model.FindEntityType(typeof(PlanEstudio))!.GetTableName().Should().Be("planes_estudio");
