@@ -15,10 +15,6 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
-    /// <summary>
-    /// RF-02: Inicia sesión con correo y contraseña.
-    /// Retorna un token JWT válido por 60 minutos.
-    /// </summary>
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request)
     {

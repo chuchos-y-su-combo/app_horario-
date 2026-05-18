@@ -24,13 +24,8 @@ public class AuthService : IAuthService
 
     public async Task<LoginResponse> LoginAsync(LoginRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Correo) || string.IsNullOrWhiteSpace(request.Password))
-            throw new InvalidOperationException("El correo y la contraseña son obligatorios.");
-
         string correoNormalizado = request.Correo.Trim().ToLower();
-
         Usuario? usuario = await _context.Usuarios
-            .Include(u => u.Rol)
             .FirstOrDefaultAsync(u => u.Correo == correoNormalizado);
 
         if (usuario is null || !BCrypt.Net.BCrypt.Verify(request.Password, usuario.PasswordHash))
@@ -45,7 +40,7 @@ public class AuthService : IAuthService
             IdUsuario = usuario.IdUsuario,
             NombreCompleto = usuario.NombreCompleto,
             Correo = usuario.Correo,
-            Rol = usuario.Rol?.NombreRol ?? string.Empty,
+            Rol = string.Empty,
             Expiracion = expiracion
         };
     }
@@ -53,7 +48,7 @@ public class AuthService : IAuthService
     private string GenerarToken(Usuario usuario)
     {
         string secretKey = _configuration["Jwt:SecretKey"]
-            ?? throw new InvalidOperationException("La clave secreta JWT no está configurada.");
+            ?? throw new InvalidOperationException("La clave no está configurada.");
 
         string issuer = _configuration["Jwt:Issuer"] ?? "ApplicationSchedule";
         string audience = _configuration["Jwt:Audience"] ?? "ApplicationScheduleClients";
@@ -66,7 +61,6 @@ public class AuthService : IAuthService
             new Claim(JwtRegisteredClaimNames.Sub, usuario.IdUsuario),
             new Claim(JwtRegisteredClaimNames.Email, usuario.Correo),
             new Claim(ClaimTypes.Name, usuario.NombreCompleto),
-            new Claim(ClaimTypes.Role, usuario.Rol?.NombreRol ?? string.Empty),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 

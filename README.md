@@ -27,24 +27,25 @@ Está desarrollado en C# con ASP.NET Core, Entity Framework Core y SQLite.
 
 ## Estado actual del proyecto
 
-| Requerimiento | Estado | Descripción |
-|---|---|---|
-| Req 2 | Implementado | Crear y gestionar cuentas con rol administrador o coordinador |
-| Req 3 | Implementado | Registrar docentes con nombre, identificación y tipo de contrato |
-| Req 4 | Implementado | Registrar asignaturas con nombre, código, créditos, semestre y plan de estudios |
-| Req 5 | Implementado | Limitar carga docente según contrato |
-| Req 6 | Implementado | Cargar currículo docente desde Excel |
-| Req 7 | Implementado | Marcar materias obligatorias TAPSI como fijas |
-| Req 8 | Implementado | Contemplar asignatura adicional requerida para TAPSI jornada diurna |
+| Requerimiento          | Estado | Descripción |
+|------------------------|---|---|
+| Req 2                  | Implementado | Crear y gestionar cuentas con rol administrador o coordinador |
+| Req 3                  | Implementado | Registrar docentes con nombre, identificación y tipo de contrato |
+| Req 4                  | Implementado | Registrar asignaturas con nombre, código, créditos, semestre y plan de estudios |
+| Req 5                  | Implementado | Limitar carga docente según contrato |
+| Req 6                  | Implementado | Cargar currículo docente desde Excel |
+| Req 7                  | Implementado | Marcar materias obligatorias TAPSI como fijas |
+| Req 8                  | Implementado | Contemplar asignatura adicional requerida para TAPSI jornada diurna |
 | Disponibilidad docente | Implementado | Importar disponibilidad docente desde el Excel actual de coordinación |
-| Req 9 | Implementado | Generar automáticamente propuestas de asignación para los 4 escenarios |
-| Issue #10 | Implementado | Asignar asignaturas a docentes de forma manual |
-| Issue #11 | Implementado | Reducir disponibilidad de un docente que dicta la misma materia en jornada diurna y nocturna |
-| Issue #12 | Implementado | Revisar y ajustar manualmente la propuesta generada antes de confirmarla |
-| Issue #16 | Implementado | Generar reporte de horas asignadas vs carga contractual por docente |
-| Issue #18 | Implementado | Alertar cuando una asignación genera conflicto |
-| Issue #39 | Implementado | Mostrar el horario en vista de calendario semanal filtrable por plan y jornada |
-| Issue #40 | Implementado | Mostrar el horario individual de cada docente y colocar asignaturas en un día de la semana |
+| Req 9                  | Implementado | Generar automáticamente propuestas de asignación para los 4 escenarios |
+| Issue #10              | Implementado | Asignar asignaturas a docentes de forma manual |
+| Issue #11              | Implementado | Reducir disponibilidad de un docente que dicta la misma materia en jornada diurna y nocturna |
+| Issue #12              | Implementado | Revisar y ajustar manualmente la propuesta generada antes de confirmarla |
+| Issue #16              | Implementado | Generar reporte de horas asignadas vs carga contractual por docente |
+| Issue #18              | Implementado | Alertar cuando una asignación genera conflicto |
+| Issue #39              | Implementado | Mostrar el horario en vista de calendario semanal filtrable por plan y jornada |
+| Issue #40              | Implementado | Mostrar el horario individual de cada docente y colocar asignaturas en un día de la semana |
+| Issue #34             | Implementado | El sistema debe requerir autenticación con correo y contraseña para acceder |
 
 ---
 
@@ -673,7 +674,39 @@ Errores posibles (400):
 ```
 
 ---
+# Issue #34: El sistema debe requerir autenticación con correo y contraseña para acceder
+## Descripción
 
+El sistema permite iniciar sesión desde una cuenta de usuario ya creada.
+### Endpoint
+
+```http
+POST /api/auth/login
+```
+Body
+```http
+{
+  "correo": "admin@cuenta.com",
+  "password":  "contraseniaSuperSegura23"
+}
+```
+---
+## Flujo completo Issue #34
+
+```
+1. Crear un usuario de forma manual(si no hay usuarios creados) :
+   POST  /api/usuarios
+
+2. iniciar sesión:
+   POST /api/auth/login
+   {"correo": "prueba@uam.com", "password": "123123prueba"
+}
+
+3. Copiar el token generado (sin comillas) y cuando se vaya a utilizar colocar en headers: 
+    
+    key: Authorization Value: Bearer LlaveGenerada 
+```
+---
 # Cambios de base de datos acumulados
 
 ## Estado del campo `estado` en `asignaciones`
