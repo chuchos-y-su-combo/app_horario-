@@ -24,4 +24,5 @@ public class Asignatura
     public ICollection<Asignacion> Asignaciones { get; set; } = new List<Asignacion>();
 
     public ICollection<DocenteHabilitado> DocentesHabilitados { get; set; } = new List<DocenteHabilitado>();
+    public ICollection<BloqueoFranjaAsignatura> BloqueosFranja { get; set; } = new List<BloqueoFranjaAsignatura>();
 }

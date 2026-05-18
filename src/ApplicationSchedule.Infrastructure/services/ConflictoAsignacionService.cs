@@ -33,12 +33,18 @@ public class ConflictoAsignacionService : IConflictoAsignacionService
         List<Asignatura> todasLasAsignaturas = await _context.Asignaturas
             .ToListAsync(cancellationToken);
 
+        List<BloqueoFranjaAsignatura> bloqueosFranja = await _context.BloqueosFranjaAsignatura
+            .Include(b => b.Asignatura)
+            .Where(b => b.Periodo == semestreLimpio)
+            .ToListAsync(cancellationToken);
+
         List<AlertaConflicto> conflictos = new();
 
         conflictos.AddRange(DetectarCrucesHorarios(asignaciones));
         conflictos.AddRange(DetectarExcesoDeCarga(asignaciones));
         conflictos.AddRange(DetectarAsignaturasSinDocente(todasLasAsignaturas, asignaciones, semestreLimpio));
         conflictos.AddRange(DetectarDocentesConAsignaturaSinHorario(asignaciones));
+        conflictos.AddRange(DetectarAsignacionesEnFranjaBloqueada(asignaciones, bloqueosFranja));
 
         return new ConflictoAsignacionResponse
         {
@@ -194,6 +200,53 @@ public class ConflictoAsignacionService : IConflictoAsignacionService
         return alertas;
     }
 
+    private static List<AlertaConflicto> DetectarAsignacionesEnFranjaBloqueada(
+        List<Asignacion> asignaciones,
+        List<BloqueoFranjaAsignatura> bloqueosFranja)
+    {
+        List<AlertaConflicto> alertas = new();
+
+        List<Asignacion> conHorario = asignaciones
+            .Where(a =>
+                a.Dia >= 1 &&
+                !string.IsNullOrWhiteSpace(a.HoraInicio) &&
+                !string.IsNullOrWhiteSpace(a.HoraFin))
+            .ToList();
+
+        foreach (Asignacion asignacion in conHorario)
+        {
+            BloqueoFranjaAsignatura? bloqueo = bloqueosFranja.FirstOrDefault(b =>
+                b.IdAsignatura == asignacion.IdAsignatura &&
+                b.Periodo == asignacion.Periodo &&
+                b.Dia == asignacion.Dia &&
+                HorariosSeSolapan(asignacion.HoraInicio, asignacion.HoraFin, b.HoraInicio, b.HoraFin));
+
+            if (bloqueo is null)
+                continue;
+
+            string motivo = string.IsNullOrWhiteSpace(bloqueo.Motivo)
+                ? "sin motivo registrado"
+                : bloqueo.Motivo;
+
+            alertas.Add(new AlertaConflicto
+            {
+                TipoConflicto = "FranjaBloqueadaAsignatura",
+                Severidad = "Error",
+                Descripcion =
+                    $"La asignatura '{asignacion.Asignatura?.Nombre}' tiene una asignación " +
+                    $"en una franja bloqueada: día {asignacion.Dia}, " +
+                    $"{asignacion.HoraInicio}-{asignacion.HoraFin}. " +
+                    $"Bloqueo registrado: {bloqueo.HoraInicio}-{bloqueo.HoraFin}. Motivo: {motivo}.",
+                IdDocente = asignacion.IdDocente,
+                NombreDocente = asignacion.Docente?.Nombre,
+                IdAsignacion1 = asignacion.IdAsignacion,
+                NombreAsignatura = asignacion.Asignatura?.Nombre,
+                DetalleHorario = $"Día {asignacion.Dia}: {asignacion.HoraInicio}-{asignacion.HoraFin} bloqueado por {bloqueo.HoraInicio}-{bloqueo.HoraFin}"
+            });
+        }
+
+        return alertas;
+    }
     private static bool HorariosSeSolapan(
         string inicioA, string finA,
         string inicioB, string finB)

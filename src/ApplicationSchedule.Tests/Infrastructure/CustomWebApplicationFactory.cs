@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Authentication;
 
 namespace ApplicationSchedule.Tests.Infrastructure;
 
@@ -48,6 +49,17 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<AppDbContext>(
                 options => options.UseInMemoryDatabase(_databaseName),
                 ServiceLifetime.Transient
+            );
+
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
+                options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
+                options.DefaultScheme = TestAuthHandler.SchemeName;
+            })
+            .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                TestAuthHandler.SchemeName,
+                _ => { }
             );
         });
     }
@@ -112,6 +124,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         await ExecuteDbContextAsync(async dbContext =>
         {
+
+            var bloqueos = await dbContext.BloqueosFranjaAsignatura.ToListAsync();
+            dbContext.BloqueosFranjaAsignatura.RemoveRange(bloqueos);
+            
             var asignaciones = await dbContext.Asignaciones.ToListAsync();
             dbContext.Asignaciones.RemoveRange(asignaciones);
 
