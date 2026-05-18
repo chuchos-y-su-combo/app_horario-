@@ -592,4 +592,58 @@ public class AsignacionService : IAsignacionService
 
         return ToResponse(asignacion, asignaturasActuales);
     }
+    public async Task<AsignacionResponse> AsignarDiaAsync(
+    string idAsignacion,
+    AsignarDiaRequest request)
+    {
+        Asignacion? asignacion = await _context.Asignaciones
+            .Include(a => a.Docente)
+            .Include(a => a.Asignatura)
+            .FirstOrDefaultAsync(a => a.IdAsignacion == idAsignacion);
+
+        if (asignacion is null)
+            throw new InvalidOperationException("Asignación no encontrada.");
+
+        if (asignacion.Estado == "Confirmada")
+            throw new InvalidOperationException(
+                "No se puede modificar el día de una asignación ya confirmada.");
+
+        if (asignacion.Estado == "Cancelada")
+            throw new InvalidOperationException(
+                "No se puede modificar el día de una asignación cancelada.");
+
+        // Si se envía una hora, ambas deben estar presentes
+        bool enviandoHoras = !string.IsNullOrWhiteSpace(request.HoraInicio) ||
+                             !string.IsNullOrWhiteSpace(request.HoraFin);
+
+        if (enviandoHoras)
+        {
+            if (string.IsNullOrWhiteSpace(request.HoraInicio))
+                throw new InvalidOperationException(
+                    "Si se especifica hora de fin, también debe especificarse hora de inicio.");
+
+            if (string.IsNullOrWhiteSpace(request.HoraFin))
+                throw new InvalidOperationException(
+                    "Si se especifica hora de inicio, también debe especificarse hora de fin.");
+
+            if (string.CompareOrdinal(request.HoraInicio, request.HoraFin) >= 0)
+                throw new InvalidOperationException(
+                    "La hora de inicio debe ser menor que la hora de fin.");
+        }
+
+        asignacion.Dia = request.Dia;
+
+        if (enviandoHoras)
+        {
+            asignacion.HoraInicio = request.HoraInicio!.Trim();
+            asignacion.HoraFin = request.HoraFin!.Trim();
+        }
+
+        await _context.SaveChangesAsync();
+
+        int asignaturasActuales = await ContarAsignaturasDistintasAsync(
+            asignacion.IdDocente, asignacion.Periodo);
+
+        return ToResponse(asignacion, asignaturasActuales);
+    }
 }

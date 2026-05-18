@@ -20,7 +20,6 @@ public interface IAsignacionService
 
     Task<bool> EliminarAsync(string idAsignacion);
 
-    // ── Issue #10 ──────────────────────────────────────────────────────────
 
     Task<AsignacionResponse> AsignarManualmenteAsync(AsignarAsignaturaManualRequest request);
 
@@ -29,11 +28,11 @@ public interface IAsignacionService
         string periodo
     );
 
-    // ── Issue #12 ──────────────────────────────────────────────────────────
-
     Task<AsignacionResponse> AjustarAsync(string idAsignacion, AjustarAsignacionRequest request);
 
     Task<ResultadoConfirmacionResponse> ConfirmarAsync(ConfirmarAsignacionesRequest request);
 
     Task<AsignacionResponse> CancelarAsync(string idAsignacion);
+
+    Task<AsignacionResponse> AsignarDiaAsync(string idAsignacion, AsignarDiaRequest request);
 }
