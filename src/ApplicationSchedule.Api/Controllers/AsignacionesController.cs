@@ -186,4 +186,27 @@ public class AsignacionesController : ControllerBase
             return BadRequest(new { mensaje = ex.Message });
         }
     }
+    /// <summary>
+    /// Coloca una asignación en un día de la semana.
+    /// Opcionalmente define también el bloque horario.
+    /// Una vez con día y hora definidos, aparece en el calendario semanal.
+    /// Solo aplica a asignaciones en estado Propuesta o AsignadaManual.
+    /// </summary>
+    [HttpPatch("{idAsignacion}/asignar-dia")]
+    public async Task<ActionResult<AsignacionResponse>> AsignarDia(
+        string idAsignacion,
+        AsignarDiaRequest request)
+    {
+        try
+        {
+            AsignacionResponse actualizada =
+                await _asignacionService.AsignarDiaAsync(idAsignacion, request);
+
+            return Ok(actualizada);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { mensaje = ex.Message });
+        }
+    }
 }
