@@ -360,9 +360,18 @@ Body de ejemplo:
 
 ```json
 {
-  "correo": "coordinador@test.com",
-  "password": "Password123"
+  "correo": "admin@universidad.edu",
+  "password": "Admin12345"
 }
+```
+
+La base local se crea con un usuario administrador semilla para las primeras pruebas y para emitir tokens JWT.
+
+Credenciales iniciales:
+
+```txt
+Correo: admin@universidad.edu
+Password: Admin12345
 ```
 
 ---
@@ -387,6 +396,8 @@ Body de ejemplo para crear usuario:
   "idRol": 2
 }
 ```
+
+Los endpoints de usuarios requieren un token Bearer de un usuario administrador.
 
 ---
 

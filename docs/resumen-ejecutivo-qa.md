@@ -158,6 +158,13 @@
 - Duración observada: ~5 s
 - Estado: validación reproducida con éxito sobre `develop`
 
+## Validación en vivo
+
+- Login exitoso con el usuario semilla `admin@universidad.edu`
+- `GET /api/usuarios` respondió `200` con token Bearer válido
+- `POST /api/usuarios` creó un usuario coordinador nuevo con respuesta `201`
+- El conteo de usuarios pasó de `1` a `2` durante el smoke test
+
 ---
 
 **Proyecto:** ApplicationSchedule v1.0  
