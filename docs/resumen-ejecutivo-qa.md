@@ -151,6 +151,15 @@
 
 ---
 
+## Validación ejecutada en esta sesión
+
+- Comando ejecutado: `dotnet test src/ApplicationSchedule.Tests/ApplicationSchedule.Tests.csproj -c Release`
+- Resultado: 85 tests superados, 0 fallidos, 0 omitidos
+- Duración observada: ~5 s
+- Estado: validación reproducida con éxito sobre `develop`
+
+---
+
 **Proyecto:** ApplicationSchedule v1.0  
 **Rama:** develop  
 **Fecha:** 17 de Mayo, 2026  
