@@ -5,16 +5,31 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Servicio de exportaci√≥n que genera un archivo Excel con los horarios confirmados.
+/// Utiliza ClosedXML para construir el workbook y devuelve el contenido en bytes.
+/// </summary>
 public class HorarioExportService : IHorarioExportService
 {
     private readonly AppDbContext _context;
 
+    /// <summary>
+    /// Crea una instancia de <see cref="HorarioExportService"/> con el contexto inyectado.
+    /// </summary>
     public HorarioExportService(AppDbContext context)
     {
         _context = context;
     }
 
-    public async Task<byte[]> ExportarHorariosAsync(int? semestre, string? idDocente, string? idAsignatura, string? periodo)
+    /// <summary>
+    /// Exporta horarios confirmados a un archivo Excel filtrando por par√°metros opcionales.
+    /// </summary>
+    /// <param name="semestre">Semestre opcional para filtrar.</param>
+    /// <param name="idDocente">Filtro por docente.</param>
+    /// <param name="idAsignatura">Filtro por asignatura.</param>
+    /// <param name="periodo">Periodo a exportar.</param>
+    /// <returns>Array de bytes con el archivo Excel generado.</returns>
+    public async Task<byte[]> ExportarHorariosAsync(int? trimestre, string? idDocente, string? idAsignatura, string? periodo)
     {
         var query = _context.Set<ApplicationSchedule.Domain.Entities.Asignacion>()
             .Include(a => a.Docente)
@@ -51,7 +66,7 @@ public class HorarioExportService : IHorarioExportService
         worksheet.Cell(1, 1).Value = "Semestre";
         worksheet.Cell(1, 2).Value = "Asignatura";
         worksheet.Cell(1, 3).Value = "Docente";
-        worksheet.Cell(1, 4).Value = "DÌa";
+        worksheet.Cell(1, 4).Value = "DÔøΩa";
         worksheet.Cell(1, 5).Value = "Hora Inicio";
         worksheet.Cell(1, 6).Value = "Hora Fin";
         worksheet.Cell(1, 7).Value = "Escenario";
@@ -83,16 +98,19 @@ public class HorarioExportService : IHorarioExportService
         return stream.ToArray();
     }
 
+    /// <summary>
+    /// Convierte un valor <see cref="DayOfWeek"/> a su nombre en Espa√±ol.
+    /// </summary>
     private string ObtenerNombreDia(DayOfWeek dia)
     {
         return dia switch
         {
             DayOfWeek.Monday => "Lunes",
             DayOfWeek.Tuesday => "Martes",
-            DayOfWeek.Wednesday => "MiÈrcoles",
+            DayOfWeek.Wednesday => "MiÔøΩrcoles",
             DayOfWeek.Thursday => "Jueves",
             DayOfWeek.Friday => "Viernes",
-            DayOfWeek.Saturday => "S·bado",
+            DayOfWeek.Saturday => "SÔøΩbado",
             DayOfWeek.Sunday => "Domingo",
             _ => dia.ToString()
         };

@@ -8,15 +8,27 @@ namespace ApplicationSchedule.Api.Controllers;
 [Authorize(Roles = RolesSistema.AdministradorOCoordinador)]
 [ApiController]
 [Route("api/profesores")]
+/// <summary>
+/// Controlador para la gestión de docentes (profesores).
+/// Expone operaciones CRUD y delega la lógica a <see cref="IProfesorService"/>.
+/// </summary>
 public class ProfesoresController : ControllerBase
 {
     private readonly IProfesorService _profesorService;
 
+    /// <summary>
+    /// Constructor de <see cref="ProfesoresController"/>.
+    /// </summary>
+    /// <param name="profesorService">Servicio de dominio para operaciones sobre profesores.</param>
     public ProfesoresController(IProfesorService profesorService)
     {
         _profesorService = profesorService;
     }
 
+    /// <summary>
+    /// Recupera todos los docentes registrados en el sistema.
+    /// </summary>
+    /// <returns>Lista de <see cref="ProfesorResponse"/>.</returns>
     [HttpGet]
     public async Task<ActionResult<List<ProfesorResponse>>> ObtenerTodos()
     {
@@ -25,6 +37,11 @@ public class ProfesoresController : ControllerBase
         return Ok(profesores);
     }
 
+    /// <summary>
+    /// Obtiene un docente por su identificador único.
+    /// </summary>
+    /// <param name="idProfesor">Identificador del docente.</param>
+    /// <returns><see cref="ProfesorResponse"/> si existe; 404 en caso contrario.</returns>
     [HttpGet("{idProfesor}")]
     public async Task<ActionResult<ProfesorResponse>> ObtenerPorId(string idProfesor)
     {
@@ -41,6 +58,11 @@ public class ProfesoresController : ControllerBase
         return Ok(profesor);
     }
 
+    /// <summary>
+    /// Crea un nuevo registro de docente.
+    /// </summary>
+    /// <param name="request">Datos para crear el docente.</param>
+    /// <returns>201 Created con <see cref="ProfesorResponse"/> del docente creado.</returns>
     [HttpPost]
     public async Task<ActionResult<ProfesorResponse>> Crear(CrearProfesorRequest request)
     {
@@ -63,6 +85,12 @@ public class ProfesoresController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Actualiza un docente existente.
+    /// </summary>
+    /// <param name="idProfesor">Identificador del docente.</param>
+    /// <param name="request">Datos con campos a actualizar.</param>
+    /// <returns>204 No Content si se actualiza; 404 si no existe; 400 en caso de error.</returns>
     [HttpPut("{idProfesor}")]
     public async Task<IActionResult> Actualizar(string idProfesor, ActualizarProfesorRequest request)
     {
@@ -89,6 +117,11 @@ public class ProfesoresController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Elimina un docente por su identificador.
+    /// </summary>
+    /// <param name="idProfesor">Identificador del docente a eliminar.</param>
+    /// <returns>204 No Content si se eliminó; 404 si no existe.</returns>
     [HttpDelete("{idProfesor}")]
     public async Task<IActionResult> Eliminar(string idProfesor)
     {

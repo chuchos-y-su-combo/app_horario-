@@ -3,23 +3,43 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Data;
 
+/// <summary>
+/// Contexto de base de datos de la aplicación.
+/// Centraliza las entidades del dominio y la configuración de esquema para EF Core.
+/// </summary>
 public class AppDbContext : DbContext
 {
+    /// <summary>
+    /// Constructor de <see cref="AppDbContext"/> que recibe las opciones de EF Core.
+    /// </summary>
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
     {
     }
 
+    /// <summary>Tabla de roles del sistema.</summary>
     public DbSet<Rol> Roles => Set<Rol>();
+    /// <summary>Tabla de usuarios.</summary>
     public DbSet<Usuario> Usuarios => Set<Usuario>();
+    /// <summary>Tabla de planes de estudio.</summary>
     public DbSet<PlanEstudio> PlanesEstudio => Set<PlanEstudio>();
+    /// <summary>Tabla de docentes (docentes/ profesores).</summary>
     public DbSet<Docente> Docentes => Set<Docente>();
+    /// <summary>Tabla de asignaturas.</summary>
     public DbSet<Asignatura> Asignaturas => Set<Asignatura>();
+    /// <summary>Tabla puente que relaciona docentes y asignaturas habilitadas.</summary>
     public DbSet<DocenteHabilitado> DocentesHabilitados => Set<DocenteHabilitado>();
+    /// <summary>Tabla de disponibilidades horarias de docentes.</summary>
     public DbSet<Disponibilidad> Disponibilidades => Set<Disponibilidad>();   
+    /// <summary>Tabla de asignaciones resultantes (horarios).</summary>
     public DbSet<Asignacion> Asignaciones => Set<Asignacion>();
+    /// <summary>Tabla de bloqueos de franja por asignatura.</summary>
     public DbSet<BloqueoFranjaAsignatura> BloqueosFranjaAsignatura => Set<BloqueoFranjaAsignatura>();
 
+    /// <summary>
+    /// Punto de entrada para configurar el modelo y el esquema de la base de datos.
+    /// Se delega la configuración por secciones a métodos privados para mantener orden.
+    /// </summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

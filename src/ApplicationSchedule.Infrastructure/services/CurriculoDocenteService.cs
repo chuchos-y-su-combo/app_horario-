@@ -22,11 +22,18 @@ public class CurriculoDocenteService : ICurriculoDocenteService
 
     private readonly AppDbContext _context;
 
+    /// <summary>
+    /// Crea una instancia de <see cref="CurriculoDocenteService"/> con el contexto proporcionado.
+    /// </summary>
     public CurriculoDocenteService(AppDbContext context)
     {
         _context = context;
     }
 
+    /// <summary>
+    /// Importa currículos desde un archivo Excel, procesando hojas de disponibilidad
+    /// y hojas por docente para habilitar asignaturas y disponibilidades.
+    /// </summary>
     public async Task<ImportarCurriculoResponse> ImportarDesdeExcelAsync(
         Stream archivo,
         string nombreArchivo,
@@ -98,6 +105,9 @@ public class CurriculoDocenteService : ICurriculoDocenteService
         return response;
     }
 
+    /// <summary>
+    /// Devuelve las asignaturas para las que el docente está habilitado.
+    /// </summary>
     public async Task<List<AsignaturaHabilitadaDocenteResponse>> ObtenerAsignaturasHabilitadasAsync(
         string idDocente,
         CancellationToken cancellationToken = default)
@@ -128,6 +138,9 @@ public class CurriculoDocenteService : ICurriculoDocenteService
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Devuelve la disponibilidad horaria del docente como una lista ordenada de bloques.
+    /// </summary>
     public async Task<List<DisponibilidadDocenteResponse>> ObtenerDisponibilidadDocenteAsync(
         string idDocente,
         CancellationToken cancellationToken = default)

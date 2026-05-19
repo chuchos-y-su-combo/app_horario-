@@ -6,15 +6,26 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Implementación de <see cref="IProfesorService"/> que gestiona la entidad <see cref="Docente"/>.
+/// Contiene validaciones de unicidad y reglas relacionadas con el tipo de contrato.
+/// </summary>
 public class ProfesorService : IProfesorService
 {
     private readonly AppDbContext _context;
 
+    /// <summary>
+    /// Crea una instancia de <see cref="ProfesorService"/> con el contexto de datos inyectado.
+    /// </summary>
     public ProfesorService(AppDbContext context)
     {
         _context = context;
     }
 
+    /// <summary>
+    /// Recupera todos los docentes ordenados por nombre.
+    /// </summary>
+    /// <returns>Lista de <see cref="ProfesorResponse"/>.</returns>
     public async Task<List<ProfesorResponse>> ObtenerTodosAsync()
     {
         return await _context.Docentes
@@ -23,6 +34,11 @@ public class ProfesorService : IProfesorService
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Obtiene un docente por su identificador.
+    /// </summary>
+    /// <param name="idProfesor">Identificador del docente.</param>
+    /// <returns>DTO del docente o null si no existe.</returns>
     public async Task<ProfesorResponse?> ObtenerPorIdAsync(string idProfesor)
     {
         Docente? docente = await _context.Docentes
@@ -31,6 +47,12 @@ public class ProfesorService : IProfesorService
         return docente is null ? null : ToResponse(docente);
     }
 
+    /// <summary>
+    /// Crea un nuevo docente validando unicidad de identificación y normalizando el tipo de contrato.
+    /// </summary>
+    /// <param name="request">Datos para crear el docente.</param>
+    /// <returns>DTO del docente creado.</returns>
+    /// <exception cref="InvalidOperationException">Si la identificación ya existe.</exception>
     public async Task<ProfesorResponse> CrearAsync(CrearProfesorRequest request)
     {
         string identificacionNormalizada = request.Identificacion.Trim();
@@ -59,6 +81,13 @@ public class ProfesorService : IProfesorService
         return ToResponse(docente);
     }
 
+    /// <summary>
+    /// Actualiza un docente existente tras validaciones de unicidad.
+    /// </summary>
+    /// <param name="idProfesor">Identificador del docente.</param>
+    /// <param name="request">Datos a actualizar.</param>
+    /// <returns>True si se actualizó; false si no se encontró.</returns>
+    /// <exception cref="InvalidOperationException">Si la identificación pertenece a otro docente.</exception>
     public async Task<bool> ActualizarAsync(string idProfesor, ActualizarProfesorRequest request)
     {
         Docente? docente = await _context.Docentes
@@ -90,6 +119,12 @@ public class ProfesorService : IProfesorService
         return true;
     }
 
+    /// <summary>
+    /// Elimina un docente si no posee asignaciones registradas.
+    /// </summary>
+    /// <param name="idProfesor">Identificador del docente a eliminar.</param>
+    /// <returns>True si se eliminó; false si no se encontró.</returns>
+    /// <exception cref="InvalidOperationException">Si el docente tiene asignaciones y no puede eliminarse.</exception>
     public async Task<bool> EliminarAsync(string idProfesor)
     {
         Docente? docente = await _context.Docentes
@@ -114,6 +149,11 @@ public class ProfesorService : IProfesorService
         return true;
     }
 
+    /// <summary>
+    /// Normaliza el texto de tipo de contrato a valores aceptados por el dominio.
+    /// Acepta variantes legibles y las mapea a los códigos internos (TC, TP).
+    /// Lanza <see cref="InvalidOperationException"/> si el valor no es reconocido.
+    /// </summary>
     private static string NormalizarTipoContrato(string tipoContrato)
     {
         string contrato = tipoContrato.Trim().ToUpperInvariant();
@@ -128,6 +168,10 @@ public class ProfesorService : IProfesorService
         };
     }
 
+    /// <summary>
+    /// Devuelve el máximo de asignaturas permitido según el tipo de contrato.
+    /// Lanza <see cref="InvalidOperationException"/> si el tipo de contrato es inválido.
+    /// </summary>
     private static int ObtenerMaxAsignaturasPorContrato(string tipoContrato)
     {
         return tipoContrato switch
@@ -138,6 +182,9 @@ public class ProfesorService : IProfesorService
         };
     }
 
+    /// <summary>
+    /// Mappea la entidad <see cref="Docente"/> a su DTO <see cref="ProfesorResponse"/>.
+    /// </summary>
     private static ProfesorResponse ToResponse(Docente docente) => new()
     {
         IdProfesor = docente.IdDocente,

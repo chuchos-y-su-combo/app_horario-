@@ -6,15 +6,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Servicio que gestiona las asignaciones (horarios) de docentes a asignaturas.
+/// Implementa reglas de negocio para creación, ajuste, confirmación y validación de cruces y bloqueos.
+/// </summary>
 public class AsignacionService : IAsignacionService
 {
     private readonly AppDbContext _context;
 
+    /// <summary>
+    /// Crea una instancia de <see cref="AsignacionService"/> con el contexto de datos inyectado.
+    /// </summary>
     public AsignacionService(AppDbContext context)
     {
         _context = context;
     }
 
+    /// <summary>
+    /// Recupera todas las asignaciones, ordenadas por periodo y docente.
+    /// Incluye cálculos auxiliares como el conteo de asignaturas actuales por docente.
+    /// </summary>
+    /// <returns>Lista de <see cref="AsignacionResponse"/>.</returns>
     public async Task<List<AsignacionResponse>> ObtenerTodasAsync()
     {
         List<Asignacion> asignaciones = await _context.Asignaciones
@@ -37,6 +49,10 @@ public class AsignacionService : IAsignacionService
         return respuesta;
     }
 
+    /// <summary>
+    /// Obtiene los periodos (ciclos) históricos presentes en las asignaciones.
+    /// </summary>
+    /// <returns>Lista de cadenas con periodos ordenados descendentemente.</returns>
     public async Task<List<string>> ObtenerPeriodosHistoricosAsync()
     {
         return await _context.Asignaciones
@@ -46,6 +62,9 @@ public class AsignacionService : IAsignacionService
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Recupera asignaciones aplicando filtros opcionales (semestre, docente, asignatura, periodo, estado).
+    /// </summary>
     public async Task<List<AsignacionResponse>> ObtenerFiltradasAsync(int? semestre, string? idDocente, string? idAsignatura, string? periodo, string? estado = null)
     {
         var query = _context.Set<Asignacion>()
@@ -86,6 +105,11 @@ public class AsignacionService : IAsignacionService
         return respuesta;
     }
 
+    /// <summary>
+    /// Obtiene las asignaciones de un docente opcionalmente filtradas por periodo.
+    /// </summary>
+    /// <param name="idDocente">Identificador del docente.</param>
+    /// <param name="periodo">Periodo opcional para filtrar.</param>
     public async Task<List<AsignacionResponse>> ObtenerPorDocenteAsync(string idDocente, string? periodo = null)
     {
         bool docenteExiste = await _context.Docentes.AnyAsync(d => d.IdDocente == idDocente);
@@ -121,6 +145,9 @@ public class AsignacionService : IAsignacionService
         return respuesta;
     }
 
+    /// <summary>
+    /// Genera un resumen de la carga docente para un periodo dado.
+    /// </summary>
     public async Task<ResumenCargaDocenteResponse?> ObtenerResumenCargaDocenteAsync(string idDocente, string periodo)
     {
         Docente? docente = await _context.Docentes
@@ -144,6 +171,11 @@ public class AsignacionService : IAsignacionService
         };
     }
 
+    /// <summary>
+    /// Crea una nueva asignación aplicando múltiples validaciones: disponibilidad, currículo, límites por contrato y bloqueos.
+    /// </summary>
+    /// <param name="request">Datos necesarios para la creación de la asignación.</param>
+    /// <returns>DTO con la asignación creada.</returns>
     public async Task<AsignacionResponse> CrearAsync(CrearAsignacionRequest request)
     {
         string idDocente = request.IdDocente.Trim();
@@ -240,6 +272,9 @@ public class AsignacionService : IAsignacionService
         return ToResponse(asignacion, asignaturasLuegoDeAsignar);
     }
 
+    /// <summary>
+    /// Elimina una asignación existente.
+    /// </summary>
     public async Task<bool> EliminarAsync(string idAsignacion)
     {
         Asignacion? asignacion = await _context.Asignaciones
@@ -256,6 +291,9 @@ public class AsignacionService : IAsignacionService
 
     // ── Issue #10 ──────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Asigna manualmente una asignatura a un docente sin franja horaria (uso administrativo/forzado).
+    /// </summary>
     public async Task<AsignacionResponse> AsignarManualmenteAsync(AsignarAsignaturaManualRequest request)
     {
         string idDocente = request.IdDocente.Trim();
@@ -327,6 +365,9 @@ public class AsignacionService : IAsignacionService
         return ToResponse(asignacion, asignaturasActuales + 1);
     }
 
+    /// <summary>
+    /// Obtiene el catálogo de asignaturas disponibles para un docente en un periodo, con flags de habilitación y asignación previa.
+    /// </summary>
     public async Task<List<AsignaturaDisponibleParaDocenteResponse>> ObtenerAsignaturasDisponiblesParaDocenteAsync(
         string idDocente,
         string periodo)
@@ -367,6 +408,9 @@ public class AsignacionService : IAsignacionService
     }
 
 
+    /// <summary>
+    /// Cuenta asignaturas distintas asignadas a un docente en un periodo.
+    /// </summary>
     private async Task<int> ContarAsignaturasDistintasAsync(string idDocente, string periodo)
     {
         return await _context.Asignaciones
@@ -376,6 +420,9 @@ public class AsignacionService : IAsignacionService
             .CountAsync();
     }
 
+    /// <summary>
+    /// Valida la coherencia entre el tipo de contrato y el máximo permitido de asignaturas.
+    /// </summary>
     private static void ValidarContratoDocente(Docente docente)
     {
         if (docente.TipoContrato == "TC" && docente.MaxAsignaturas == 5) return;
@@ -385,6 +432,9 @@ public class AsignacionService : IAsignacionService
             "La configuración del contrato docente no es válida. TC debe tener máximo 5 asignaturas y TP máximo 3.");
     }
 
+    /// <summary>
+    /// Mapea la entidad <see cref="Asignacion"/> a su DTO de respuesta incluyendo conteo de asignaturas actuales.
+    /// </summary>
     private static AsignacionResponse ToResponse(Asignacion asignacion, int asignaturasActuales) => new()
     {
         IdAsignacion = asignacion.IdAsignacion,

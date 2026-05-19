@@ -6,6 +6,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Servicio encargado de la generación automática de propuestas de horarios.
+/// Implementa la lógica para evaluar asignaturas, seleccionar docentes candidatos,
+/// validar disponibilidades, evitar cruces y crear propuestas en estado "Propuesta".
+/// </summary>
 public class GeneradorHorarioService : IGeneradorHorarioService
 {
     private const string EstadoPropuesta = "Propuesta";
@@ -28,11 +33,18 @@ public class GeneradorHorarioService : IGeneradorHorarioService
 
     private readonly AppDbContext _context;
 
+    /// <summary>
+    /// Crea una instancia de <see cref="GeneradorHorarioService"/> con el contexto de datos inyectado.
+    /// </summary>
     public GeneradorHorarioService(AppDbContext context)
     {
         _context = context;
     }
 
+    /// <summary>
+    /// Genera propuestas automáticas de asignaciones para los escenarios indicados en la petición.
+    /// Puede borrar propuestas previas si se solicita y devuelve un resumen con propuestas y no-asignadas.
+    /// </summary>
     public async Task<GenerarPropuestasHorarioResponse> GenerarPropuestasAsync(
         GenerarPropuestasHorarioRequest request,
         CancellationToken cancellationToken = default)
@@ -156,6 +168,10 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         return response;
     }
 
+    /// <summary>
+    /// Genera propuestas específicas para el escenario TAPSI en jornada diurna,
+    /// priorizando las obligatorias y buscando una opción adicional compatible.
+    /// </summary>
     private async Task GenerarTapsiDiurnaAsync(
         string escenario,
         PlanEstudio plan,
@@ -252,6 +268,10 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         }
     }
 
+    /// <summary>
+    /// Procesa una asignatura específica, intentando asignarla a un docente disponible
+    /// y agregando la propuesta o registrando la no-asignada en el resumen.
+    /// </summary>
     private void ProcesarAsignatura(
         string escenario,
         PlanEstudio plan,
@@ -305,6 +325,10 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         resumen.TotalPropuestasCreadas++;
     }
 
+    /// <summary>
+    /// Intenta asignar una asignatura buscando docentes candidatos, validando cargas,
+    /// disponibilidades, bloqueos y cruces, y devuelve el resultado con la asignación propuesta.
+    /// </summary>
     private ResultadoAsignacion IntentarAsignarAsignatura(
         string escenario,
         PlanEstudio plan,
@@ -408,6 +432,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         );
     }
 
+    /// <summary>
+    /// Filtra la lista de asignaturas según el escenario de generación (Ingeniería, TAPSI, etc.).
+    /// </summary>
     private static List<Asignatura> ObtenerAsignaturasParaEscenario(
         string escenario,
         List<Asignatura> asignaturasPlan,
@@ -428,6 +455,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
             .ToList();
     }
 
+    /// <summary>
+    /// Normaliza y valida los escenarios solicitados en la petición.
+    /// </summary>
     private static List<string> ObtenerEscenariosObjetivo(GenerarPropuestasHorarioRequest request)
     {
         if (request.Escenarios.Count == 0)
@@ -452,6 +482,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         return escenarios.Distinct().ToList();
     }
 
+    /// <summary>
+    /// Obtiene el plan de estudio asociado al escenario (diurno/nocturno) a partir de la lista de planes.
+    /// </summary>
     private static PlanEstudio? ObtenerPlanParaEscenario(
         string escenario,
         List<PlanEstudio> planes)
@@ -466,6 +499,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
             p.Jornada.Equals("Nocturna", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Elimina propuestas previas en estado "Propuesta" para los escenarios indicados.
+    /// </summary>
     private async Task BorrarPropuestasPreviasAsync(
         string periodo,
         List<string> escenarios,
@@ -483,6 +519,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Determina si un docente dispone de carga disponible en el periodo para una asignatura nueva.
+    /// </summary>
     private static bool DocenteTieneCargaDisponible(
         Docente docente,
         List<Asignacion> asignaciones,
@@ -509,6 +548,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         return asignaturasActuales < docente.MaxAsignaturas;
     }
 
+    /// <summary>
+    /// Cuenta asignaturas distintas asignadas a un docente en un periodo dentro de una lista de asignaciones.
+    /// </summary>
     private static int ContarAsignaturasDocente(
         string idDocente,
         List<Asignacion> asignaciones,
@@ -521,6 +563,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
             .Count();
     }
 
+    /// <summary>
+    /// Valida si un bloque horario cabe dentro de la disponibilidad de un docente.
+    /// </summary>
     private static bool BloqueCabeEnDisponibilidad(
         string horaInicio,
         string horaFin,
@@ -534,6 +579,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         return inicio >= disponibleInicio && fin <= disponibleFin;
     }
 
+    /// <summary>
+    /// Verifica si existe un bloqueo para la franja horaria de la asignatura en el periodo.
+    /// </summary>
     private static bool ExisteBloqueoFranjaAsignatura(
         string idAsignatura,
         string periodo,
@@ -549,6 +597,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
             HorariosSeCruzan(horaInicio, horaFin, b.HoraInicio, b.HoraFin)
         );
     }
+    /// <summary>
+    /// Verifica cruces de horarios para un docente dado.
+    /// </summary>
     private static bool ExisteCruceDocente(
         string idDocente,
         int dia,
@@ -565,6 +616,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         );
     }
 
+    /// <summary>
+    /// Verifica cruces dentro del mismo escenario.
+    /// </summary>
     private static bool ExisteCruceEscenario(
         string escenario,
         int dia,
@@ -581,6 +635,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         );
     }
 
+    /// <summary>
+    /// Determina si dos intervalos horarios se solapan.
+    /// </summary>
     private static bool HorariosSeCruzan(
         string inicioA,
         string finA,
@@ -595,6 +652,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         return aInicio < bFin && bInicio < aFin;
     }
 
+    /// <summary>
+    /// Calcula la hora de fin a partir de la hora de inicio y la duración en horas (créditos).
+    /// </summary>
     private static string CalcularHoraFin(string horaInicio, int creditos)
     {
         TimeSpan inicio = TimeSpan.Parse(horaInicio);
@@ -603,6 +663,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         return $"{fin.Hours:00}:{fin.Minutes:00}";
     }
 
+    /// <summary>
+    /// Devuelve el nombre del día en español a partir de su índice.
+    /// </summary>
     private static string ObtenerNombreDia(int dia)
     {
         return dia switch
@@ -617,6 +680,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         };
     }
 
+    /// <summary>
+    /// Crea el DTO de propuesta a partir de la entidad <see cref="Asignacion"/> y datos contextuales.
+    /// </summary>
     private static PropuestaAsignacionResponse CrearPropuestaResponse(
         string escenario,
         PlanEstudio plan,
@@ -644,6 +710,10 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         };
     }
 
+    /// <summary>
+    /// Valida parámetros mínimos del request de generación (periodo y semestre).
+    /// Lanza <see cref="InvalidOperationException"/> si faltan o son inválidos.
+    /// </summary>
     private static void ValidarRequest(GenerarPropuestasHorarioRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Periodo))

@@ -5,6 +5,10 @@ using ClosedXML.Excel;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Analiza hojas de Excel con texto libre o formato tabular y extrae bloques de disponibilidad.
+/// Utilizado por <see cref="CurriculoDocenteService"/> para convertir hojas en entidades de disponibilidad.
+/// </summary>
 internal static class DisponibilidadExcelParser
 {
     private const string HoraInicioDia = "07:00";
@@ -13,6 +17,10 @@ internal static class DisponibilidadExcelParser
     private const string HoraFinManana = "12:00";
     private const string HoraInicioNoche = "18:00";
 
+    /// <summary>
+    /// Lee una hoja y devuelve una lista de elementos de disponibilidad detectados.
+    /// Adapta múltiples formatos conocidos de la coordinación.
+    /// </summary>
     public static List<DisponibilidadExcelItem> LeerHoja(ClosedXML.Excel.IXLWorksheet worksheet)
     {
         return TieneFormatoNormalizado(worksheet)
@@ -420,19 +428,25 @@ internal static class DisponibilidadExcelParser
     }
 }
 
-internal class DisponibilidadExcelItem
-{
-    public string NombreDocente { get; set; } = string.Empty;
+    /// <summary>
+    /// Elemento resultante de parsear una hoja: nombre identificado, bloques detectados y mensajes de validación.
+    /// </summary>
+    internal class DisponibilidadExcelItem
+    {
+        public string NombreDocente { get; set; } = string.Empty;
 
-    public string TextoOriginal { get; set; } = string.Empty;
+        public string TextoOriginal { get; set; } = string.Empty;
 
-    public List<DisponibilidadBloque> Bloques { get; set; } = new();
+        public List<DisponibilidadBloque> Bloques { get; set; } = new();
 
-    public List<string> Mensajes { get; set; } = new();
-}
+        public List<string> Mensajes { get; set; } = new();
+    }
 
-internal record DisponibilidadBloque(
-    int DiaSemana,
-    string HoraInicio,
-    string HoraFin
-);
+    /// <summary>
+    /// Representa un bloque de disponibilidad (día, hora inicio, hora fin).
+    /// </summary>
+    internal record DisponibilidadBloque(
+        int DiaSemana,
+        string HoraInicio,
+        string HoraFin
+    );

@@ -11,17 +11,30 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Servicio de autenticación que valida credenciales y emite JSON Web Tokens (JWT).
+/// Utiliza <see cref="AppDbContext"/> para recuperar usuarios y <see cref="IConfiguration"/> para leer claves JWT.
+/// </summary>
 public class AuthService : IAuthService
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
 
+    /// <summary>
+    /// Crea una instancia de <see cref="AuthService"/> con contexto y configuración inyectados.
+    /// </summary>
     public AuthService(AppDbContext context, IConfiguration configuration)
     {
         _context = context;
         _configuration = configuration;
     }
 
+    /// <summary>
+    /// Valida credenciales y devuelve un <see cref="LoginResponse"/> con token JWT.
+    /// Lanza <see cref="UnauthorizedAccessException"/> si las credenciales son inválidas.
+    /// </summary>
+    /// <param name="request">DTO con correo y contraseña.</param>
+    /// <returns>Información de sesión incluyendo token y fecha de expiración.</returns>
     public async Task<LoginResponse> LoginAsync(LoginRequest request)
     {
         string correoNormalizado = request.Correo.Trim().ToLower();
@@ -53,6 +66,13 @@ public class AuthService : IAuthService
         };
     }
 
+    /// <summary>
+    /// Genera un token JWT firmado con la clave configurada en `Jwt:SecretKey`.
+    /// Incluye reclamos estándar y de rol. Lanza <see cref="InvalidOperationException"/> si la clave no está configurada.
+    /// </summary>
+    /// <param name="usuario">Entidad de usuario.</param>
+    /// <param name="nombreRol">Nombre del rol del usuario.</param>
+    /// <returns>Token JWT en formato compactado (string).</returns>
     private string GenerarToken(Usuario usuario, string nombreRol)
     {
         string secretKey = _configuration["Jwt:SecretKey"]

@@ -6,6 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Servicio que construye vistas de calendario semanal y calendarios individuales de docentes.
+/// Filtra y transforma asignaciones a estructuras aptas para presentación en UI o exportación.
+/// </summary>
 public class CalendarioSemanalService : ICalendarioSemanalService
 {
     private readonly AppDbContext _context;
@@ -23,6 +27,9 @@ public class CalendarioSemanalService : ICalendarioSemanalService
         { 6, "Sábado" }
     };
 
+    /// <summary>
+    /// Crea una instancia de <see cref="CalendarioSemanalService"/> con el contexto de datos.
+    /// </summary>
     public CalendarioSemanalService(AppDbContext context)
     {
         _context = context;
@@ -30,6 +37,9 @@ public class CalendarioSemanalService : ICalendarioSemanalService
 
     // ── Issue #39 ──────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Obtiene el calendario semanal para un semestre, opcionalmente filtrado por plan y jornada.
+    /// </summary>
     public async Task<CalendarioSemanalResponse> ObtenerCalendarioAsync(
         string semestre,
         string? idPlan = null,
@@ -65,6 +75,9 @@ public class CalendarioSemanalService : ICalendarioSemanalService
 
     // ── Issue #40 ──────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Obtiene el calendario semanal individual de un docente y resumen de su carga semanal.
+    /// </summary>
     public async Task<CalendarioDocenteResponse> ObtenerCalendarioDocenteAsync(
         string idDocente,
         string semestre,
