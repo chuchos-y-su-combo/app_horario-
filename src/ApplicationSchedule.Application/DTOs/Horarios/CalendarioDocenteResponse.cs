@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Horarios;
 
+/// <summary>
+/// DTO que representa el calendario semanal de un docente con sus asignaciones.
+/// </summary>
 public class CalendarioDocenteResponse
 {
     public string IdDocente { get; set; } = string.Empty;

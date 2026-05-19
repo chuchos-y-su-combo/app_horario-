@@ -8,6 +8,9 @@ namespace ApplicationSchedule.Application.DTOs.Asignaciones;
 /// pero sin hora definida y no aparece en el calendario hasta completarla.
 /// Si se envía hora, debe enviarse tanto inicio como fin.
 /// </summary>
+/// <summary>
+/// DTO para asignar una asignatura a un docente en un día específico (operación por día).
+/// </summary>
 public class AsignarDiaRequest
 {
     [Required(ErrorMessage = "El día es obligatorio.")]

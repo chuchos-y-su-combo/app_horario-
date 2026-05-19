@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Disponibilidades;
 
+/// <summary>
+/// DTO que resume la reducción de disponibilidad aplicada a un docente tras importar un currículum.
+/// </summary>
 public class ReduccionDisponibilidadResponse
 {
     public string IdDocente { get; set; } = string.Empty;

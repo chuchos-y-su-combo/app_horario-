@@ -1,5 +1,9 @@
 namespace ApplicationSchedule.Application.DTOs.Horarios;
 
+/// <summary>
+/// DTO que representa el reporte de carga docente consolidado.
+/// Incluye resumenes por docente y totales por escenario/periodo.
+/// </summary>
 public class ReporteCargaDocenteResponse
 {
     public string Semestre { get; set; } = string.Empty;

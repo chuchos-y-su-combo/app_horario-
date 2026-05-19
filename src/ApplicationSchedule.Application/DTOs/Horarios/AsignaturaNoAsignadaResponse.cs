@@ -1,5 +1,9 @@
 namespace ApplicationSchedule.Application.DTOs.Horarios;
 
+/// <summary>
+/// DTO que describe una asignatura que no pudo ser asignada en la generación de propuestas.
+/// Incluye razón y metadatos para diagnóstico.
+/// </summary>
 public class AsignaturaNoAsignadaResponse
 {
     public string Escenario { get; set; } = string.Empty;

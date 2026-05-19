@@ -2,6 +2,9 @@ using ApplicationSchedule.Application.DTOs.Asignaturas;
 
 namespace ApplicationSchedule.Application.DTOs.Tapsi;
 
+/// <summary>
+/// DTO que describe las reglas Tapsi para planes diurnos (topes de créditos y asignaturas fijas/opcionales).
+/// </summary>
 public class TapsiDiurnaPlanResponse
 {
     public string Jornada { get; set; } = "Diurna";

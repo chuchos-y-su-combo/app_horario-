@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Disponibilidades;
 
+/// <summary>
+/// DTO que expone la disponibilidad de un docente en formato día/hora.
+/// </summary>
 public class DisponibilidadDocenteResponse
 {
     public string IdDisponibilidad { get; set; } = string.Empty;

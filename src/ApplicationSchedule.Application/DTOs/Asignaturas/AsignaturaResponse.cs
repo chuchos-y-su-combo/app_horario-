@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Asignaturas;
 
+/// <summary>
+/// DTO que representa la información de una asignatura tal como se expone en la API.
+/// </summary>
 public class AsignaturaResponse
 {
     public string IdAsignatura { get; set; } = string.Empty;

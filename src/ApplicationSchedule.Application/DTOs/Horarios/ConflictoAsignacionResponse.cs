@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Asignaciones;
 
+/// <summary>
+/// DTO que representa un conflicto detectado entre asignaciones (solapamientos, disponibilidad, etc.).
+/// </summary>
 public class ConflictoAsignacionResponse
 {
     /// <summary>

@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Horarios;
 
+/// <summary>
+/// DTO que resume información de un escenario de generación de horario (estadísticas y meta-info).
+/// </summary>
 public class ResumenEscenarioHorarioResponse
 {
     public string Escenario { get; set; } = string.Empty;

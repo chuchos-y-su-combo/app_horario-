@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Horarios;
 
+/// <summary>
+/// DTO que expone un calendario semanal consolidado con casillas por día/hora.
+/// </summary>
 public class CalendarioSemanalResponse
 {
 	public string Semestre { get; set; } = string.Empty;

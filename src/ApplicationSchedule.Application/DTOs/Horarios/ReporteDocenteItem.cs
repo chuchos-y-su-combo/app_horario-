@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Horarios;
 
+/// <summary>
+/// Elemento individual usado en reportes de carga docente por hora/asignatura.
+/// </summary>
 public class ReporteDocenteItem
 {
     public string IdDocente { get; set; } = string.Empty;

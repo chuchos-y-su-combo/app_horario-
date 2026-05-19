@@ -2,6 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ApplicationSchedule.Application.DTOs.Asignaturas;
 
+/// <summary>
+/// DTO para crear una asignatura en un plan de estudios.
+/// Contiene validaciones para los campos obligatorios y rangos.
+/// </summary>
 public class CrearAsignaturaRequest
 {
     [Required(ErrorMessage = "El plan de estudios es obligatorio.")]

@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Disponibilidades;
 
+/// <summary>
+/// DTO que representa una disponibilidad importada desde Excel para un docente.
+/// </summary>
 public class DisponibilidadImportadaResponse
 {
     public string NombreDocenteDetectado { get; set; } = string.Empty;

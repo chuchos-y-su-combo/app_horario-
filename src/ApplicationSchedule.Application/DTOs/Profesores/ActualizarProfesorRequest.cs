@@ -2,6 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ApplicationSchedule.Application.DTOs.Profesores;
 
+/// <summary>
+/// DTO para actualizar la información de un docente existente.
+/// </summary>
 public class ActualizarProfesorRequest
 {
     [Required(ErrorMessage = "El nombre del profesor es obligatorio.")]
