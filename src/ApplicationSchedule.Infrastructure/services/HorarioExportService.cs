@@ -29,7 +29,7 @@ public class HorarioExportService : IHorarioExportService
     /// <param name="idAsignatura">Filtro por asignatura.</param>
     /// <param name="periodo">Periodo a exportar.</param>
     /// <returns>Array de bytes con el archivo Excel generado.</returns>
-    public async Task<byte[]> ExportarHorariosAsync(int? trimestre, string? idDocente, string? idAsignatura, string? periodo)
+    public async Task<byte[]> ExportarHorariosAsync(int? semestre, string? idDocente, string? idAsignatura, string? periodo)
     {
         var query = _context.Set<ApplicationSchedule.Domain.Entities.Asignacion>()
             .Include(a => a.Docente)

@@ -15,6 +15,9 @@ namespace ApplicationSchedule.Tests.Controllers;
 /// Comprehensive test coverage for all API endpoints.
 /// Tests positive cases, negative cases, and edge cases.
 /// </summary>
+/// <summary>
+/// Pruebas de cobertura de endpoints para verificar rutas y respuestas básicas.
+/// </summary>
 public class EndpointCoverageTests : IntegrationTestBase, IClassFixture<CustomWebApplicationFactory>
 {
     private const string PlanDiurno = "11111111-1111-1111-1111-111111111111";

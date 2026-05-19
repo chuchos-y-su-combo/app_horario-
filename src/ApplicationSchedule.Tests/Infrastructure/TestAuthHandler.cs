@@ -7,10 +7,19 @@ using Microsoft.Extensions.Options;
 
 namespace ApplicationSchedule.Tests.Infrastructure;
 
+/// <summary>
+/// Manejador de autenticación para pruebas que simula identidades y roles por cabeceras HTTP.
+/// </summary>
 public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
+    /// <summary>
+    /// Esquema de autenticación usado por los tests.
+    /// </summary>
     public const string SchemeName = "Test";
 
+    /// <summary>
+    /// Crea el manejador de autenticación de pruebas.
+    /// </summary>
     public TestAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
@@ -19,6 +28,9 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
     {
     }
 
+    /// <summary>
+    /// Devuelve un resultado de autenticación simulado usando cabeceras de prueba.
+    /// </summary>
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         if (Request.Headers.TryGetValue("X-Test-Anonymous", out var anonymousHeader) &&

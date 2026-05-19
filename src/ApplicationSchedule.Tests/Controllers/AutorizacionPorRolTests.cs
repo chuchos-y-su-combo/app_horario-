@@ -9,6 +9,9 @@ using Xunit;
 
 namespace ApplicationSchedule.Tests.Controllers;
 
+/// <summary>
+/// Pruebas de integración para validar autorización basada en roles.
+/// </summary>
 public class AutorizacionPorRolTests : IntegrationTestBase, IClassFixture<CustomWebApplicationFactory>
 {
     public AutorizacionPorRolTests(CustomWebApplicationFactory factory) : base(factory)
