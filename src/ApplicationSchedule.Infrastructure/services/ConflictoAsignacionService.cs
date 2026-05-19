@@ -6,6 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Servicio que analiza las asignaciones y detecta conflictos: cruces, exceso de carga,
+/// asignaturas sin docente y asignaciones en franjas bloqueadas.
+/// </summary>
 public class ConflictoAsignacionService : IConflictoAsignacionService
 {
     private readonly AppDbContext _context;
@@ -13,11 +17,17 @@ public class ConflictoAsignacionService : IConflictoAsignacionService
     private static readonly string[] EstadosActivos =
         { "Propuesta", "AsignadaManual", "Confirmada" };
 
+    /// <summary>
+    /// Crea una instancia de <see cref="ConflictoAsignacionService"/> con el contexto de datos.
+    /// </summary>
     public ConflictoAsignacionService(AppDbContext context)
     {
         _context = context;
     }
 
+    /// <summary>
+    /// Analiza y devuelve una lista de conflictos detectados para el semestre indicado.
+    /// </summary>
     public async Task<ConflictoAsignacionResponse> AnalizarConflictosAsync(
         string semestre,
         CancellationToken cancellationToken = default)

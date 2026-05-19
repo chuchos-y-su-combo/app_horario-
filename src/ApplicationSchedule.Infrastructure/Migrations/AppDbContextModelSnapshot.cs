@@ -12,6 +12,11 @@ namespace ApplicationSchedule.Infrastructure.Migrations
     [DbContext(typeof(AppDbContext))]
     partial class AppDbContextModelSnapshot : ModelSnapshot
     {
+        /// <summary>
+        /// Snapshot del modelo actual que se usa como referencia para generar nuevas migraciones.
+        /// Contiene la representación de las entidades y su configuración tal como EF Core las tiene en el momento
+        /// de la generación de la migración. No se debe modificar manualmente salvo que se entienda el impacto.
+        /// </summary>
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

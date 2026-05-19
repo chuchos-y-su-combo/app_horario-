@@ -7,15 +7,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Application.Services;
 
+/// <summary>
+/// Implementación de <see cref="IUsuarioService"/> que opera sobre <see cref="AppDbContext"/>.
+/// Encapsula las operaciones CRUD para la entidad <see cref="Usuario"/> y las reglas de validación
+/// relacionadas con correos y roles.
+/// </summary>
 public class UsuarioService : IUsuarioService
 {
     private readonly AppDbContext _context;
 
+    /// <summary>
+    /// Crea una instancia de <see cref="UsuarioService"/> con el contexto de datos inyectado.
+    /// </summary>
     public UsuarioService(AppDbContext context)
     {
         _context = context;
     }
 
+    /// <summary>
+    /// Recupera todos los usuarios con su rol asociado, ordenados por nombre.
+    /// </summary>
+    /// <returns>Lista de <see cref="UsuarioResponse"/>.</returns>
     public async Task<List<UsuarioResponse>> ObtenerTodosAsync()
     {
         return await _context.Usuarios
@@ -32,6 +44,11 @@ public class UsuarioService : IUsuarioService
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Obtiene un usuario por su identificador.
+    /// </summary>
+    /// <param name="idUsuario">Identificador del usuario.</param>
+    /// <returns>DTO del usuario o null si no existe.</returns>
     public async Task<UsuarioResponse?> ObtenerPorIdAsync(string idUsuario)
     {
         return await _context.Usuarios
@@ -48,6 +65,12 @@ public class UsuarioService : IUsuarioService
             .FirstOrDefaultAsync();
     }
 
+    /// <summary>
+    /// Crea un nuevo usuario tras validar unicidad de correo y existencia del rol.
+    /// </summary>
+    /// <param name="request">Datos para la creación del usuario.</param>
+    /// <returns>DTO del usuario creado.</returns>
+    /// <exception cref="InvalidOperationException">Si el correo ya existe o el rol no existe.</exception>
     public async Task<UsuarioResponse> CrearAsync(CrearUsuarioRequest request)
     {
         string correoNormalizado = request.Correo.Trim().ToLower();
@@ -90,6 +113,13 @@ public class UsuarioService : IUsuarioService
         return usuarioCreado;
     }
 
+    /// <summary>
+    /// Actualiza los datos de un usuario existente después de validaciones pertinentes.
+    /// </summary>
+    /// <param name="idUsuario">Identificador del usuario a actualizar.</param>
+    /// <param name="request">Datos a actualizar.</param>
+    /// <returns>True si se actualizó; false si no se encontró el usuario.</returns>
+    /// <exception cref="InvalidOperationException">Si el correo está en uso por otro usuario o el rol no existe.</exception>
     public async Task<bool> ActualizarAsync(string idUsuario, ActualizarUsuarioRequest request)
     {
         Usuario? usuario = await _context.Usuarios
@@ -127,6 +157,12 @@ public class UsuarioService : IUsuarioService
         return true;
     }
 
+    /// <summary>
+    /// Cambia la contraseña de un usuario, sobrescribiendo el hash almacenado.
+    /// </summary>
+    /// <param name="idUsuario">Identificador del usuario.</param>
+    /// <param name="request">DTO con la nueva contraseña.</param>
+    /// <returns>True si se cambió; false si no se encontró el usuario.</returns>
     public async Task<bool> CambiarPasswordAsync(string idUsuario, CambiarPasswordRequest request)
     {
         Usuario? usuario = await _context.Usuarios
@@ -144,6 +180,11 @@ public class UsuarioService : IUsuarioService
         return true;
     }
 
+    /// <summary>
+    /// Elimina un usuario del sistema.
+    /// </summary>
+    /// <param name="idUsuario">Identificador del usuario a eliminar.</param>
+    /// <returns>True si se eliminó; false si no se encontró.</returns>
     public async Task<bool> EliminarAsync(string idUsuario)
     {
         Usuario? usuario = await _context.Usuarios

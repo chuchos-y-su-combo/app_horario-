@@ -7,10 +7,17 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace ApplicationSchedule.Infrastructure.Migrations
 {
-    /// <inheritdoc />
+    /// <summary>
+    /// Migración inicial que crea las tablas base del esquema de la aplicación.
+    /// - Crea tablas: `docentes`, `planes_estudio`, `roles`, `disponibilidad`, `asignaturas`, `usuarios`, `asignaciones`, `docentes_habilitados`.
+    /// - Inserta datos semilla en `planes_estudio` y `roles`.
+    /// Este archivo se genera por EF Core y describe los cambios a aplicar al esquema en su método <see cref="Up"/> y cómo revertirlos en <see cref="Down"/>.
+    /// </summary>
     public partial class InitialCreate : Migration
     {
-        /// <inheritdoc />
+        /// <summary>
+        /// Aplica la migración: crea tablas, índices y datos semilla necesarios para la aplicación.
+        /// </summary>
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -251,7 +258,10 @@ namespace ApplicationSchedule.Infrastructure.Migrations
                 column: "id_rol");
         }
 
-        /// <inheritdoc />
+        /// <summary>
+        /// Revierte la migración eliminando las tablas creadas por <see cref="Up"/>.
+        /// Usado cuando se necesita deshacer la migración.
+        /// </summary>
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

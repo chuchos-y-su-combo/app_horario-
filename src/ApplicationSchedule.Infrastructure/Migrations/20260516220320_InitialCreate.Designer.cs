@@ -14,7 +14,11 @@ namespace ApplicationSchedule.Infrastructure.Migrations
     [Migration("20260516220320_InitialCreate")]
     partial class InitialCreate
     {
-        /// <inheritdoc />
+        /// <summary>
+        /// Construye el modelo objetivo (snapshot) que EF Core utiliza para comparar el estado actual del modelo
+        /// con las migraciones aplicadas. Este método es generado automáticamente por EF Core y refleja
+        /// la configuración de entidades, propiedades, relaciones, índices y valores por defecto.
+        /// </summary>
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

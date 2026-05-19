@@ -9,15 +9,28 @@ namespace ApplicationSchedule.Api.Controllers;
 [Authorize(Roles = RolesSistema.AdministradorOCoordinador)]
 [ApiController]
 [Route("api/asignaturas")]
+/// <summary>
+/// Controlador para la gestión de asignaturas.
+/// Proporciona endpoints para consulta, creación, actualización y eliminación de asignaturas,
+/// así como operaciones específicas relacionadas con reglas TAPSI.
+/// </summary>
 public class AsignaturasController : ControllerBase
 {
     private readonly IAsignaturaService _asignaturaService;
 
+    /// <summary>
+    /// Constructor de <see cref="AsignaturasController"/>.
+    /// </summary>
+    /// <param name="asignaturaService">Servicio de aplicación para operaciones de asignaturas.</param>
     public AsignaturasController(IAsignaturaService asignaturaService)
     {
         _asignaturaService = asignaturaService;
     }
 
+    /// <summary>
+    /// Obtiene todas las asignaturas registradas.
+    /// </summary>
+    /// <returns>Lista de <see cref="AsignaturaResponse"/>.</returns>
     [HttpGet]
     public async Task<ActionResult<List<AsignaturaResponse>>> ObtenerTodas()
     {
@@ -26,6 +39,11 @@ public class AsignaturasController : ControllerBase
         return Ok(asignaturas);
     }
 
+    /// <summary>
+    /// Obtiene las asignaturas pertenecientes a un plan de estudio.
+    /// </summary>
+    /// <param name="idPlan">Identificador del plan de estudio.</param>
+    /// <returns>Lista de asignaturas del plan.</returns>
     [HttpGet("plan/{idPlan}")]
     public async Task<ActionResult<List<AsignaturaResponse>>> ObtenerPorPlan(string idPlan)
     {
@@ -34,6 +52,10 @@ public class AsignaturasController : ControllerBase
         return Ok(asignaturas);
     }
 
+    /// <summary>
+    /// Obtiene las asignaturas marcadas como fijas según las reglas TAPSI.
+    /// </summary>
+    /// <returns>Listado de asignaturas fijas TAPSI.</returns>
     [HttpGet("tapsi/fijas")]
     public async Task<ActionResult<List<AsignaturaResponse>>> ObtenerFijasTapsi()
     {
@@ -42,6 +64,10 @@ public class AsignaturasController : ControllerBase
         return Ok(asignaturas);
     }
 
+    /// <summary>
+    /// Obtiene las opciones adicionales TAPSI para la jornada diurna.
+    /// </summary>
+    /// <returns>Listado de asignaturas opcionales para TAPSI diurna.</returns>
     [HttpGet("tapsi/diurna/opciones-adicionales")]
     public async Task<ActionResult<List<AsignaturaResponse>>> ObtenerOpcionesAdicionalesTapsiDiurna()
     {
@@ -50,6 +76,10 @@ public class AsignaturasController : ControllerBase
         return Ok(asignaturas);
     }
 
+    /// <summary>
+    /// Obtiene el plan TAPSI para la jornada diurna.
+    /// </summary>
+    /// <returns>Información agregada del plan TAPSI diurno.</returns>
     [HttpGet("tapsi/diurna/plan")]
     public async Task<ActionResult<TapsiDiurnaPlanResponse>> ObtenerPlanTapsiDiurna()
     {
@@ -58,6 +88,10 @@ public class AsignaturasController : ControllerBase
         return Ok(plan);
     }
 
+    /// <summary>
+    /// Marca las asignaturas adicionales TAPSI para jornada diurna como seleccionadas.
+    /// </summary>
+    /// <returns>Resultado con la cantidad marcada.</returns>
     [HttpPost("tapsi/diurna/marcar-opciones-adicionales")]
     public async Task<IActionResult> MarcarOpcionesAdicionalesTapsiDiurna()
     {
@@ -70,6 +104,10 @@ public class AsignaturasController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Marca las asignaturas obligatorias TAPSI como fijas.
+    /// </summary>
+    /// <returns>Resultado con la cantidad marcada.</returns>
     [HttpPost("tapsi/marcar-fijas")]
     public async Task<IActionResult> MarcarObligatoriasTapsiComoFijas()
     {
@@ -82,6 +120,11 @@ public class AsignaturasController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Obtiene una asignatura por su identificador.
+    /// </summary>
+    /// <param name="idAsignatura">Identificador de la asignatura.</param>
+    /// <returns><see cref="AsignaturaResponse"/> si existe; 404 en caso contrario.</returns>
     [HttpGet("{idAsignatura}")]
     public async Task<ActionResult<AsignaturaResponse>> ObtenerPorId(string idAsignatura)
     {
@@ -98,6 +141,11 @@ public class AsignaturasController : ControllerBase
         return Ok(asignatura);
     }
 
+    /// <summary>
+    /// Crea una nueva asignatura.
+    /// </summary>
+    /// <param name="request">Datos para crear la asignatura.</param>
+    /// <returns>201 Created con la asignatura creada.</returns>
     [HttpPost]
     public async Task<ActionResult<AsignaturaResponse>> Crear(CrearAsignaturaRequest request)
     {
@@ -120,6 +168,12 @@ public class AsignaturasController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Actualiza una asignatura existente.
+    /// </summary>
+    /// <param name="idAsignatura">Identificador de la asignatura.</param>
+    /// <param name="request">Datos a actualizar.</param>
+    /// <returns>204 No Content si se actualiza; 404 si no existe; 400 en caso de validación.</returns>
     [HttpPut("{idAsignatura}")]
     public async Task<IActionResult> Actualizar(string idAsignatura, ActualizarAsignaturaRequest request)
     {
@@ -146,6 +200,11 @@ public class AsignaturasController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Elimina una asignatura por su identificador.
+    /// </summary>
+    /// <param name="idAsignatura">Identificador de la asignatura a eliminar.</param>
+    /// <returns>204 No Content si se eliminó; 404 si no existe.</returns>
     [HttpDelete("{idAsignatura}")]
     public async Task<IActionResult> Eliminar(string idAsignatura)
     {

@@ -9,6 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Servicio que gestiona las operaciones sobre la entidad <see cref="Asignatura"/>.
+/// Implementa reglas de negocio específicas como detección de materias TAPSI,
+/// validaciones de unicidad y transformación a DTOs de respuesta.
+/// </summary>
 public class AsignaturaService : IAsignaturaService
 {
     private readonly AppDbContext _context;
@@ -34,11 +39,18 @@ public class AsignaturaService : IAsignaturaService
         NormalizarTexto("Sistemas operativos")
     };
 
+    /// <summary>
+    /// Crea una instancia de <see cref="AsignaturaService"/> con el contexto de datos inyectado.
+    /// </summary>
     public AsignaturaService(AppDbContext context)
     {
         _context = context;
     }
 
+    /// <summary>
+    /// Recupera todas las asignaturas del catálogo académico.
+    /// </summary>
+    /// <returns>Lista de <see cref="AsignaturaResponse"/> ordenadas por semestre y nombre.</returns>
     public async Task<List<AsignaturaResponse>> ObtenerTodasAsync()
     {
         return await _context.Asignaturas
@@ -48,6 +60,11 @@ public class AsignaturaService : IAsignaturaService
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Obtiene las asignaturas asociadas a un plan de estudio.
+    /// </summary>
+    /// <param name="idPlan">Identificador del plan de estudio.</param>
+    /// <returns>Lista de asignaturas del plan.</returns>
     public async Task<List<AsignaturaResponse>> ObtenerPorPlanAsync(string idPlan)
     {
         return await _context.Asignaturas
@@ -58,6 +75,11 @@ public class AsignaturaService : IAsignaturaService
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Obtiene una asignatura por su identificador.
+    /// </summary>
+    /// <param name="idAsignatura">Identificador de la asignatura.</param>
+    /// <returns>DTO de la asignatura o null si no existe.</returns>
     public async Task<AsignaturaResponse?> ObtenerPorIdAsync(string idAsignatura)
     {
         Asignatura? asignatura = await _context.Asignaturas
@@ -66,6 +88,10 @@ public class AsignaturaService : IAsignaturaService
         return asignatura is null ? null : ToResponse(asignatura);
     }
 
+    /// <summary>
+    /// Recupera las asignaturas marcadas como fijas para TAPSI.
+    /// </summary>
+    /// <returns>Listado de asignaturas fijas TAPSI.</returns>
     public async Task<List<AsignaturaResponse>> ObtenerFijasTapsiAsync()
     {
         return await _context.Asignaturas
@@ -76,6 +102,13 @@ public class AsignaturaService : IAsignaturaService
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Crea una nueva asignatura aplicando validaciones de plan y código único.
+    /// Detecta automáticamente si la asignatura corresponde a reglas TAPSI.
+    /// </summary>
+    /// <param name="request">DTO con los datos de la asignatura.</param>
+    /// <returns>DTO de la asignatura creada.</returns>
+    /// <exception cref="InvalidOperationException">Si el plan no existe o el código ya está en uso.</exception>
     public async Task<AsignaturaResponse> CrearAsync(CrearAsignaturaRequest request)
     {
         string idPlan = request.IdPlan.Trim();
@@ -117,6 +150,12 @@ public class AsignaturaService : IAsignaturaService
         return ToResponse(asignatura);
     }
 
+    /// <summary>
+    /// Actualiza una asignatura tras validar plan y unicidad de código.
+    /// </summary>
+    /// <param name="idAsignatura">Identificador de la asignatura a actualizar.</param>
+    /// <param name="request">DTO con los campos a actualizar.</param>
+    /// <returns>True si se actualizó; false si no se encontró la asignatura.</returns>
     public async Task<bool> ActualizarAsync(string idAsignatura, ActualizarAsignaturaRequest request)
     {
         Asignatura? asignatura = await _context.Asignaturas
@@ -161,6 +200,10 @@ public class AsignaturaService : IAsignaturaService
         return true;
     }
 
+    /// <summary>
+    /// Marca las asignaturas detectadas como obligatorias TAPSI como fijas en el catálogo.
+    /// </summary>
+    /// <returns>Cantidad de asignaturas marcadas.</returns>
     public async Task<int> MarcarObligatoriasTapsiComoFijasAsync()
     {
         List<Asignatura> asignaturas = await _context.Asignaturas.ToListAsync();
@@ -179,6 +222,12 @@ public class AsignaturaService : IAsignaturaService
         return obligatoriasTapsi.Count;
     }
 
+    /// <summary>
+    /// Elimina una asignatura si no está marcada como fija TAPSI.
+    /// </summary>
+    /// <param name="idAsignatura">Identificador de la asignatura a eliminar.</param>
+    /// <returns>True si se eliminó; false si no existe.</returns>
+    /// <exception cref="InvalidOperationException">Si la asignatura está marcada como fija TAPSI.</exception>
     public async Task<bool> EliminarAsync(string idAsignatura)
     {
         Asignatura? asignatura = await _context.Asignaturas
@@ -200,6 +249,9 @@ public class AsignaturaService : IAsignaturaService
         return true;
     }
 
+    /// <summary>
+    /// Determina si una asignatura corresponde a la lista de obligatorias TAPSI por código o nombre.
+    /// </summary>
     private static bool EsAsignaturaObligatoriaTapsi(string codigo, string nombre)
     {
         string codigoNormalizado = codigo.Trim().ToUpperInvariant();
@@ -209,6 +261,9 @@ public class AsignaturaService : IAsignaturaService
             || NombresFijosTapsi.Contains(nombreNormalizado);
     }
 
+    /// <summary>
+    /// Determina si una asignatura es una opción adicional TAPSI para jornada diurna.
+    /// </summary>
     private static bool EsAsignaturaOpcionalTapsiDiurna(string codigo, string nombre)
     {
         string codigoNormalizado = codigo.Trim().ToUpperInvariant();
@@ -217,6 +272,9 @@ public class AsignaturaService : IAsignaturaService
         return CodigosOpcionalesTapsiDiurna.Contains(codigoNormalizado)
             || NombresOpcionalesTapsiDiurna.Contains(nombreNormalizado);
     }
+    /// <summary>
+    /// Normaliza texto para comparaciones insensibles a acentos y mayúsculas.
+    /// </summary>
     private static string NormalizarTexto(string texto)
     {
         string textoSinEspaciosDobles = string.Join(' ', texto.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries));
@@ -252,6 +310,10 @@ public class AsignaturaService : IAsignaturaService
         NormalizarTexto("Programación Backend")
     };
    
+    /// <summary>
+    /// Recupera las asignaturas marcadas como opcionales TAPSI para jornada diurna.
+    /// </summary>
+    /// <returns>Listado de asignaturas opcionales TAPSI diurna.</returns>
     public async Task<List<AsignaturaResponse>> ObtenerOpcionalesTapsiDiurnaAsync()
     {
         return await _context.Asignaturas
@@ -262,6 +324,10 @@ public class AsignaturaService : IAsignaturaService
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Construye y devuelve el plan TAPSI para la jornada diurna con reglas y límites de créditos.
+    /// </summary>
+    /// <returns>Objeto con el resumen del plan TAPSI diurno.</returns>
     public async Task<TapsiDiurnaPlanResponse> ObtenerPlanTapsiDiurnaAsync()
     {
         List<AsignaturaResponse> fijas = await ObtenerFijasTapsiAsync();
@@ -284,6 +350,10 @@ public class AsignaturaService : IAsignaturaService
         };
     }
 
+    /// <summary>
+    /// Marca en el catálogo las asignaturas detectadas como opcionales TAPSI diurna.
+    /// </summary>
+    /// <returns>Cantidad de asignaturas marcadas.</returns>
     public async Task<int> MarcarOpcionalesTapsiDiurnaAsync()
     {
         List<Asignatura> asignaturas = await _context.Asignaturas.ToListAsync();
@@ -302,6 +372,9 @@ public class AsignaturaService : IAsignaturaService
         return opcionalesTapsiDiurna.Count;
     }
 
+    /// <summary>
+    /// Mapea la entidad <see cref="Asignatura"/> a su DTO de respuesta.
+    /// </summary>
      private static AsignaturaResponse ToResponse(Asignatura a) => new()
     {
         IdAsignatura = a.IdAsignatura,

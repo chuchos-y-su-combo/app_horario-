@@ -6,6 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Servicio que genera reportes de carga docente por semestre y por docente.
+/// Calcula horas semanales, estado de carga y resumen de asignaturas.
+/// </summary>
 public class ReporteCargaService : IReporteCargaService
 {
     private readonly AppDbContext _context;
@@ -16,11 +20,17 @@ public class ReporteCargaService : IReporteCargaService
     private static readonly string[] EstadosValidos =
         { "Propuesta", "AsignadaManual", "Confirmada" };
 
+    /// <summary>
+    /// Crea una nueva instancia del servicio con el contexto inyectado.
+    /// </summary>
     public ReporteCargaService(AppDbContext context)
     {
         _context = context;
     }
 
+    /// <summary>
+    /// Genera un reporte agregado de carga docente para el semestre indicado.
+    /// </summary>
     public async Task<ReporteCargaDocenteResponse> GenerarReportePorSemestreAsync(
         string semestre,
         CancellationToken cancellationToken = default)
@@ -55,6 +65,9 @@ public class ReporteCargaService : IReporteCargaService
         };
     }
 
+    /// <summary>
+    /// Genera un reporte detallado para un docente en un semestre.
+    /// </summary>
     public async Task<ReporteDocenteItem> GenerarReportePorDocenteAsync(
         string idDocente,
         string semestre,

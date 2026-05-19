@@ -6,15 +6,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Servicio para gestionar bloqueos de franjas horarias por asignatura.
+/// Proporciona operaciones CRUD y utilidades de validación de solapamientos.
+/// </summary>
 public class BloqueoFranjaAsignaturaService : IBloqueoFranjaAsignaturaService
 {
     private readonly AppDbContext _context;
 
+    /// <summary>
+    /// Crea una instancia de <see cref="BloqueoFranjaAsignaturaService"/> con el contexto de datos.
+    /// </summary>
     public BloqueoFranjaAsignaturaService(AppDbContext context)
     {
         _context = context;
     }
 
+    /// <summary>
+    /// Recupera todos los bloqueos, opcionalmente filtrados por periodo.
+    /// </summary>
+    /// <param name="periodo">Periodo académico opcional para filtrar.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
     public async Task<List<BloqueoFranjaAsignaturaResponse>> ObtenerTodosAsync(
         string? periodo = null,
         CancellationToken cancellationToken = default)
@@ -38,6 +50,9 @@ public class BloqueoFranjaAsignaturaService : IBloqueoFranjaAsignaturaService
         return bloqueos.Select(ToResponse).ToList();
     }
 
+    /// <summary>
+    /// Obtiene los bloqueos asociados a una asignatura determinada.
+    /// </summary>
     public async Task<List<BloqueoFranjaAsignaturaResponse>> ObtenerPorAsignaturaAsync(
         string idAsignatura,
         string? periodo = null,
@@ -68,6 +83,9 @@ public class BloqueoFranjaAsignaturaService : IBloqueoFranjaAsignaturaService
         return bloqueos.Select(ToResponse).ToList();
     }
 
+    /// <summary>
+    /// Crea un nuevo bloqueo de franja para la asignatura indicada tras validar no solapamientos.
+    /// </summary>
     public async Task<BloqueoFranjaAsignaturaResponse> CrearAsync(
         string idAsignatura,
         CrearBloqueoFranjaAsignaturaRequest request,
@@ -122,6 +140,9 @@ public class BloqueoFranjaAsignaturaService : IBloqueoFranjaAsignaturaService
         return ToResponse(bloqueo);
     }
 
+    /// <summary>
+    /// Elimina un bloqueo por su identificador.
+    /// </summary>
     public async Task<bool> EliminarAsync(
         string idBloqueo,
         CancellationToken cancellationToken = default)
