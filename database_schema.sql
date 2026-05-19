@@ -1,4 +1,4 @@
--- Crear la base de datos si no existe
+---- Crear la base de datos si no existe
 CREATE DATABASE IF NOT EXISTS gestion_horarios;
 USE gestion_horarios;
 
