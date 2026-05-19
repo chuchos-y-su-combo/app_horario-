@@ -12,6 +12,9 @@ using Xunit;
 
 namespace ApplicationSchedule.Tests.Controllers;
 
+/// <summary>
+/// Pruebas de integración para el controlador de bloqueos de franja por asignatura.
+/// </summary>
 public class BloqueosFranjaAsignaturaControllerTests : IntegrationTestBase, IClassFixture<CustomWebApplicationFactory>
 {
     private const string PlanDiurno = "11111111-1111-1111-1111-111111111111";

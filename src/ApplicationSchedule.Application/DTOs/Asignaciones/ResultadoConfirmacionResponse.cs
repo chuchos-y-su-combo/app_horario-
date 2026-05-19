@@ -16,7 +16,13 @@ public class ResultadoConfirmacionResponse
 
 public class ResultadoFallidoItem
 {
+    /// <summary>
+    /// Identificador de la asignación que no pudo confirmarse.
+    /// </summary>
     public string IdAsignacion { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Motivo del fallo al confirmar la asignación.
+    /// </summary>
     public string Motivo { get; set; } = string.Empty;
 }

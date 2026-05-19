@@ -7,6 +7,9 @@ using Xunit;
 
 namespace ApplicationSchedule.Tests.Infrastructure;
 
+/// <summary>
+/// Pruebas de integración que validan el modelo de datos y la configuración del contexto.
+/// </summary>
 public class DatabaseModelTests : IntegrationTestBase, IClassFixture<CustomWebApplicationFactory>
 {
     public DatabaseModelTests(CustomWebApplicationFactory factory) : base(factory)

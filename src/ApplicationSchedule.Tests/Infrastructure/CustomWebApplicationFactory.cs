@@ -10,15 +10,25 @@ using Microsoft.AspNetCore.Authentication;
 
 namespace ApplicationSchedule.Tests.Infrastructure;
 
+/// <summary>
+/// Factoría de aplicaciones web usada en pruebas de integración.
+/// Configura una base de datos en memoria y autenticación de prueba.
+/// </summary>
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _databaseName;
 
+    /// <summary>
+    /// Crea una nueva factoría con un nombre de base de datos único por ejecución.
+    /// </summary>
     public CustomWebApplicationFactory()
     {
         _databaseName = $"TestDb_{Guid.NewGuid()}_{DateTime.UtcNow.Ticks}";
     }
 
+    /// <summary>
+    /// Configura el host de pruebas para reemplazar la base de datos real por InMemory.
+    /// </summary>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureAppConfiguration((context, config) =>
@@ -64,6 +74,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         });
     }
 
+    /// <summary>
+    /// Inicializa la base de datos en memoria con los catálogos mínimos requeridos por los tests.
+    /// </summary>
     public async Task InitializeDatabaseAsync()
     {
         await ExecuteDbContextAsync(async dbContext =>
@@ -100,6 +113,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         });
     }
 
+    /// <summary>
+    /// Ejecuta una acción sobre un <see cref="AppDbContext"/> temporal de pruebas.
+    /// </summary>
     public async Task ExecuteDbContextAsync(Func<AppDbContext, Task> action)
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -110,6 +126,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         await action(dbContext);
     }
 
+    /// <summary>
+    /// Ejecuta una función sobre un <see cref="AppDbContext"/> temporal de pruebas y devuelve un resultado.
+    /// </summary>
     public async Task<T> ExecuteDbContextAsync<T>(Func<AppDbContext, Task<T>> action)
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -120,6 +139,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         return await action(dbContext);
     }
 
+    /// <summary>
+    /// Limpia el estado mutable de la base de datos entre tests.
+    /// </summary>
     public async Task ResetDatabaseAsync()
     {
         await ExecuteDbContextAsync(async dbContext =>

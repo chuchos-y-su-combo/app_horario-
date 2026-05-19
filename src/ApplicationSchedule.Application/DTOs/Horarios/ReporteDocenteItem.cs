@@ -51,12 +51,24 @@ public class ReporteDocenteItem
 
 public class DetalleAsignaturaReporte
 {
+    /// <summary>
+    /// Nombre de la asignatura.
+    /// </summary>
     public string NombreAsignatura { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Código de la asignatura.
+    /// </summary>
     public string CodigoAsignatura { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Escenario al que pertenece la asignación.
+    /// </summary>
     public string Escenario { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Estado de la asignación.
+    /// </summary>
     public string Estado { get; set; } = string.Empty;
 
     /// <summary>

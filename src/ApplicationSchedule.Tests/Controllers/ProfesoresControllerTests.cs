@@ -7,6 +7,9 @@ using Xunit;
 
 namespace ApplicationSchedule.Tests.Controllers;
 
+/// <summary>
+/// Pruebas de integración para el controlador de profesores.
+/// </summary>
 public class ProfesoresControllerTests : IntegrationTestBase, IClassFixture<CustomWebApplicationFactory>
 {
     public ProfesoresControllerTests(CustomWebApplicationFactory factory) : base(factory)

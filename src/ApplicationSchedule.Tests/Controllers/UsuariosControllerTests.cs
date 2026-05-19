@@ -7,6 +7,9 @@ using Xunit;
 
 namespace ApplicationSchedule.Tests.Controllers;
 
+/// <summary>
+/// Pruebas de integración para el controlador de usuarios.
+/// </summary>
 public class UsuariosControllerTests : IntegrationTestBase, IClassFixture<CustomWebApplicationFactory>
 {
     public UsuariosControllerTests(CustomWebApplicationFactory factory) : base(factory)
