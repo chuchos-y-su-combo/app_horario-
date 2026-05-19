@@ -1,8 +1,8 @@
-import { DiaCalendarioAPI } from "./DiaCalendarioAPI";
+import { DiaCalendario } from "./DiaCalendario";
 
 export interface CalendarioResponse {
     semestre: string;
     idPlanFiltro?: string;
     jornadaFiltro?: string;
-    dias: DiaCalendarioAPI[];
+    dias: DiaCalendario[];
 }
