@@ -145,6 +145,17 @@ public class AppDbContext : DbContext
                 .WithMany(r => r.Usuarios)
                 .HasForeignKey(u => u.IdRol)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasData(
+                new Usuario
+                {
+                    IdUsuario = "11111111-1111-1111-1111-111111111111",
+                    IdRol = 1,
+                    Correo = "admin@universidad.edu",
+                    PasswordHash = "$2a$11$Hj0PVmDSAn6wHAHNRijFvuVpIw07zBCtPHi.7MLQZo9YbOroeUWxG",
+                    NombreCompleto = "Administrador Principal"
+                }
+            );
         });
     }
 
