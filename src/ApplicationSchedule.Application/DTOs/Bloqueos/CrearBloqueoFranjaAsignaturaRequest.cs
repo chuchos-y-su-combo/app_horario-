@@ -5,6 +5,10 @@ namespace ApplicationSchedule.Application.DTOs.Bloqueos;
 /// <summary>
 /// Datos necesarios para bloquear una franja horaria de una asignatura.
 /// </summary>
+/// <summary>
+/// DTO para crear un bloqueo de franja horario para una asignatura.
+/// Utilizado para marcar franjas donde no debe programarse la asignatura.
+/// </summary>
 public class CrearBloqueoFranjaAsignaturaRequest
 {
     [Required(ErrorMessage = "El periodo es obligatorio.")]

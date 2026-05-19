@@ -2,6 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ApplicationSchedule.Application.DTOs.Asignaciones;
 
+/// <summary>
+/// DTO para ajustar una asignación existente (cambio de hora, día o docente).
+/// </summary>
 public class AjustarAsignacionRequest
 {
 	public string? IdDocente { get; set; }

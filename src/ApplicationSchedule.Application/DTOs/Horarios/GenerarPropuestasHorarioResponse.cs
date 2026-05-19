@@ -1,5 +1,9 @@
 namespace ApplicationSchedule.Application.DTOs.Horarios;
 
+/// <summary>
+/// DTO con el resultado de la generación de propuestas de horario, incluyendo
+/// listas de propuestas y métricas del proceso.
+/// </summary>
 public class GenerarPropuestasHorarioResponse
 {
     public string Periodo { get; set; } = string.Empty;

@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Asignaciones;
 
+/// <summary>
+/// DTO que representa una asignación concreta (definitiva o propuesta) con sus horarios y metadatos.
+/// </summary>
 public class AsignacionResponse
 {
     public string IdAsignacion { get; set; } = string.Empty;

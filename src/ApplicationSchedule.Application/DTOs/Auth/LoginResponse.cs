@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Auth;
 
+/// <summary>
+/// DTO devuelto tras un login exitoso. Contiene el token JWT y datos básicos del usuario.
+/// </summary>
 public class LoginResponse
 {
     public string Token { get; set; } = string.Empty;

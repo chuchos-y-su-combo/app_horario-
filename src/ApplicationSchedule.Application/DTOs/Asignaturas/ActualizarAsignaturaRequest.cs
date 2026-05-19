@@ -2,6 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ApplicationSchedule.Application.DTOs.Asignaturas;
 
+/// <summary>
+/// DTO para actualizar una asignatura existente.
+/// </summary>
 public class ActualizarAsignaturaRequest
 {
     [Required(ErrorMessage = "El plan de estudios es obligatorio.")]

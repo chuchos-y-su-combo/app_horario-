@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Bloqueos;
 
+/// <summary>
+/// DTO que representa un bloqueo aplicado a una franja de una asignatura.
+/// </summary>
 public class BloqueoFranjaAsignaturaResponse
 {
     public string IdBloqueo { get; set; } = string.Empty;

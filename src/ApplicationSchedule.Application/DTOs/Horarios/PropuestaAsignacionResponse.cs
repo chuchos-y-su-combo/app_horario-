@@ -1,5 +1,9 @@
 namespace ApplicationSchedule.Application.DTOs.Horarios;
 
+/// <summary>
+/// DTO que describe una propuesta de asignación de una asignatura a un docente.
+/// Incluye horarios, estado y metadatos necesarios para la revisión/aceptación.
+/// </summary>
 public class PropuestaAsignacionResponse
 {
     public string IdAsignacion { get; set; } = string.Empty;

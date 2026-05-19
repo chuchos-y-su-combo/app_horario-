@@ -2,6 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ApplicationSchedule.Application.DTOs.Usuarios;
 
+/// <summary>
+/// DTO para actualizar los datos básicos de un usuario (nombre, correo y rol).
+/// </summary>
 public class ActualizarUsuarioRequest
 {
     [Required(ErrorMessage = "El nombre completo es obligatorio.")]

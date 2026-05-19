@@ -2,6 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ApplicationSchedule.Application.DTOs.Asignaciones;
 
+/// <summary>
+/// DTO para asignar manualmente una asignatura a un docente especificando día y franjas.
+/// </summary>
 public class AsignarAsignaturaManualRequest
 {
     [Required(ErrorMessage = "El docente es obligatorio.")]

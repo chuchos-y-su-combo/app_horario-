@@ -2,6 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ApplicationSchedule.Application.DTOs.Profesores;
 
+/// <summary>
+/// DTO para crear un nuevo docente. Contiene información básica y validaciones.
+/// </summary>
 public class CrearProfesorRequest
 {
     [Required(ErrorMessage = "El nombre del profesor es obligatorio.")]

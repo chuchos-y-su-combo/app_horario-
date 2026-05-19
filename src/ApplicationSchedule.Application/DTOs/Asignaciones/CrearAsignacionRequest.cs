@@ -2,6 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ApplicationSchedule.Application.DTOs.Asignaciones;
 
+/// <summary>
+/// DTO para crear una asignación manual o propuesta de asignación.
+/// Incluye id de docente, asignatura, día, horas y periodo.
+/// </summary>
 public class CrearAsignacionRequest
 {
     [Required(ErrorMessage = "El docente es obligatorio.")]

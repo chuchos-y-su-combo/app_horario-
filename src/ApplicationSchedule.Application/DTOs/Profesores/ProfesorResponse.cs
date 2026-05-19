@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Profesores;
 
+/// <summary>
+/// DTO de salida que representa la información pública de un docente/profesor.
+/// </summary>
 public class ProfesorResponse
 {
     public string IdProfesor { get; set; } = string.Empty;

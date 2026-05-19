@@ -1,5 +1,8 @@
 namespace ApplicationSchedule.Application.DTOs.Asignaciones;
 
+/// <summary>
+/// DTO devuelto tras confirmar asignaciones, con resultados por asignación.
+/// </summary>
 public class ResultadoConfirmacionResponse
 {
     public int Confirmadas { get; set; }
