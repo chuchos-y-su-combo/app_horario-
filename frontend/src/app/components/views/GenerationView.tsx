@@ -1,20 +1,47 @@
-import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import { Badge } from "../Badge";
 import { Button } from "../Button";
 import { ProgressBar } from "../ProgressBar";
 import { ConfirmModal } from "../Modal";
 import { Sparkles, CheckCircle, AlertTriangle, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { generationService } from "../../../services/generation.service";
 
 export function GenerationView() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [scenarios, setScenarios] = useState<any[]>([]);
 
-  const scenarios = [
-    { id: "1", name: "Ingeniería Diurna", status: "Activo", badge: "primary", progress: 85, assigned: 51, total: 60, conflicts: 3 },
-    { id: "2", name: "Ingeniería Nocturna", status: "Validando", badge: "warning", progress: 72, assigned: 43, total: 60, conflicts: 7 },
-    { id: "3", name: "TAPSI Diurno", status: "Fijas aplicadas", badge: "success", progress: 90, assigned: 36, total: 40, conflicts: 1 },
-    { id: "4", name: "TAPSI Nocturno", status: "Pendiente", badge: "inactive", progress: 45, assigned: 18, total: 40, conflicts: 0 },
-  ];
+  useEffect(() => {
+    cargarPropuestas();
+  }, []);
+
+  const cargarPropuestas = async () => {
+    try {
+      const response = await generationService.obtenerPropuestas("2026-1");
+
+      const propuestasTransformadas = response.map((item: any) => ({
+        id: item.id,
+        name: item.nombreEscenario,
+        status: item.estado,
+        badge:
+          item.estado === "Activo"
+            ? "primary"
+            : item.estado === "Validando"
+            ? "warning"
+            : item.estado === "Fijas aplicadas"
+            ? "success"
+            : "inactive",
+        progress: item.progreso,
+        assigned: item.asignadas,
+        total: item.total,
+        conflicts: item.conflictos,
+      }));
+
+      setScenarios(propuestasTransformadas);
+    } catch (error) {
+      console.error("Error cargando propuestas", error);
+    }
+  };
 
   const constraints = [
     { name: "Disponibilidad docente", status: "success", percentage: 95, description: "Respetando franjas horarias cargadas" },
