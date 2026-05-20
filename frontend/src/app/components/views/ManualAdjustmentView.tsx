@@ -1,31 +1,43 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import { Badge } from "../Badge";
 import { Button } from "../Button";
 import { Input } from "../Input";
 import { GripVertical, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { manualAdjustmentService } from "../../../services/manual-adjustment.service";
 
 export function ManualAdjustmentView() {
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
+  useEffect(() => {
+  cargarAsignaciones();
+}, []);
 
-  const pendingSubjects = [
-    { id: 1, code: "IS301", name: "Arquitectura de Software", credits: 4, status: "pending", teacher: "Dr. Ramírez" },
-    { id: 2, code: "TP201", name: "Redes Avanzadas", credits: 3, status: "conflict", teacher: "Ing. López" },
-    { id: 3, code: "MA201", name: "Estadística II", credits: 4, status: "blocked", teacher: "Msc. García" },
-    { id: 4, code: "IS401", name: "Sistemas Distribuidos", credits: 4, status: "pending", teacher: "PhD. Torres" },
-  ];
+const guardarCambios = async () => {
+  try {
+    for (const block of assignedBlocks) {
+      await manualAdjustmentService.ajustarAsignacion(
+        block.id.toString(),
+        {
+          dia: block.day,
+          horaInicio: `${block.hour}:00`,
+          horaFin: `${block.hour + block.duration}:00`,
+        }
+      );
+    }
+
+    await cargarAsignaciones();
+
+    console.log("Cambios guardados correctamente");
+  } catch (error) {
+    console.error("Error guardando cambios", error);
+  }
+};
+
+  const [pendingSubjects, setPendingSubjects] = useState<any[]>([]);
 
   const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   const hours = Array.from({ length: 14 }, (_, i) => i + 7);
-
-  const assignedBlocks = [
-    { id: 1, day: 0, hour: 8, duration: 2, subject: "Programación I", teacher: "Dr. Ramírez", room: "Lab 301" },
-    { id: 2, day: 0, hour: 14, duration: 3, subject: "Base de Datos", teacher: "Ing. Torres", room: "Lab 302" },
-    { id: 3, day: 1, hour: 10, duration: 2, subject: "Física III", teacher: "Dr. Sánchez", room: "Lab Física" },
-    { id: 4, day: 2, hour: 8, duration: 2, subject: "Álgebra Lineal", teacher: "Msc. Martínez", room: "Aula 203" },
-    { id: 5, day: 3, hour: 15, duration: 2, subject: "Redes I", teacher: "Ing. Pérez", room: "Lab 303" },
-    { id: 6, day: 4, hour: 9, duration: 3, subject: "Ingeniería Software", teacher: "PhD. Gómez", room: "Aula 301" },
-  ];
+  const [assignedBlocks, setAssignedBlocks] = useState<any[]>([]);
 
   const validations = [
     { rule: "Sin cruce docente", status: "success", message: "No hay conflictos de horario" },
@@ -39,9 +51,9 @@ export function ManualAdjustmentView() {
         <div>
           <h1 className="text-2xl font-medium text-[#333333]">Ajuste Manual de Propuesta</h1>
           <p className="text-sm text-[#666666] mt-1">Reasignación de horarios con validación en tiempo real</p>
-        </div>
-        <Button>Guardar cambios</Button>
-      </div>
+       <Button onClick={guardarCambios}>
+       Guardar cambios
+       </Button>
 
       <div className="grid grid-cols-12 gap-6">
         {/* Left Panel - Pending Subjects */}
@@ -235,6 +247,8 @@ export function ManualAdjustmentView() {
             </CardContent>
           </Card>
         </div>
+      </div>
+    </div>
       </div>
     </div>
   );
