@@ -32,20 +32,20 @@ El sistema permite gestionar:
 
 ## 2. Tecnologías utilizadas
 
-| Tecnología | Uso |
-|---|---|
-| C# | Lenguaje principal del backend |
-| .NET | Plataforma de ejecución |
-| ASP.NET Core Web API | Exposición de endpoints REST |
-| Entity Framework Core | Acceso a datos |
-| SQLite | Base de datos local |
-| Swagger / OpenAPI | Pruebas y documentación interactiva de endpoints |
-| xUnit | Pruebas automatizadas |
-| FluentAssertions | Validaciones legibles en pruebas |
-| Excel .xlsx | Importación de disponibilidad y currículo docente |
-| Git | Control de versiones |
-| GitHub | Repositorio remoto y Pull Requests |
-| GitHub Desktop | Flujo visual para ramas, commits y push |
+| Tecnología            | Uso                                               |
+| --------------------- | ------------------------------------------------- |
+| C#                    | Lenguaje principal del backend                    |
+| .NET                  | Plataforma de ejecución                           |
+| ASP.NET Core Web API  | Exposición de endpoints REST                      |
+| Entity Framework Core | Acceso a datos                                    |
+| SQLite                | Base de datos local                               |
+| Swagger / OpenAPI     | Pruebas y documentación interactiva de endpoints  |
+| xUnit                 | Pruebas automatizadas                             |
+| FluentAssertions      | Validaciones legibles en pruebas                  |
+| Excel .xlsx           | Importación de disponibilidad y currículo docente |
+| Git                   | Control de versiones                              |
+| GitHub                | Repositorio remoto y Pull Requests                |
+| GitHub Desktop        | Flujo visual para ramas, commits y push           |
 
 ---
 
@@ -224,33 +224,33 @@ SQLite permite que la aplicación funcione localmente sin depender de un servido
 
 ## 6. Estado de requerimientos implementados
 
-| Issue / Req | Estado | Descripción |
-|---|---:|---|
-| #1 | Implementado | Crear base de datos del sistema. |
-| #2 | Implementado | Crear y gestionar cuentas con rol administrador o coordinador. |
-| #3 | Implementado | Registrar docentes con nombre, identificación y tipo de contrato. |
-| #4 | Implementado | Registrar asignaturas con nombre, código, créditos, semestre y plan de estudios. |
-| #5 | Implementado | Limitar carga según contrato: tiempo completo máximo 5 asignaturas, tiempo parcial máximo 3. |
-| #6 | Implementado | Importar disponibilidad docente desde archivo Excel actual de coordinación. |
-| #7 | Implementado | Marcar las 5 materias obligatorias TAPSI como fijas en la generación de horarios. |
-| #8 | Implementado | Contemplar asignatura adicional requerida para TAPSI jornada diurna. |
-| #9 | Implementado | Generar automáticamente propuestas de asignación para los 4 planes/jornadas. |
-| #10 | Implementado | Permitir asignar asignaturas a docentes de forma manual. |
-| #11 | Implementado | Reducir disponibilidad de un docente que dicta la misma materia en jornada diurna y nocturna. |
-| #12 | Implementado | Permitir al coordinador revisar y ajustar manualmente la propuesta generada antes de confirmarla. |
-| #13 | Implementado | Exportar horario filtrado por semestre. |
-| #14 | Implementado | Exportar horario filtrado por docente. |
-| #15 | Implementado | Exportar horario filtrado por asignatura. |
-| #16 | Implementado | Generar reporte de horas de clase asignadas vs carga contractual por docente. |
-| #17 | Implementado | Mostrar horario individual de cada docente. |
-| #18 | Implementado | Alertar cuando una asignación genera conflicto. |
-| #19 | Implementado | Conservar historial de asignaciones de semestres anteriores para consulta. |
-| #20 | Implementado | Cargar currículo docente y determinar automáticamente asignaturas que puede dictar. |
-| #34 | Implementado | Autenticación con correo y contraseña. |
-| #36 | Implementado | Bloquear franjas horarias para una asignatura específica. |
-| #38 | Implementado | Exportación disponible al menos en formato Excel .xlsx. |
-| #39 | Implementado | Mostrar horario en vista de calendario semanal filtrable por plan. |
-| #40 | Implementado | Mostrar horario individual de cada docente. |
+| Issue / Req |       Estado | Descripción                                                                                       |
+| ----------- | -----------: | ------------------------------------------------------------------------------------------------- |
+| #1          | Implementado | Crear base de datos del sistema.                                                                  |
+| #2          | Implementado | Crear y gestionar cuentas con rol administrador o coordinador.                                    |
+| #3          | Implementado | Registrar docentes con nombre, identificación y tipo de contrato.                                 |
+| #4          | Implementado | Registrar asignaturas con nombre, código, créditos, semestre y plan de estudios.                  |
+| #5          | Implementado | Limitar carga según contrato: tiempo completo máximo 5 asignaturas, tiempo parcial máximo 3.      |
+| #6          | Implementado | Importar disponibilidad docente desde archivo Excel actual de coordinación.                       |
+| #7          | Implementado | Marcar las 5 materias obligatorias TAPSI como fijas en la generación de horarios.                 |
+| #8          | Implementado | Contemplar asignatura adicional requerida para TAPSI jornada diurna.                              |
+| #9          | Implementado | Generar automáticamente propuestas de asignación para los 4 planes/jornadas.                      |
+| #10         | Implementado | Permitir asignar asignaturas a docentes de forma manual.                                          |
+| #11         | Implementado | Reducir disponibilidad de un docente que dicta la misma materia en jornada diurna y nocturna.     |
+| #12         | Implementado | Permitir al coordinador revisar y ajustar manualmente la propuesta generada antes de confirmarla. |
+| #13         | Implementado | Exportar horario filtrado por semestre.                                                           |
+| #14         | Implementado | Exportar horario filtrado por docente.                                                            |
+| #15         | Implementado | Exportar horario filtrado por asignatura.                                                         |
+| #16         | Implementado | Generar reporte de horas de clase asignadas vs carga contractual por docente.                     |
+| #17         | Implementado | Mostrar horario individual de cada docente.                                                       |
+| #18         | Implementado | Alertar cuando una asignación genera conflicto.                                                   |
+| #19         | Implementado | Conservar historial de asignaciones de semestres anteriores para consulta.                        |
+| #20         | Implementado | Cargar currículo docente y determinar automáticamente asignaturas que puede dictar.               |
+| #34         | Implementado | Autenticación con correo y contraseña.                                                            |
+| #36         | Implementado | Bloquear franjas horarias para una asignatura específica.                                         |
+| #38         | Implementado | Exportación disponible al menos en formato Excel .xlsx.                                           |
+| #39         | Implementado | Mostrar horario en vista de calendario semanal filtrable por plan.                                |
+| #40         | Implementado | Mostrar horario individual de cada docente.                                                       |
 
 ---
 
@@ -287,16 +287,16 @@ bloqueos_franja_asignatura
 
 Campos principales:
 
-| Campo | Descripción |
-|---|---|
-| id_bloqueo | Identificador único del bloqueo |
-| id_asignatura | Asignatura afectada |
-| periodo | Periodo académico |
-| dia | Día de la semana |
-| hora_inicio | Hora inicial bloqueada |
-| hora_fin | Hora final bloqueada |
-| motivo | Motivo opcional del bloqueo |
-| fecha_creacion_utc | Fecha de creación del registro |
+| Campo              | Descripción                     |
+| ------------------ | ------------------------------- |
+| id_bloqueo         | Identificador único del bloqueo |
+| id_asignatura      | Asignatura afectada             |
+| periodo            | Periodo académico               |
+| dia                | Día de la semana                |
+| hora_inicio        | Hora inicial bloqueada          |
+| hora_fin           | Hora final bloqueada            |
+| motivo             | Motivo opcional del bloqueo     |
+| fecha_creacion_utc | Fecha de creación del registro  |
 
 ---
 
@@ -625,13 +625,13 @@ El sistema contempla materias obligatorias TAPSI que deben tratarse como fijas e
 
 Materias TAPSI fijas:
 
-| Código | Asignatura |
-|---|---|
-| 104030 | Cálculo Diferencial |
-| 103007 | Técnicas de Programación |
+| Código | Asignatura                       |
+| ------ | -------------------------------- |
+| 104030 | Cálculo Diferencial              |
+| 103007 | Técnicas de Programación         |
 | 103018 | Programación Orientada a Objetos |
-| 103004 | Teoría de Sistemas |
-| 103027 | Sistemas Operativos |
+| 103004 | Teoría de Sistemas               |
+| 103027 | Sistemas Operativos              |
 
 Estas materias:
 
@@ -1249,7 +1249,7 @@ Compare: feature/req36-bloqueo-franjas-asignatura
 
 ## 22. Descripción sugerida del Pull Request
 
-```md
+````md
 ## Descripción
 
 Se implementa el Req 36: el coordinador puede bloquear franjas horarias para una asignatura específica.
@@ -1285,6 +1285,7 @@ Disponibilidad desde Excel
 + Reglas TAPSI
 = Generación y validación de horarios
 ```
+````
 
 ## Pruebas realizadas
 
@@ -1306,7 +1307,8 @@ dotnet test .\src\ApplicationSchedule.Tests\ApplicationSchedule.Tests.csproj
 ## Issue relacionado
 
 Closes #36
-```
+
+````
 
 ---
 
@@ -1339,7 +1341,7 @@ Se implementó el bloqueo de franjas horarias por asignatura, incluyendo:
 - Detección en reporte de conflictos.
 - Pruebas ejecutadas correctamente.
 - README actualizado.
-```
+````
 
 ---
 
@@ -1431,3 +1433,7 @@ Responsabilidad del frontend:
 [ ] PR mergeado
 [ ] Issue o tarjeta Req 36 cerrada/movida a Done
 ```
+
+=======
+
+# app_horario-
