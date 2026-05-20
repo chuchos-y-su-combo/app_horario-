@@ -42,11 +42,11 @@ public class CurriculosDocentesController : ControllerBase
 
         string extension = Path.GetExtension(archivo.FileName).ToLowerInvariant();
 
-        if (extension != ".xlsx")
+        if (extension != ".xlsx" && extension != ".xls")
         {
             return BadRequest(new
             {
-                mensaje = "El archivo debe tener formato .xlsx."
+                mensaje = "El archivo debe tener formato .xlsx o .xls."
             });
         }
 
