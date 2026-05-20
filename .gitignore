@@ -1,0 +1,14 @@
+bin/
+obj/
+.vs/
+node_modules/
+dist/
+.pnpm-store/
+*.user
+*.suo
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.log
+appsettings.Development.json
