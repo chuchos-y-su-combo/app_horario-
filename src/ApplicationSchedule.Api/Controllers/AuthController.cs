@@ -1,7 +1,11 @@
 using ApplicationSchedule.Application.DTOs.Auth;
 using ApplicationSchedule.Application.Interfaces;
+using ApplicationSchedule.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Concurrent;
+using BCrypt.Net;
 
 namespace ApplicationSchedule.Api.Controllers;
 
@@ -10,26 +14,20 @@ namespace ApplicationSchedule.Api.Controllers;
 [Route("api/auth")]
 /// <summary>
 /// Controlador de autenticación.
-/// Expone el endpoint de inicio de sesión y delega la validación de credenciales a <see cref="IAuthService"/>.
 /// </summary>
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly AppDbContext _context;
 
-    /// <summary>
-    /// Constructor de <see cref="AuthController"/>.
-    /// </summary>
-    /// <param name="authService">Servicio de autenticación inyectado.</param>
-    public AuthController(IAuthService authService)
+    private static readonly ConcurrentDictionary<string, (string Codigo, DateTime Expira)> _codigosRecuperacion = new(StringComparer.OrdinalIgnoreCase);
+
+    public AuthController(IAuthService authService, AppDbContext context)
     {
         _authService = authService;
+        _context = context;
     }
 
-    /// <summary>
-    /// Valida las credenciales proporcionadas y devuelve un token JWT en caso de éxito.
-    /// </summary>
-    /// <param name="request">Datos de inicio de sesión (correo y contraseña).</param>
-    /// <returns><see cref="LoginResponse"/> con el token y datos de sesión; 401 si credenciales inválidas.</returns>
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request)
     {
@@ -47,4 +45,96 @@ public class AuthController : ControllerBase
             return BadRequest(new { mensaje = ex.Message });
         }
     }
+
+    [HttpPost("solicitar-recuperacion")]
+    public async Task<IActionResult> SolicitarRecuperacion([FromBody] SolicitarRecuperacionRequest request)
+    {
+        var usuario = await _context.Usuarios
+            .FirstOrDefaultAsync(u => u.Correo == request.Correo);
+
+        if (usuario is null)
+        {
+            return Ok(new { mensaje = "Si el correo existe, se ha enviado un código de recuperación." });
+        }
+
+        string codigo = Random.Shared.Next(100000, 999999).ToString();
+        _codigosRecuperacion[request.Correo] = (codigo, DateTime.UtcNow.AddMinutes(15));
+
+        return Ok(new { mensaje = "Si el correo existe, se ha enviado un código de recuperación.", codigoDebug = codigo });
+    }
+
+    [HttpPost("verificar-codigo")]
+    public IActionResult VerificarCodigo([FromBody] VerificarCodigoRequest request)
+    {
+        if (!_codigosRecuperacion.TryGetValue(request.Correo, out var entrada))
+        {
+            return BadRequest(new { mensaje = "No hay un código de recuperación activo para este correo." });
+        }
+
+        if (DateTime.UtcNow > entrada.Expira)
+        {
+            _codigosRecuperacion.TryRemove(request.Correo, out _);
+            return BadRequest(new { mensaje = "El código de verificación ha expirado. Por favor solicite uno nuevo." });
+        }
+
+        if (entrada.Codigo != request.Codigo)
+        {
+            return BadRequest(new { mensaje = "El código de verificación es incorrecto." });
+        }
+
+        return Ok(new { mensaje = "Código verificado correctamente." });
+    }
+
+    [HttpPost("cambiar-contrasena")]
+    public async Task<IActionResult> CambiarContrasena([FromBody] CambiarContrasenaRequest request)
+    {
+        if (!_codigosRecuperacion.TryGetValue(request.Correo, out var entrada))
+        {
+            return BadRequest(new { mensaje = "No hay un código de recuperación activo para este correo." });
+        }
+
+        if (DateTime.UtcNow > entrada.Expira)
+        {
+            _codigosRecuperacion.TryRemove(request.Correo, out _);
+            return BadRequest(new { mensaje = "El código de verificación ha expirado." });
+        }
+
+        if (entrada.Codigo != request.Codigo)
+        {
+            return BadRequest(new { mensaje = "El código de verificación es incorrecto." });
+        }
+
+        var usuario = await _context.Usuarios
+            .FirstOrDefaultAsync(u => u.Correo == request.Correo);
+
+        if (usuario is null)
+        {
+            return BadRequest(new { mensaje = "Usuario no encontrado." });
+        }
+
+        usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NuevaContrasena, workFactor: 11);
+        await _context.SaveChangesAsync();
+
+        _codigosRecuperacion.TryRemove(request.Correo, out _);
+
+        return Ok(new { mensaje = "Contraseña actualizada correctamente." });
+    }
+}
+
+public class SolicitarRecuperacionRequest
+{
+    public string Correo { get; set; } = string.Empty;
+}
+
+public class VerificarCodigoRequest
+{
+    public string Correo { get; set; } = string.Empty;
+    public string Codigo { get; set; } = string.Empty;
+}
+
+public class CambiarContrasenaRequest
+{
+    public string Correo { get; set; } = string.Empty;
+    public string Codigo { get; set; } = string.Empty;
+    public string NuevaContrasena { get; set; } = string.Empty;
 }
