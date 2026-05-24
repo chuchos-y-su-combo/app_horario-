@@ -29,4 +29,16 @@ public interface ICurriculoDocenteService
         string periodo,
         CancellationToken cancellationToken = default
     );
+
+    Task<AsignaturaHabilitadaDocenteResponse> HabilitarAsignaturaAsync(
+        string idDocente,
+        string idAsignatura,
+        CancellationToken cancellationToken = default
+    );
+
+    Task DesvincularAsignaturaAsync(
+        string idDocente,
+        string idAsignatura,
+        CancellationToken cancellationToken = default
+    );
 }

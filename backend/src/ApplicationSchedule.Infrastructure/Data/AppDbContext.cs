@@ -172,7 +172,7 @@ public class AppDbContext : DbContext
                     IdUsuario = "11111111-1111-1111-1111-111111111111",
                     IdRol = 1,
                     Correo = "admin@universidad.edu",
-                    PasswordHash = "$2a$11$Hj0PVmDSAn6wHAHNRijFvuVpIw07zBCtPHi.7MLQZo9YbOroeUWxG",
+                    PasswordHash = "$2a$11$lQyp9rSox1qD4rA177buV.ZqN7e7pFRBz9k3WUahbbpjoBmPPWCQ6",
                     NombreCompleto = "Administrador Principal"
                 }
             );
