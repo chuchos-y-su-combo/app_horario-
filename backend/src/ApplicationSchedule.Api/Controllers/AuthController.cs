@@ -60,7 +60,7 @@ public class AuthController : ControllerBase
         string codigo = Random.Shared.Next(100000, 999999).ToString();
         _codigosRecuperacion[request.Correo] = (codigo, DateTime.UtcNow.AddMinutes(15));
 
-        return Ok(new { mensaje = "Si el correo existe, se ha enviado un código de recuperación.", codigoDebug = codigo });
+        return Ok(new { mensaje = "Si el correo existe, se ha enviado un código de recuperación." });
     }
 
     [HttpPost("verificar-codigo")]

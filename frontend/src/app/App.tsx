@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { LoginView } from "./components/views/LoginView";
 import { RecoverPasswordView } from "./components/views/RecoverPasswordView";
@@ -13,7 +13,6 @@ import { ReportsView } from "./components/views/ReportsView";
 import { ManualAdjustmentView } from "./components/views/ManualAdjustmentView";
 import { BlockedSlotsView } from "./components/views/BlockedSlotsView";
 import { HistoryView } from "./components/views/HistoryView";
-import axios from "axios";
 
 type AuthState = "login" | "recover" | "authenticated";
 type View =
@@ -29,8 +28,24 @@ type View =
   | "reportes"
   | "historial";
 
+function getInitialAuthState(): AuthState {
+  const token = localStorage.getItem("token");
+  if (!token) return "login";
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (typeof payload.exp === "number" && payload.exp * 1000 > Date.now()) {
+      return "authenticated";
+    }
+  } catch {
+    // token malformado
+  }
+  localStorage.removeItem("token");
+  localStorage.removeItem("usuario");
+  return "login";
+}
+
 export default function App() {
-    const [authState, setAuthState] = useState<AuthState>("authenticated");
+  const [authState, setAuthState] = useState<AuthState>(getInitialAuthState);
   const [currentView, setCurrentView] = useState<View>("dashboard");
 
   if (authState === "login") {
@@ -41,19 +56,10 @@ export default function App() {
       />
     );
   }
-  const API_URL = import.meta.env.VITE_URL_API_HORARIO
+
   if (authState === "recover") {
     return <RecoverPasswordView onBack={() => setAuthState("login")} />;
   }
-      useEffect(() => {
-    axios.get(API_URL) // No funcionará por el manejo de autenticación, pero es solo para probar la conexión con el backend porque no hay frontend aú integrado correctamente
-      .then(res => {
-        console.log("Backend se estpas intentando conectar. (Caso exitoso):", res.data);
-      })
-      .catch(err => {
-        console.error("Backend no responde. (Caso fallido):", err); // Esto es esperado si el backend tiene autenticación, pero al menos confirma que el frontend puede comunicarse con el backend. Si hay un error de conexión (como CORS o el backend no está corriendo), entonces sabremos que hay un problema de conexión.
-      });
-  }, []);
 
   return (
     <div className="w-screen h-screen flex bg-[#F5F5F5]">

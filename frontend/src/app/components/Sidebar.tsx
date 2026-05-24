@@ -41,20 +41,38 @@ interface SidebarProps {
   onNavigate: (view: string) => void;
 }
 
+function getRolFromToken(): string {
+  const token = localStorage.getItem("token");
+  if (!token) return "";
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    // .NET serializa ClaimTypes.Role como "role" en el JWT
+    return (payload["role"] as string) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export function Sidebar({ currentView, onNavigate }: SidebarProps) {
-  const menuItems = [
-    { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { id: "usuarios", icon: Users, label: "Usuarios y roles" },
-    { id: "docentes", icon: GraduationCap, label: "Docentes" },
-    { id: "asignaturas", icon: BookOpen, label: "Asignaturas" },
-    { id: "generacion", icon: Sparkles, label: "Generación" },
-    { id: "ajuste", icon: PenTool, label: "Ajuste manual" },
-    { id: "bloqueos", icon: Ban, label: "Franjas bloqueadas" },
-    { id: "calendario", icon: Calendar, label: "Calendario" },
-    { id: "alertas", icon: AlertTriangle, label: "Alertas" },
-    { id: "reportes", icon: FileText, label: "Reportes" },
-    { id: "historial", icon: History, label: "Historial" },
+  const rol = getRolFromToken();
+
+  const allMenuItems = [
+    { id: "dashboard", icon: LayoutDashboard, label: "Dashboard", soloAdmin: false },
+    { id: "usuarios", icon: Users, label: "Usuarios y roles", soloAdmin: true },
+    { id: "docentes", icon: GraduationCap, label: "Docentes", soloAdmin: false },
+    { id: "asignaturas", icon: BookOpen, label: "Asignaturas", soloAdmin: false },
+    { id: "generacion", icon: Sparkles, label: "Generación", soloAdmin: false },
+    { id: "ajuste", icon: PenTool, label: "Ajuste manual", soloAdmin: false },
+    { id: "bloqueos", icon: Ban, label: "Franjas bloqueadas", soloAdmin: false },
+    { id: "calendario", icon: Calendar, label: "Calendario", soloAdmin: false },
+    { id: "alertas", icon: AlertTriangle, label: "Alertas", soloAdmin: false },
+    { id: "reportes", icon: FileText, label: "Reportes", soloAdmin: false },
+    { id: "historial", icon: History, label: "Historial", soloAdmin: false },
   ];
+
+  const menuItems = allMenuItems.filter(
+    (item) => !item.soloAdmin || rol === "Administrador"
+  );
 
   return (
     <aside className="w-[260px] h-screen bg-[#003087] flex flex-col fixed left-0 top-0">
