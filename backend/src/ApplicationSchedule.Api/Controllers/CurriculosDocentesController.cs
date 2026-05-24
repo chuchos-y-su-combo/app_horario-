@@ -108,6 +108,57 @@ public class CurriculosDocentesController : ControllerBase
             });
         }
     }
+    /// <summary>
+    /// Habilita manualmente una asignatura para que un docente pueda dictarla.
+    /// </summary>
+    [HttpPost("{idDocente}/asignaturas-habilitadas")]
+    public async Task<ActionResult<AsignaturaHabilitadaDocenteResponse>> HabilitarAsignatura(
+        string idDocente,
+        [FromBody] HabilitarAsignaturaRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.IdAsignatura))
+            return BadRequest(new { mensaje = "El campo 'idAsignatura' es obligatorio." });
+
+        try
+        {
+            AsignaturaHabilitadaDocenteResponse resultado =
+                await _curriculoDocenteService.HabilitarAsignaturaAsync(
+                    idDocente, request.IdAsignatura, cancellationToken);
+
+            return CreatedAtAction(
+                nameof(ObtenerAsignaturasHabilitadas),
+                new { idProfesor = idDocente },
+                resultado);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { mensaje = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Elimina la habilitación de una asignatura para un docente.
+    /// </summary>
+    [HttpDelete("{idDocente}/asignaturas-habilitadas/{idAsignatura}")]
+    public async Task<IActionResult> DesvincularAsignatura(
+        string idDocente,
+        string idAsignatura,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _curriculoDocenteService.DesvincularAsignaturaAsync(
+                idDocente, idAsignatura, cancellationToken);
+
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { mensaje = ex.Message });
+        }
+    }
+
     [HttpPost("{idDocente}/reducir-disponibilidad")]
     public async Task<ActionResult<ReduccionDisponibilidadResponse>> ReducirDisponibilidad(
     string idDocente,

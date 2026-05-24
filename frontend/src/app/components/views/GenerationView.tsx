@@ -43,12 +43,6 @@ export function GenerationView() {
     }
   };
 
-  const constraints = [
-    { name: "Disponibilidad docente", status: "success", percentage: 95, description: "Respetando franjas horarias cargadas" },
-    { name: "Carga contractual", status: "warning", percentage: 88, description: "3 docentes cerca del límite" },
-    { name: "Materias fijas TAPSI", status: "success", percentage: 100, description: "Todas las restricciones aplicadas" },
-    { name: "Bloqueos activos", status: "success", percentage: 100, description: "12 franjas bloqueadas respetadas" },
-  ];
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto bg-[#F5F5F5]">
@@ -122,98 +116,93 @@ export function GenerationView() {
         })}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Motor de Generación - Validación de Restricciones</CardTitle>
-          <p className="text-sm text-[#666666] mt-1">Estado de cumplimiento de reglas institucionales</p>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {constraints.map((constraint, idx) => (
-              <div key={idx} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        constraint.status === "success" ? "bg-[#1A7A4A]" : "bg-[#E8A020]"
-                      }`}
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-[#333333]">{constraint.name}</p>
-                      <p className="text-xs text-[#666666]">{constraint.description}</p>
-                    </div>
-                  </div>
-                  <span className="text-sm font-medium text-[#333333]">{constraint.percentage}%</span>
-                </div>
-                <ProgressBar
-                  value={constraint.percentage}
-                  variant={constraint.status === "success" ? "success" : "warning"}
-                  size="sm"
-                />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-2 gap-6">
+      {scenarios.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Resultado Preliminar</CardTitle>
+            <CardTitle>Motor de Generación - Estado de Restricciones</CardTitle>
+            <p className="text-sm text-[#666666] mt-1">Estado de cumplimiento de reglas institucionales</p>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-[#1A7A4A]/5 rounded border border-[#1A7A4A]/20">
-                <div>
-                  <p className="text-sm text-[#666666]">Asignaturas ubicadas</p>
-                  <p className="text-2xl font-medium text-[#1A7A4A]">148</p>
-                </div>
-                <CheckCircle className="text-[#1A7A4A]" size={32} />
-              </div>
-              <div className="flex items-center justify-between p-4 bg-[#E8A020]/5 rounded border border-[#E8A020]/20">
-                <div>
-                  <p className="text-sm text-[#666666]">Conflictos pendientes</p>
-                  <p className="text-2xl font-medium text-[#E8A020]">11</p>
-                </div>
-                <AlertTriangle className="text-[#E8A020]" size={32} />
-              </div>
-              <div className="pt-4 border-t border-[#CCCCCC]">
-                <p className="text-xs text-[#666666] mb-3">
-                  El sistema ha generado una propuesta inicial. Se recomienda revisar los conflictos en el módulo de Ajuste Manual antes de aplicar.
-                </p>
-                <Button variant="secondary" className="w-full">
-                  Ver detalles de generación
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Historial de Generaciones</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
               {[
-                { date: "12 May 2026 - 14:30", status: "Actual", conflicts: 11 },
-                { date: "10 May 2026 - 09:15", status: "Anterior", conflicts: 18 },
-                { date: "08 May 2026 - 16:45", status: "Descartada", conflicts: 24 },
-              ].map((gen, idx) => (
-                <div key={idx} className="p-3 border border-[#CCCCCC] rounded hover:bg-[#F5F5F5] transition-colors">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-[#333333]">{gen.date}</p>
-                    <Badge variant={gen.status === "Actual" ? "success" : "inactive"} className="text-xs">
-                      {gen.status}
-                    </Badge>
+                { name: "Disponibilidad docente", description: "Franjas horarias cargadas por importación Excel" },
+                { name: "Carga contractual", description: "Horas asignadas vs. límite por tipo de contrato" },
+                { name: "Materias fijas TAPSI", description: "Restricciones de plan TAPSI aplicadas" },
+                { name: "Bloqueos activos", description: "Franjas bloqueadas respetadas" },
+              ].map((item, idx) => {
+                const scenario = scenarios[0];
+                const pct = scenario ? Math.min(100, Math.round((scenario.assigned / Math.max(scenario.total, 1)) * 100)) : 0;
+                return (
+                  <div key={idx} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${pct >= 80 ? "bg-[#1A7A4A]" : "bg-[#E8A020]"}`} />
+                        <div>
+                          <p className="text-sm font-medium text-[#333333]">{item.name}</p>
+                          <p className="text-xs text-[#666666]">{item.description}</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium text-[#333333]">{pct}%</span>
+                    </div>
+                    <ProgressBar value={pct} variant={pct >= 80 ? "success" : "warning"} size="sm" />
                   </div>
-                  <p className="text-xs text-[#666666]">{gen.conflicts} conflictos detectados</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
-      </div>
+      )}
+
+      {scenarios.length > 0 && (
+        <div className="grid grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Resultado Preliminar</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-[#1A7A4A]/5 rounded border border-[#1A7A4A]/20">
+                  <div>
+                    <p className="text-sm text-[#666666]">Asignaturas ubicadas</p>
+                    <p className="text-2xl font-medium text-[#1A7A4A]">
+                      {scenarios.reduce((s, e) => s + (e.assigned ?? 0), 0)}
+                    </p>
+                  </div>
+                  <CheckCircle className="text-[#1A7A4A]" size={32} />
+                </div>
+                <div className="flex items-center justify-between p-4 bg-[#E8A020]/5 rounded border border-[#E8A020]/20">
+                  <div>
+                    <p className="text-sm text-[#666666]">Conflictos pendientes</p>
+                    <p className="text-2xl font-medium text-[#E8A020]">
+                      {scenarios.reduce((s, e) => s + (e.conflicts ?? 0), 0)}
+                    </p>
+                  </div>
+                  <AlertTriangle className="text-[#E8A020]" size={32} />
+                </div>
+                <div className="pt-4 border-t border-[#CCCCCC]">
+                  <p className="text-xs text-[#666666] mb-3">
+                    Propuesta generada. Revisa los conflictos en Ajuste Manual antes de confirmar.
+                  </p>
+                  <Button variant="secondary" className="w-full">
+                    Ver detalles de generación
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Historial de Generaciones</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-[#999999] text-sm">
+                No hay generaciones anteriores registradas.
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={showConfirmModal}
