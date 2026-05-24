@@ -15,22 +15,6 @@ public class GeneradorHorarioService : IGeneradorHorarioService
 {
     private const string EstadoPropuesta = "Propuesta";
 
-    private static readonly HashSet<string> CodigosObligatoriosTapsi = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "104030", // Cálculo Diferencial
-        "103007", // Técnicas de Programación
-        "103018", // Programación Orientada a Objetos
-        "103004", // Teoría de Sistemas
-        "103027"  // Sistemas Operativos
-    };
-
-    private static readonly HashSet<string> CodigosOpcionalesTapsiDiurna = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "103093", // Ingeniería de Software II
-        "103126", // Redes LAN
-        "109183"  // Programación Back End
-    };
-
     private readonly AppDbContext _context;
 
     /// <summary>
@@ -208,9 +192,7 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         int limiteCreditos,
         CancellationToken cancellationToken)
     {
-        List<Asignatura> obligatorias = asignaturasEscenario
-            .Where(a => CodigosObligatoriosTapsi.Contains(a.Codigo))
-            .ToList();
+        List<Asignatura> obligatorias = asignaturasEscenario;
 
         int creditosAcumulados = 0;
 
@@ -250,7 +232,7 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         List<Asignatura> opcionesAdicionales = await _context.Asignaturas
             .Where(a =>
                 a.IdPlan == plan.IdPlan &&
-                CodigosOpcionalesTapsiDiurna.Contains(a.Codigo)
+                a.EsOpcionalTapsiDiurna
             )
             .OrderBy(a => a.Nombre)
             .ToListAsync(cancellationToken);
@@ -493,16 +475,12 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         if (escenario == EscenarioGeneracion.IngDiurna ||
             escenario == EscenarioGeneracion.IngNocturna)
         {
-            return asignaturasPlan
-                .Where(a => a.Semestre == semestreIngenieria)
-                .OrderBy(a => a.Nombre)
-                .ToList();
+            return semestreIngenieria == 1
+                ? asignaturasPlan.Where(a => a.Semestre == 1).OrderBy(a => a.Nombre).ToList()
+                : asignaturasPlan.Where(a => a.Semestre == semestreIngenieria && a.EsAreaProfesional).OrderBy(a => a.Nombre).ToList();
         }
 
-        return asignaturasPlan
-            .Where(a => CodigosObligatoriosTapsi.Contains(a.Codigo))
-            .OrderBy(a => a.Nombre)
-            .ToList();
+        return asignaturasPlan.Where(a => a.EsFijaTapsi).OrderBy(a => a.Nombre).ToList();
     }
 
     /// <summary>
@@ -533,20 +511,28 @@ public class GeneradorHorarioService : IGeneradorHorarioService
     }
 
     /// <summary>
-    /// Obtiene el plan de estudio asociado al escenario (diurno/nocturno) a partir de la lista de planes.
+    /// Obtiene el plan de estudio asociado al escenario a partir de la lista de planes.
     /// </summary>
     private static PlanEstudio? ObtenerPlanParaEscenario(
         string escenario,
         List<PlanEstudio> planes)
     {
-        if (EscenarioGeneracion.EsDiurno(escenario))
+        return escenario switch
         {
-            return planes.FirstOrDefault(p =>
-                p.Jornada.Equals("Diurna", StringComparison.OrdinalIgnoreCase));
-        }
-
-        return planes.FirstOrDefault(p =>
-            p.Jornada.Equals("Nocturna", StringComparison.OrdinalIgnoreCase));
+            EscenarioGeneracion.IngDiurna => planes.FirstOrDefault(p =>
+                p.Jornada.Equals("Diurna", StringComparison.OrdinalIgnoreCase) &&
+                !p.NombrePlan.Contains("TAPSI", StringComparison.OrdinalIgnoreCase)),
+            EscenarioGeneracion.IngNocturna => planes.FirstOrDefault(p =>
+                p.Jornada.Equals("Nocturna", StringComparison.OrdinalIgnoreCase) &&
+                !p.NombrePlan.Contains("TAPSI", StringComparison.OrdinalIgnoreCase)),
+            EscenarioGeneracion.TapsiDiurna => planes.FirstOrDefault(p =>
+                p.NombrePlan.Contains("TAPSI", StringComparison.OrdinalIgnoreCase) &&
+                p.Jornada.Equals("Diurna", StringComparison.OrdinalIgnoreCase)),
+            EscenarioGeneracion.TapsiNocturna => planes.FirstOrDefault(p =>
+                p.NombrePlan.Contains("TAPSI", StringComparison.OrdinalIgnoreCase) &&
+                p.Jornada.Equals("Nocturna", StringComparison.OrdinalIgnoreCase)),
+            _ => null
+        };
     }
 
     /// <summary>
