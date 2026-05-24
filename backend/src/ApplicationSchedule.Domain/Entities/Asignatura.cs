@@ -52,6 +52,12 @@ public class Asignatura
     public bool EsOpcionalTapsiDiurna { get; set; }
 
     /// <summary>
+    /// Indica si la asignatura pertenece al área de formación profesional.
+    /// En semestre 1 se generan todas; en semestres 2+ solo las marcadas con true.
+    /// </summary>
+    public bool EsAreaProfesional { get; set; }
+
+    /// <summary>
     /// Plan de estudios asociado a la asignatura.
     /// </summary>
     public PlanEstudio? PlanEstudio { get; set; }
