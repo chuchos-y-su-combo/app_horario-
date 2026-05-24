@@ -803,6 +803,81 @@ public class CurriculoDocenteService : ICurriculoDocenteService
             NormalizarTexto(a.Nombre) == nombreNormalizado);
     }
 
+    /// <summary>
+    /// Habilita manualmente una asignatura para un docente, registrando la fuente como "Manual".
+    /// Lanza excepción si el docente o la asignatura no existen, o si la relación ya existe.
+    /// </summary>
+    public async Task<AsignaturaHabilitadaDocenteResponse> HabilitarAsignaturaAsync(
+        string idDocente,
+        string idAsignatura,
+        CancellationToken cancellationToken = default)
+    {
+        bool docenteExiste = await _context.Docentes
+            .AnyAsync(d => d.IdDocente == idDocente, cancellationToken);
+
+        if (!docenteExiste)
+            throw new InvalidOperationException("Docente no encontrado.");
+
+        Asignatura? asignatura = await _context.Asignaturas
+            .FirstOrDefaultAsync(a => a.IdAsignatura == idAsignatura, cancellationToken);
+
+        if (asignatura is null)
+            throw new InvalidOperationException("Asignatura no encontrada.");
+
+        bool relacionExiste = await _context.DocentesHabilitados
+            .AnyAsync(dh =>
+                dh.IdDocente == idDocente &&
+                dh.IdAsignatura == idAsignatura,
+                cancellationToken);
+
+        if (relacionExiste)
+            throw new InvalidOperationException("El docente ya está habilitado para esta asignatura.");
+
+        var habilitado = new DocenteHabilitado
+        {
+            IdDocente = idDocente,
+            IdAsignatura = idAsignatura,
+            FechaHabilitacion = DateTime.UtcNow,
+            Fuente = "Manual"
+        };
+
+        _context.DocentesHabilitados.Add(habilitado);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return new AsignaturaHabilitadaDocenteResponse
+        {
+            IdAsignatura = asignatura.IdAsignatura,
+            Codigo = asignatura.Codigo,
+            Nombre = asignatura.Nombre,
+            Creditos = asignatura.Creditos,
+            Semestre = asignatura.Semestre,
+            Fuente = habilitado.Fuente,
+            FechaHabilitacion = habilitado.FechaHabilitacion
+        };
+    }
+
+    /// <summary>
+    /// Elimina la habilitación de una asignatura para un docente.
+    /// Lanza excepción si la relación no existe.
+    /// </summary>
+    public async Task DesvincularAsignaturaAsync(
+        string idDocente,
+        string idAsignatura,
+        CancellationToken cancellationToken = default)
+    {
+        DocenteHabilitado? habilitado = await _context.DocentesHabilitados
+            .FirstOrDefaultAsync(dh =>
+                dh.IdDocente == idDocente &&
+                dh.IdAsignatura == idAsignatura,
+                cancellationToken);
+
+        if (habilitado is null)
+            throw new InvalidOperationException("La relación docente-asignatura no existe.");
+
+        _context.DocentesHabilitados.Remove(habilitado);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     private static string NormalizarTexto(string texto)
     {
         string textoSinEspaciosDobles = string.Join(' ', texto.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries));

@@ -9,6 +9,7 @@ import { Select } from "../Select";
 import { ConfirmModal } from "../Modal";
 import { Search, Plus, Edit, Trash2, BookOpen, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { subjectService, Subject, CreateSubjectRequest } from "../../../services/subject.service";
+import { obtenerPlanes } from "../../../services/planesService";
 
 type PlanEstudio = {
   idPlan: string;
@@ -46,9 +47,12 @@ export function SubjectsView() {
 const cargarDatos = async () => {
     setLoading(true);
     try {
-        const asignaturasData = await subjectService.getAll();
+        const [asignaturasData, planesData] = await Promise.all([
+            subjectService.getAll(),
+            obtenerPlanes(),
+        ]);
         setSubjects(asignaturasData);
-        setPlanes([]);
+        setPlanes(planesData);
     } catch (error) {
         console.error("Error cargando datos:", error);
     } finally {
@@ -242,10 +246,15 @@ const cargarDatos = async () => {
               onChange={(e) => setSemesterFilter(e.target.value)}
               options={[
                 { value: "", label: "Todos" },
-                ...Array.from({ length: 10 }, (_, i) => ({
-                  value: String(i + 1),
-                  label: `Semestre ${i + 1}`,
-                }))
+                ...Array.from(
+                  new Set(
+                    subjects
+                      .filter((s) => !planFilter || s.idPlan === planFilter)
+                      .map((s) => s.semestre)
+                  )
+                )
+                  .sort((a, b) => a - b)
+                  .map((sem) => ({ value: String(sem), label: `Semestre ${sem}` })),
               ]}
             />
           </div>
