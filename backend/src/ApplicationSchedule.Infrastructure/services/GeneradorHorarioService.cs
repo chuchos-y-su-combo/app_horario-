@@ -120,6 +120,8 @@ public class GeneradorHorarioService : IGeneradorHorarioService
                 NombrePlan = plan.NombrePlan
             };
 
+            int limiteCreditos = EscenarioGeneracion.EsDiurno(escenario) ? 18 : 15;
+
             if (escenario == EscenarioGeneracion.TapsiDiurna)
             {
                 await GenerarTapsiDiurnaAsync(
@@ -132,13 +134,34 @@ public class GeneradorHorarioService : IGeneradorHorarioService
                     request.Periodo,
                     response,
                     resumen,
+                    limiteCreditos,
                     cancellationToken
                 );
             }
             else
             {
+                int creditosAcumulados = 0;
+
                 foreach (Asignatura asignatura in asignaturasEscenario)
                 {
+                    if (creditosAcumulados + asignatura.Creditos > limiteCreditos)
+                    {
+                        resumen.TotalAsignaturasEvaluadas++;
+                        resumen.TotalNoAsignadas++;
+                        response.NoAsignadas.Add(new AsignaturaNoAsignadaResponse
+                        {
+                            Escenario = escenario,
+                            IdPlan = plan.IdPlan,
+                            NombrePlan = plan.NombrePlan,
+                            IdAsignatura = asignatura.IdAsignatura,
+                            CodigoAsignatura = asignatura.Codigo,
+                            NombreAsignatura = asignatura.Nombre,
+                            Motivo = $"Excede límite de créditos por jornada ({limiteCreditos} créditos)"
+                        });
+                        continue;
+                    }
+
+                    creditosAcumulados += asignatura.Creditos;
                     ProcesarAsignatura(
                         escenario,
                         plan,
@@ -182,14 +205,35 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         string periodo,
         GenerarPropuestasHorarioResponse response,
         ResumenEscenarioHorarioResponse resumen,
+        int limiteCreditos,
         CancellationToken cancellationToken)
     {
         List<Asignatura> obligatorias = asignaturasEscenario
             .Where(a => CodigosObligatoriosTapsi.Contains(a.Codigo))
             .ToList();
 
+        int creditosAcumulados = 0;
+
         foreach (Asignatura asignatura in obligatorias)
         {
+            if (creditosAcumulados + asignatura.Creditos > limiteCreditos)
+            {
+                resumen.TotalAsignaturasEvaluadas++;
+                resumen.TotalNoAsignadas++;
+                response.NoAsignadas.Add(new AsignaturaNoAsignadaResponse
+                {
+                    Escenario = escenario,
+                    IdPlan = plan.IdPlan,
+                    NombrePlan = plan.NombrePlan,
+                    IdAsignatura = asignatura.IdAsignatura,
+                    CodigoAsignatura = asignatura.Codigo,
+                    NombreAsignatura = asignatura.Nombre,
+                    Motivo = $"Excede límite de créditos por jornada ({limiteCreditos} créditos)"
+                });
+                continue;
+            }
+
+            creditosAcumulados += asignatura.Creditos;
             ProcesarAsignatura(
                 escenario,
                 plan,
@@ -217,6 +261,12 @@ public class GeneradorHorarioService : IGeneradorHorarioService
         foreach (Asignatura opcion in opcionesAdicionales)
         {
             resumen.TotalAsignaturasEvaluadas++;
+
+            if (creditosAcumulados + opcion.Creditos > limiteCreditos)
+            {
+                motivosFallidos.Add($"{opcion.Codigo} - {opcion.Nombre}: Excede límite de créditos por jornada ({limiteCreditos} créditos)");
+                continue;
+            }
 
             ResultadoAsignacion resultado = IntentarAsignarAsignatura(
                 escenario,
