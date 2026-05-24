@@ -21,14 +21,53 @@ internal static class DisponibilidadExcelParser
     /// Lee una hoja y devuelve una lista de elementos de disponibilidad detectados.
     /// Adapta múltiples formatos conocidos de la coordinación.
     /// </summary>
-    public static List<DisponibilidadExcelItem> LeerHoja(ClosedXML.Excel.IXLWorksheet worksheet)
+    public static List<DisponibilidadExcelItem> LeerHoja(IXLWorksheet worksheet)
     {
         return TieneFormatoNormalizado(worksheet)
             ? LeerFormatoNormalizado(worksheet)
             : LeerFormatoActualCoordinacion(worksheet);
     }
 
-    private static bool TieneFormatoNormalizado(ClosedXML.Excel.IXLWorksheet worksheet)
+    /// <summary>
+    /// Lee la hoja vertical "Mi Disponibilidad" (un único docente por archivo).
+    /// Estructura: B6=nombre, B7=tipo contrato, B11–B15=materias, B18=texto disponibilidad.
+    /// </summary>
+    public static MiDisponibilidadExcelItem LeerHojaMiDisponibilidad(IXLWorksheet worksheet)
+    {
+        string nombre = worksheet.Cell(6, 2).GetString().Trim();
+
+        string tipoContratoRaw = NormalizarTexto(worksheet.Cell(7, 2).GetString().Trim());
+        string tipoContrato = tipoContratoRaw switch
+        {
+            "TC" or "TIEMPO COMPLETO" or "PLANTA" => "TC",
+            _ => "TP"
+        };
+
+        var materias = new List<string>();
+        for (int fila = 11; fila <= 15; fila++)
+        {
+            string materia = worksheet.Cell(fila, 2).GetString().Trim();
+            if (!string.IsNullOrWhiteSpace(materia))
+                materias.Add(materia);
+        }
+
+        string textoDisponibilidad = worksheet.Cell(18, 2).GetString().Trim();
+
+        var mensajes = new List<string>();
+        List<DisponibilidadBloque> bloques = InterpretarTextoLibre(textoDisponibilidad, mensajes);
+
+        return new MiDisponibilidadExcelItem
+        {
+            NombreDocente = nombre,
+            TipoContrato = tipoContrato,
+            NombresMaterias = materias,
+            TextoDisponibilidad = textoDisponibilidad,
+            Bloques = bloques,
+            Mensajes = mensajes
+        };
+    }
+
+    private static bool TieneFormatoNormalizado(IXLWorksheet worksheet)
     {
         string a1 = NormalizarTexto(worksheet.Cell(1, 1).GetString());
         string b1 = NormalizarTexto(worksheet.Cell(1, 2).GetString());
@@ -55,9 +94,7 @@ internal static class DisponibilidadExcelParser
             string horaFin = worksheet.Cell(fila, 4).GetString().Trim();
 
             if (string.IsNullOrWhiteSpace(docente))
-            {
                 continue;
-            }
 
             int diaSemana = ConvertirDiaTextoANumero(dia);
 
@@ -71,7 +108,6 @@ internal static class DisponibilidadExcelParser
                     NombreDocente = docente,
                     TextoOriginal = "Formato normalizado"
                 };
-
                 resultado.Add(item);
             }
 
@@ -93,7 +129,7 @@ internal static class DisponibilidadExcelParser
         return resultado;
     }
 
-    private static List<DisponibilidadExcelItem> LeerFormatoActualCoordinacion(ClosedXML.Excel.IXLWorksheet worksheet)
+    private static List<DisponibilidadExcelItem> LeerFormatoActualCoordinacion(IXLWorksheet worksheet)
     {
         var resultado = new List<DisponibilidadExcelItem>();
 
@@ -105,9 +141,7 @@ internal static class DisponibilidadExcelParser
             string textoDisponibilidad = worksheet.Cell(2, columna).GetString().Trim();
 
             if (string.IsNullOrWhiteSpace(nombreDocente))
-            {
                 continue;
-            }
 
             var mensajes = new List<string>();
             List<DisponibilidadBloque> bloques = InterpretarTextoLibre(textoDisponibilidad, mensajes);
@@ -124,7 +158,7 @@ internal static class DisponibilidadExcelParser
         return resultado;
     }
 
-    private static List<DisponibilidadBloque> InterpretarTextoLibre(
+    internal static List<DisponibilidadBloque> InterpretarTextoLibre(
         string textoOriginal,
         List<string> mensajes)
     {
@@ -142,12 +176,15 @@ internal static class DisponibilidadExcelParser
             .Replace("4:0O", "4:00")
             .Replace(" EN EN ", " EN ");
 
-        string finDia = texto.Contains("EVITAR NOCHES")
+        string finDia = texto.Contains("EVITAR NOCHES") || texto.Contains("EVITAR NOCHE")
             ? HoraFinSinNoche
             : HoraFinDia;
 
+        // ── Patrones globales de rango de días ──────────────────────────────
+
         if (texto.Contains("TODO EL DIA L A J") ||
             texto.Contains("L A J TODO EL DIA") ||
+            texto.Contains("L A J TODO EL DIA Y NOCHE") ||
             texto.Contains("LUNES A JUEVES TODO EL DIA") ||
             texto.Contains("LUNES A JUEVES  TODO EL DIA"))
         {
@@ -175,9 +212,9 @@ internal static class DisponibilidadExcelParser
         }
 
         if (texto.Contains("JUEVES TODO EL DIA"))
-        {
             AgregarBloque(bloques, 4, HoraInicioDia, finDia);
-        }
+
+        // ── Patrones de periodo del día ──────────────────────────────────────
 
         if (texto.Contains("MIERCOLES EN LA MANANA") ||
             texto.Contains("MIERCOLES EN MANANA"))
@@ -192,29 +229,21 @@ internal static class DisponibilidadExcelParser
         }
 
         if (texto.Contains("VIERNES") && texto.Contains("NOCHE"))
-        {
             AgregarBloque(bloques, 5, HoraInicioNoche, HoraFinDia);
-        }
+
+        // ── Patrones específicos de hora ─────────────────────────────────────
 
         if (texto.Contains("DESPUES DE LAS 6PM"))
-        {
             AgregarRangoDias(bloques, 1, 4, "18:00", HoraFinDia);
-        }
 
         if (texto.Contains("DE 7AM A 9AM"))
-        {
             AgregarRangoDias(bloques, 1, 5, "07:00", "09:00");
-        }
 
         if (texto.Contains("LUNES A VIERNES DE 7AM A 10AM"))
-        {
             AgregarRangoDias(bloques, 1, 5, "07:00", "10:00");
-        }
 
         if (texto.Contains("LUNES A JUEVES DE 6PM A 10PM"))
-        {
             AgregarRangoDias(bloques, 1, 4, "18:00", "22:00");
-        }
 
         if (texto.Contains("LUNES Y MIERCOLES DE 6:30 EN ADELANTE"))
         {
@@ -234,6 +263,7 @@ internal static class DisponibilidadExcelParser
             AgregarBloque(bloques, 5, "10:00", HoraFinDia);
         }
 
+        // ── Análisis línea a línea (captura casos no cubiertos) ──────────────
         InterpretarLineasConDia(textoOriginal, bloques);
 
         List<DisponibilidadBloque> resultado = bloques
@@ -251,52 +281,115 @@ internal static class DisponibilidadExcelParser
         return resultado;
     }
 
-    private static void InterpretarLineasConDia(string textoOriginal, List<DisponibilidadBloque> bloques)
+    /// <summary>
+    /// Divide el texto en segmentos manejables: primero en separadores estándar (".","," newline)
+    /// y luego sub-divide cada segmento antes de nombres de día concatenados sin separador,
+    /// para manejar cadenas como "Lunes 8am a 12m Martes 4pm en adelante".
+    /// </summary>
+    private static IEnumerable<string> ObtenerSegmentos(string textoOriginal)
     {
-        string[] partes = textoOriginal
+        var partes = textoOriginal
             .Replace(".", "\n")
+            .Replace(",", "\n")
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        foreach (string parteOriginal in partes)
+        foreach (string parte in partes)
         {
-            string parte = NormalizarTexto(parteOriginal)
-                .Replace("4:0O", "4:00");
+            // Sub-dividir antes de nombres de día cuando aparecen en medio de una cadena
+            string[] subPartes = Regex.Split(
+                parte,
+                @"\s+(?=(?:Lunes|Martes|Mi[eé]rcoles|Jueves|Viernes|S[aá]bado)\b)",
+                RegexOptions.IgnoreCase
+            );
 
-            int dia = DetectarDiaEnTexto(parte);
-
-            if (dia == 0)
+            foreach (string sub in subPartes)
             {
-                continue;
+                if (!string.IsNullOrWhiteSpace(sub))
+                    yield return sub.Trim();
             }
+        }
+    }
 
+    /// <summary>
+    /// Detecta todos los días de la semana mencionados en un texto normalizado (mayúsculas, sin tildes).
+    /// Maneja múltiples días en un mismo segmento ("Lunes y Miércoles", "Martes y jueves").
+    /// </summary>
+    private static List<int> DetectarDiasEnTexto(string textoNormalizado)
+    {
+        var dias = new List<int>();
+        if (textoNormalizado.Contains("LUNES")) dias.Add(1);
+        if (textoNormalizado.Contains("MARTES")) dias.Add(2);
+        if (textoNormalizado.Contains("MIERCOLES")) dias.Add(3);
+        if (textoNormalizado.Contains("JUEVES")) dias.Add(4);
+        if (textoNormalizado.Contains("VIERNES")) dias.Add(5);
+        if (textoNormalizado.Contains("SABADO")) dias.Add(6);
+        return dias;
+    }
+
+    private static void InterpretarLineasConDia(string textoOriginal, List<DisponibilidadBloque> bloques)
+    {
+        foreach (string segmentoOriginal in ObtenerSegmentos(textoOriginal))
+        {
+            string parte = NormalizarTexto(segmentoOriginal).Replace("4:0O", "4:00");
+
+            List<int> dias = DetectarDiasEnTexto(parte);
+            if (dias.Count == 0)
+                continue;
+
+            // "mañana" → 07:00-12:00
             if (parte.Contains("MANANA"))
             {
-                AgregarBloque(bloques, dia, HoraInicioDia, HoraFinManana);
+                foreach (int dia in dias)
+                    AgregarBloque(bloques, dia, HoraInicioDia, HoraFinManana);
             }
 
+            // Rango explícito: "Xhora a Yhora"
             Match desdeHasta = Regex.Match(
                 parte,
                 @"(?<inicio>\d{1,2}(:\d{2})?\s*(AM|PM)?|12M)\s*A\s*(?<fin>\d{1,2}(:\d{2})?\s*(AM|PM)?|12M)"
             );
-
             if (desdeHasta.Success)
             {
                 string inicio = ConvertirHora(desdeHasta.Groups["inicio"].Value);
                 string fin = ConvertirHora(desdeHasta.Groups["fin"].Value);
-
-                AgregarBloque(bloques, dia, inicio, fin);
+                foreach (int dia in dias)
+                    AgregarBloque(bloques, dia, inicio, fin);
             }
 
+            // "Xhora en adelante" → desde esa hora hasta fin
             Match enAdelante = Regex.Match(
                 parte,
                 @"(?<inicio>\d{1,2}(:\d{2})?\s*(AM|PM)?)\s*(EN ADELANTE|PM EN ADELANTE)"
             );
-
             if (enAdelante.Success)
             {
                 string inicio = ConvertirHora(enAdelante.Groups["inicio"].Value);
+                foreach (int dia in dias)
+                    AgregarBloque(bloques, dia, inicio, HoraFinDia);
+            }
 
-                AgregarBloque(bloques, dia, inicio, HoraFinDia);
+            // "después de las Xhora" → desde esa hora hasta fin
+            Match despues = Regex.Match(
+                parte,
+                @"DESPUES\s+DE\s+LAS?\s+(?<inicio>\d{1,2}(:\d{2})?\s*(AM|PM)?)"
+            );
+            if (despues.Success)
+            {
+                string inicio = ConvertirHora(despues.Groups["inicio"].Value);
+                foreach (int dia in dias)
+                    AgregarBloque(bloques, dia, inicio, HoraFinDia);
+            }
+
+            // "hasta las Xhora" → 07:00 hasta esa hora
+            Match hasta = Regex.Match(
+                parte,
+                @"HASTA\s+LAS?\s+(?<fin>\d{1,2}(:\d{2})?\s*(AM|PM)?)"
+            );
+            if (hasta.Success)
+            {
+                string fin = ConvertirHora(hasta.Groups["fin"].Value);
+                foreach (int dia in dias)
+                    AgregarBloque(bloques, dia, HoraInicioDia, fin);
             }
         }
     }
@@ -309,9 +402,7 @@ internal static class DisponibilidadExcelParser
         string horaFin)
     {
         for (int dia = diaInicio; dia <= diaFin; dia++)
-        {
             AgregarBloque(bloques, dia, horaInicio, horaFin);
-        }
     }
 
     private static void AgregarBloque(
@@ -321,31 +412,15 @@ internal static class DisponibilidadExcelParser
         string horaFin)
     {
         if (dia < 1 || dia > 6)
-        {
             return;
-        }
 
         if (!EsHoraValida(horaInicio) || !EsHoraValida(horaFin))
-        {
             return;
-        }
 
         bloques.Add(new DisponibilidadBloque(dia, horaInicio, horaFin));
     }
 
-    private static int DetectarDiaEnTexto(string texto)
-    {
-        if (texto.Contains("LUNES")) return 1;
-        if (texto.Contains("MARTES")) return 2;
-        if (texto.Contains("MIERCOLES")) return 3;
-        if (texto.Contains("JUEVES")) return 4;
-        if (texto.Contains("VIERNES")) return 5;
-        if (texto.Contains("SABADO")) return 6;
-
-        return 0;
-    }
-
-   private static int ConvertirDiaTextoANumero(string dia)
+    private static int ConvertirDiaTextoANumero(string dia)
     {
         string normalizado = NormalizarTexto(dia);
 
@@ -372,9 +447,7 @@ internal static class DisponibilidadExcelParser
         Match match = Regex.Match(texto, @"(?<hora>\d{1,2})(:(?<minuto>\d{2}))?(?<ampm>AM|PM)?");
 
         if (!match.Success)
-        {
             return hora;
-        }
 
         int horas = int.Parse(match.Groups["hora"].Value);
         int minutos = match.Groups["minuto"].Success
@@ -384,14 +457,10 @@ internal static class DisponibilidadExcelParser
         string ampm = match.Groups["ampm"].Value;
 
         if (ampm == "PM" && horas < 12)
-        {
             horas += 12;
-        }
 
         if (ampm == "AM" && horas == 12)
-        {
             horas = 0;
-        }
 
         return $"{horas:00}:{minutos:00}";
     }
@@ -401,7 +470,7 @@ internal static class DisponibilidadExcelParser
         return Regex.IsMatch(hora, @"^\d{2}:\d{2}$");
     }
 
-    private static string NormalizarTexto(string texto)
+    internal static string NormalizarTexto(string texto)
     {
         string textoSinEspaciosDobles = string.Join(
             ' ',
@@ -417,9 +486,7 @@ internal static class DisponibilidadExcelParser
             UnicodeCategory categoria = CharUnicodeInfo.GetUnicodeCategory(caracter);
 
             if (categoria != UnicodeCategory.NonSpacingMark)
-            {
                 builder.Append(caracter);
-            }
         }
 
         return builder.ToString()
@@ -428,25 +495,35 @@ internal static class DisponibilidadExcelParser
     }
 }
 
-    /// <summary>
-    /// Elemento resultante de parsear una hoja: nombre identificado, bloques detectados y mensajes de validación.
-    /// </summary>
-    internal class DisponibilidadExcelItem
-    {
-        public string NombreDocente { get; set; } = string.Empty;
+/// <summary>
+/// Elemento resultante de parsear una hoja horizontal: nombre identificado, bloques detectados y mensajes de validación.
+/// </summary>
+internal class DisponibilidadExcelItem
+{
+    public string NombreDocente { get; set; } = string.Empty;
+    public string TextoOriginal { get; set; } = string.Empty;
+    public List<DisponibilidadBloque> Bloques { get; set; } = new();
+    public List<string> Mensajes { get; set; } = new();
+}
 
-        public string TextoOriginal { get; set; } = string.Empty;
+/// <summary>
+/// Resultado de leer la hoja vertical "Mi Disponibilidad" (un docente por archivo).
+/// </summary>
+internal class MiDisponibilidadExcelItem
+{
+    public string NombreDocente { get; set; } = string.Empty;
+    public string TipoContrato { get; set; } = string.Empty;
+    public List<string> NombresMaterias { get; set; } = new();
+    public string TextoDisponibilidad { get; set; } = string.Empty;
+    public List<DisponibilidadBloque> Bloques { get; set; } = new();
+    public List<string> Mensajes { get; set; } = new();
+}
 
-        public List<DisponibilidadBloque> Bloques { get; set; } = new();
-
-        public List<string> Mensajes { get; set; } = new();
-    }
-
-    /// <summary>
-    /// Representa un bloque de disponibilidad (día, hora inicio, hora fin).
-    /// </summary>
-    internal record DisponibilidadBloque(
-        int DiaSemana,
-        string HoraInicio,
-        string HoraFin
-    );
+/// <summary>
+/// Representa un bloque de disponibilidad (día, hora inicio, hora fin).
+/// </summary>
+internal record DisponibilidadBloque(
+    int DiaSemana,
+    string HoraInicio,
+    string HoraFin
+);
