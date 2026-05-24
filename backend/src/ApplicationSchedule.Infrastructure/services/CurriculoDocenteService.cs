@@ -18,6 +18,7 @@ namespace ApplicationSchedule.Infrastructure.Services;
 public class CurriculoDocenteService : ICurriculoDocenteService
 {
     private const string HojaDisponibilidad = "Disponibilidad";
+    private const string HojaMiDisponibilidad = "Mi Disponibilidad";
     private const string FuenteExcel = "Excel";
 
     private readonly AppDbContext _context;
@@ -46,6 +47,7 @@ public class CurriculoDocenteService : ICurriculoDocenteService
 
         List<Docente> docentes = await _context.Docentes.ToListAsync(cancellationToken);
         List<Asignatura> asignaturas = await _context.Asignaturas.ToListAsync(cancellationToken);
+        List<PlanEstudio> planes = await _context.PlanesEstudio.ToListAsync(cancellationToken);
 
         var response = new ImportarCurriculoResponse
         {
@@ -66,6 +68,31 @@ public class CurriculoDocenteService : ICurriculoDocenteService
             response.TotalDisponibilidadesCreadas = disponibilidades.Sum(d => d.RegistrosCreados);
         }
 
+        IXLWorksheet? hojaMiDisponibilidad = workbook.Worksheets
+            .FirstOrDefault(w => string.Equals(w.Name.Trim(), HojaMiDisponibilidad, StringComparison.OrdinalIgnoreCase));
+
+        if (hojaMiDisponibilidad is not null)
+        {
+            (DisponibilidadImportadaResponse dispo, CurriculoDocenteImportadoResponse curriculo) =
+                await ProcesarHojaMiDisponibilidadAsync(
+                    hojaMiDisponibilidad, docentes, asignaturas, planes, cancellationToken);
+
+            response.Disponibilidades.Add(dispo);
+            response.TotalDisponibilidadesCreadas += dispo.RegistrosCreados;
+            response.Detalle.Add(curriculo);
+            response.TotalHojasProcesadas++;
+
+            if (curriculo.DocenteEncontrado)
+                response.TotalDocentesEncontrados++;
+            else
+                response.DocentesNoEncontrados.Add(curriculo.NombreDocenteDetectado);
+
+            response.TotalRelacionesCreadas += curriculo.Asignaturas.Count(a => a.Estado == "Creada");
+            response.TotalRelacionesExistentes += curriculo.Asignaturas.Count(a => a.Estado == "Existente");
+            response.TotalAsignaturasNoEncontradas += curriculo.Asignaturas.Count(
+                a => a.Estado == "Asignatura no encontrada" || a.Estado == "Sin plan compatible");
+        }
+
         foreach (IXLWorksheet worksheet in workbook.Worksheets)
         {
             if (EsHojaIgnorada(worksheet.Name))
@@ -74,8 +101,6 @@ public class CurriculoDocenteService : ICurriculoDocenteService
             }
 
             response.TotalHojasProcesadas++;
-
-            
 
             CurriculoDocenteImportadoResponse detalleDocente = await ProcesarHojaDocenteAsync(
                 worksheet,
@@ -355,9 +380,250 @@ public class CurriculoDocenteService : ICurriculoDocenteService
         return detalle;
     }
 
+    /// <summary>
+    /// Procesa la hoja vertical "Mi Disponibilidad": crea o actualiza el docente,
+    /// habilita materias por nombre parcial según jornada y registra disponibilidad.
+    /// </summary>
+    private async Task<(DisponibilidadImportadaResponse Disponibilidad, CurriculoDocenteImportadoResponse Curriculo)>
+        ProcesarHojaMiDisponibilidadAsync(
+            IXLWorksheet worksheet,
+            List<Docente> docentes,
+            List<Asignatura> asignaturas,
+            List<PlanEstudio> planes,
+            CancellationToken cancellationToken)
+    {
+        MiDisponibilidadExcelItem item = DisponibilidadExcelParser.LeerHojaMiDisponibilidad(worksheet);
+
+        var detalleDispo = new DisponibilidadImportadaResponse
+        {
+            NombreDocenteDetectado = item.NombreDocente,
+            TextoOriginal = item.TextoDisponibilidad,
+            Mensajes = item.Mensajes
+        };
+
+        var detalleCurriculo = new CurriculoDocenteImportadoResponse
+        {
+            Hoja = worksheet.Name,
+            NombreDocenteDetectado = item.NombreDocente
+        };
+
+        if (string.IsNullOrWhiteSpace(item.NombreDocente))
+        {
+            detalleDispo.Mensajes.Add("No se encontró nombre de docente en la celda B6.");
+            return (detalleDispo, detalleCurriculo);
+        }
+
+        // 1. Crear o actualizar docente
+        int maxAsignaturas = item.TipoContrato == "TC" ? 5 : 3;
+        string nombreNorm = NormalizarTexto(item.NombreDocente);
+
+        Docente? docente = docentes.FirstOrDefault(d =>
+        {
+            string dNorm = NormalizarTexto(d.Nombre);
+            return dNorm == nombreNorm
+                || dNorm.Contains(nombreNorm)
+                || nombreNorm.Contains(dNorm);
+        });
+
+        if (docente is null)
+        {
+            docente = new Docente
+            {
+                IdDocente = Guid.NewGuid().ToString(),
+                Identificacion = string.Empty,
+                Nombre = item.NombreDocente,
+                TipoContrato = item.TipoContrato,
+                MaxAsignaturas = maxAsignaturas
+            };
+            _context.Docentes.Add(docente);
+            docentes.Add(docente);
+            detalleDispo.Mensajes.Add(
+                $"Docente creado: {item.NombreDocente} ({item.TipoContrato}, máx. {maxAsignaturas} asignaturas).");
+        }
+        else
+        {
+            docente.TipoContrato = item.TipoContrato;
+            docente.MaxAsignaturas = maxAsignaturas;
+            detalleDispo.Mensajes.Add(
+                $"Docente actualizado: TipoContrato={item.TipoContrato}, MaxAsignaturas={maxAsignaturas}.");
+        }
+
+        detalleDispo.IdDocente = docente.IdDocente;
+        detalleDispo.DocenteEncontrado = true;
+        detalleCurriculo.IdDocente = docente.IdDocente;
+        detalleCurriculo.DocenteEncontrado = true;
+
+        // 2. Determinar jornada a partir de los bloques parseados
+        (bool tieneDiurno, bool tieneNocturno) = DeterminarJornada(item.Bloques);
+
+        // 3. Matching de materias y creación de DocenteHabilitado
+        detalleCurriculo.TotalAsignaturasDetectadas = item.NombresMaterias.Count;
+        var clavesProcesadas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string nombreMateria in item.NombresMaterias)
+        {
+            List<Asignatura> candidatas = BuscarTodasAsignaturasPorNombre(asignaturas, nombreMateria);
+
+            List<Asignatura> filtradas = candidatas.Where(a =>
+            {
+                PlanEstudio? plan = planes.FirstOrDefault(p => p.IdPlan == a.IdPlan);
+                if (plan is null) return true;
+                bool esDiurno = plan.Jornada.Equals("Diurna", StringComparison.OrdinalIgnoreCase);
+                return esDiurno ? tieneDiurno : tieneNocturno;
+            }).ToList();
+
+            if (filtradas.Count == 0)
+            {
+                detalleCurriculo.Asignaturas.Add(new CurriculoAsignaturaDetectadaResponse
+                {
+                    Hoja = worksheet.Name,
+                    NombreDetectado = nombreMateria,
+                    FueHabilitada = false,
+                    Estado = candidatas.Count > 0 ? "Sin plan compatible" : "Asignatura no encontrada",
+                    Mensaje = candidatas.Count > 0
+                        ? "La asignatura existe pero no hay plan compatible con la jornada del docente."
+                        : "No existe una asignatura registrada con ese nombre."
+                });
+                continue;
+            }
+
+            foreach (Asignatura asignatura in filtradas)
+            {
+                string clave = $"{docente.IdDocente}|{asignatura.IdAsignatura}";
+                if (!clavesProcesadas.Add(clave))
+                    continue;
+
+                bool relacionExiste = await _context.DocentesHabilitados
+                    .AnyAsync(dh =>
+                        dh.IdDocente == docente.IdDocente &&
+                        dh.IdAsignatura == asignatura.IdAsignatura,
+                        cancellationToken);
+
+                if (!relacionExiste)
+                {
+                    _context.DocentesHabilitados.Add(new DocenteHabilitado
+                    {
+                        IdDocente = docente.IdDocente,
+                        IdAsignatura = asignatura.IdAsignatura,
+                        FechaHabilitacion = DateTime.UtcNow,
+                        Fuente = FuenteExcel
+                    });
+                }
+
+                detalleCurriculo.Asignaturas.Add(new CurriculoAsignaturaDetectadaResponse
+                {
+                    Hoja = worksheet.Name,
+                    NombreDetectado = nombreMateria,
+                    IdAsignatura = asignatura.IdAsignatura,
+                    NombreAsignaturaBaseDatos = asignatura.Nombre,
+                    FueHabilitada = true,
+                    Estado = relacionExiste ? "Existente" : "Creada",
+                    Mensaje = relacionExiste
+                        ? "El docente ya estaba habilitado para esta asignatura."
+                        : "Asignatura habilitada correctamente para el docente."
+                });
+            }
+        }
+
+        detalleCurriculo.TotalAsignaturasHabilitadas = detalleCurriculo.Asignaturas.Count(a => a.FueHabilitada);
+
+        // 4. Reemplazar disponibilidad
+        if (item.Bloques.Count > 0)
+        {
+            List<Disponibilidad> anteriores = await _context.Disponibilidades
+                .Where(d => d.IdDocente == docente.IdDocente)
+                .ToListAsync(cancellationToken);
+
+            _context.Disponibilidades.RemoveRange(anteriores);
+
+            foreach (DisponibilidadBloque bloque in item.Bloques)
+            {
+                var disponibilidad = new Disponibilidad
+                {
+                    IdDisponibilidad = Guid.NewGuid().ToString(),
+                    IdDocente = docente.IdDocente,
+                    DiaSemana = bloque.DiaSemana,
+                    HoraInicio = bloque.HoraInicio,
+                    HoraFin = bloque.HoraFin
+                };
+
+                _context.Disponibilidades.Add(disponibilidad);
+
+                detalleDispo.Disponibilidades.Add(new DisponibilidadDocenteResponse
+                {
+                    IdDisponibilidad = disponibilidad.IdDisponibilidad,
+                    IdDocente = disponibilidad.IdDocente,
+                    DiaSemana = disponibilidad.DiaSemana,
+                    DiaNombre = ObtenerNombreDia(disponibilidad.DiaSemana),
+                    HoraInicio = disponibilidad.HoraInicio,
+                    HoraFin = disponibilidad.HoraFin
+                });
+            }
+
+            detalleDispo.RegistrosCreados = item.Bloques.Count;
+        }
+        else
+        {
+            detalleDispo.Mensajes.Add(
+                "No se pudieron parsear bloques de disponibilidad del texto. Se requiere revisión manual.");
+        }
+
+        return (detalleDispo, detalleCurriculo);
+    }
+
+    /// <summary>
+    /// Determina si los bloques de disponibilidad cubren jornada diurna, nocturna o ambas.
+    /// Diurno: HoraInicio antes de las 18:00. Nocturno: HoraFin después de las 18:00 o inicio desde las 18:00.
+    /// Sin bloques → habilita en todos los planes por defecto.
+    /// </summary>
+    private static (bool TieneDiurno, bool TieneNocturno) DeterminarJornada(
+        List<DisponibilidadBloque> bloques)
+    {
+        if (bloques.Count == 0)
+            return (true, true);
+
+        var limite = TimeSpan.FromHours(18);
+
+        bool tieneDiurno = bloques.Any(b =>
+            TimeSpan.TryParse(b.HoraInicio, out TimeSpan hi) && hi < limite);
+
+        bool tieneNocturno = bloques.Any(b =>
+            (TimeSpan.TryParse(b.HoraFin, out TimeSpan hf) && hf > limite) ||
+            (TimeSpan.TryParse(b.HoraInicio, out TimeSpan hi2) && hi2 >= limite));
+
+        if (!tieneDiurno && !tieneNocturno)
+            return (true, true);
+
+        return (tieneDiurno, tieneNocturno);
+    }
+
+    /// <summary>
+    /// Busca todas las instancias de una asignatura por nombre usando coincidencia parcial
+    /// e ignorando mayúsculas y tildes. Retorna todas las coincidencias (una por plan).
+    /// </summary>
+    private static List<Asignatura> BuscarTodasAsignaturasPorNombre(
+        List<Asignatura> asignaturas,
+        string nombreDetectado)
+    {
+        string nombreNorm = NormalizarTexto(nombreDetectado);
+
+        if (string.IsNullOrWhiteSpace(nombreNorm))
+            return new List<Asignatura>();
+
+        return asignaturas.Where(a =>
+        {
+            string bdNorm = NormalizarTexto(a.Nombre);
+            return bdNorm == nombreNorm
+                || bdNorm.Contains(nombreNorm)
+                || nombreNorm.Contains(bdNorm);
+        }).ToList();
+    }
+
     private static bool EsHojaIgnorada(string nombreHoja)
     {
-        return string.Equals(nombreHoja.Trim(), HojaDisponibilidad, StringComparison.OrdinalIgnoreCase);
+        string nombre = nombreHoja.Trim();
+        return string.Equals(nombre, HojaDisponibilidad, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(nombre, HojaMiDisponibilidad, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ObtenerNombreDocente(IXLWorksheet worksheet)
