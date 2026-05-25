@@ -73,11 +73,26 @@ export function ReportsView({ initialSemestre, initialDocenteId }: Props) {
     setExportando(tipo);
     try {
       const params = new URLSearchParams({ periodo: selectedSemestre });
-      if (tipo === "docente" && docenteSeleccionado) params.set("idDocente", docenteSeleccionado);
-      if (tipo === "plan" && planSeleccionado) params.set("idPlan", planSeleccionado);
+
+      if (tipo === "docente") {
+        if (docenteSeleccionado === "__ALL__") {
+          // Una hoja por cada docente
+          params.set("idDocente", "__ALL__");
+        } else if (docenteSeleccionado) {
+          params.set("idDocente", docenteSeleccionado);
+        }
+      }
+
+      if (tipo === "plan" && planSeleccionado) {
+        params.set("idPlan", planSeleccionado);
+        params.set("porSemestre", "true"); // Una hoja por semestre
+      }
 
       const response = await api.get(`/horarios/exportar?${params}`, { responseType: "blob" });
-      const sufijo = tipo === "todos" ? "4_Horarios" : tipo === "docente" ? "Por_Docente" : "Por_Plan";
+      const sufijo =
+        tipo === "todos" ? "4_Horarios" :
+        tipo === "docente" ? (docenteSeleccionado === "__ALL__" ? "Todos_Docentes" : "Por_Docente") :
+        "Por_Plan";
       descargarBlob(response.data, `Horarios_${sufijo}_${selectedSemestre}.xlsx`);
     } catch (err: any) {
       alert("Error al exportar: " + (err?.response?.data?.message || err?.message));
@@ -273,7 +288,9 @@ export function ReportsView({ initialSemestre, initialDocenteId }: Props) {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-[#333333]">Por docente</p>
-                    <p className="text-xs text-[#666666]">Horario individual del docente</p>
+                    <p className="text-xs text-[#666666]">
+                      {docenteSeleccionado === "__ALL__" ? "Una hoja por docente" : "Horario individual del docente"}
+                    </p>
                   </div>
                 </div>
                 <Select
@@ -282,6 +299,7 @@ export function ReportsView({ initialSemestre, initialDocenteId }: Props) {
                   onChange={(e) => setDocenteSeleccionado(e.target.value)}
                   options={[
                     { value: "", label: "Seleccionar docente..." },
+                    { value: "__ALL__", label: "Todos los docentes" },
                     ...docentes.map((d) => ({ value: d.idDocente, label: d.nombre })),
                   ]}
                 />
@@ -303,7 +321,7 @@ export function ReportsView({ initialSemestre, initialDocenteId }: Props) {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-[#333333]">Por plan de estudios</p>
-                    <p className="text-xs text-[#666666]">Horario de un solo plan</p>
+                    <p className="text-xs text-[#666666]">Una hoja por semestre del plan</p>
                   </div>
                 </div>
                 <Select
