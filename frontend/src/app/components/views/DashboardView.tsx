@@ -9,6 +9,13 @@ import { generationService } from "../../../services/generation.service";
 
 const PERIODO_ACTIVO = "2026-1";
 
+const ESCENARIOS_FIJOS = [
+  { key: "ING_DIURNA",     name: "Ing. Diurna" },
+  { key: "ING_NOCTURNA",   name: "Ing. Nocturna" },
+  { key: "TAPSI_DIURNA",   name: "TAPSI Diurna" },
+  { key: "TAPSI_NOCTURNA", name: "TAPSI Nocturna" },
+] as const;
+
 interface ScenarioItem {
   id: string;
   name: string;
@@ -32,7 +39,12 @@ interface AssignedBlock {
 export function DashboardView() {
   const [docentes, setDocentes] = useState(0);
   const [asignaturas, setAsignaturas] = useState(0);
-  const [scenarios, setScenarios] = useState<ScenarioItem[]>([]);
+  const [scenarios, setScenarios] = useState<ScenarioItem[]>(() =>
+    ESCENARIOS_FIJOS.map(({ key, name }) => ({
+      id: key, name, status: "Sin datos", badge: "inactive",
+      progress: 0, assigned: 0, total: 0, conflicts: 0,
+    }))
+  );
   const [assignedBlocks, setAssignedBlocks] = useState<AssignedBlock[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -56,33 +68,31 @@ export function DashboardView() {
       if (asignaturasData.status === "fulfilled") setAsignaturas(asignaturasData.value.length);
 
       if (propuestasData.status === "fulfilled" && Array.isArray(propuestasData.value)) {
-        const escenarios: ScenarioItem[] = propuestasData.value.map((item: any) => ({
-          id: item.id ?? item.idAsignacion ?? String(Math.random()),
-          name: item.nombreEscenario ?? item.escenario ?? "Escenario",
-          status: item.estado ?? "Pendiente",
-          badge:
-            item.estado === "Activo"
-              ? "primary"
-              : item.estado === "Validando"
-              ? "warning"
-              : item.estado === "Fijas aplicadas"
-              ? "success"
-              : "inactive",
-          progress: item.progreso ?? 0,
-          assigned: item.asignadas ?? 0,
-          total: item.total ?? 0,
-          conflicts: item.conflictos ?? 0,
-        }));
+        const raw: any[] = propuestasData.value;
+
+        // Una tarjeta fija por escenario, agrupando todas las asignaciones de ese escenario
+        const escenarios: ScenarioItem[] = ESCENARIOS_FIJOS.map(({ key, name }) => {
+          const grupo = raw.filter((a) => a.escenario === key);
+          const total = grupo.length;
+          const assigned = grupo.filter((a) => a.dia > 0 && a.horaInicio).length;
+          const progress = total > 0 ? Math.round((assigned / total) * 100) : 0;
+          const estado = total > 0 ? (grupo[0]?.estado ?? "Propuesta") : "Sin datos";
+          const badge =
+            estado === "Confirmada" ? "success"
+            : estado === "Sin datos" ? "inactive"
+            : "primary";
+          return { id: key, name, status: estado, badge, progress, assigned, total, conflicts: 0 };
+        });
         setScenarios(escenarios);
 
         const bloques: AssignedBlock[] = [];
-        propuestasData.value.forEach((item: any) => {
-          if (item.dia != null && item.horaInicio) {
+        raw.forEach((item) => {
+          if (item.dia > 0 && item.horaInicio) {
             const startH = parseInt((item.horaInicio as string).split(":")[0], 10);
             const endH = parseInt(((item.horaFin as string) ?? "").split(":")[0], 10) || startH + 1;
             bloques.push({
-              id: item.id ?? String(Math.random()),
-              day: item.dia,
+              id: item.idAsignacion ?? String(Math.random()),
+              day: item.dia - 1,
               hour: startH,
               duration: endH - startH || 1,
               subject: item.nombreAsignatura ?? "",
@@ -131,35 +141,37 @@ export function DashboardView() {
         })}
       </div>
 
-      {/* Escenarios */}
-      {scenarios.length > 0 ? (
-        <div className="grid grid-cols-4 gap-6">
-          {scenarios.map((scenario) => (
-            <Card key={scenario.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between mb-2">
-                  <CardTitle className="text-base">{scenario.name}</CardTitle>
-                  <Badge variant={scenario.badge as any}>{scenario.status}</Badge>
-                </div>
-                <p className="text-sm text-[#666666]">{scenario.assigned}/{scenario.total} asignadas</p>
-              </CardHeader>
-              <CardContent>
-                <ProgressBar
-                  value={scenario.progress}
-                  variant={scenario.progress >= 80 ? "success" : scenario.progress >= 60 ? "primary" : "warning"}
-                />
-                <p className="text-xs text-[#666666] mt-2">{scenario.progress}% completado</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : !loading ? (
-        <Card>
-          <CardContent className="text-center py-8 text-[#999999] text-sm">
-            No hay propuestas generadas para el período {PERIODO_ACTIVO}. Ve a Generación para crear una.
-          </CardContent>
-        </Card>
-      ) : null}
+      {/* Escenarios — siempre 4 tarjetas fijas */}
+      <div className="grid grid-cols-4 gap-6">
+        {scenarios.map((scenario) => (
+          <Card key={scenario.id}>
+            <CardHeader>
+              <div className="flex items-center justify-between mb-2">
+                <CardTitle className="text-base">{scenario.name}</CardTitle>
+                <Badge variant={scenario.badge as any}>{scenario.status}</Badge>
+              </div>
+              <p className="text-sm text-[#666666]">
+                {scenario.total > 0 ? `${scenario.assigned}/${scenario.total} asignadas` : "Sin propuesta"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {scenario.total > 0 ? (
+                <>
+                  <ProgressBar
+                    value={scenario.progress}
+                    variant={scenario.progress >= 80 ? "success" : scenario.progress >= 60 ? "primary" : "warning"}
+                  />
+                  <p className="text-xs text-[#666666] mt-2">{scenario.progress}% completado</p>
+                </>
+              ) : (
+                <p className="text-xs text-[#999999]">
+                  {loading ? "Cargando..." : "Generar desde la sección Generación"}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-3 gap-6">
@@ -239,7 +251,7 @@ export function DashboardView() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-[#666666]">Escenarios activos</span>
-                  <span className="font-medium text-[#333333]">{scenarios.length}</span>
+                  <span className="font-medium text-[#333333]">{scenarios.filter(s => s.total > 0).length}</span>
                 </div>
               </div>
             </CardContent>
