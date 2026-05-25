@@ -386,6 +386,9 @@ public class GeneradorHorarioService : IGeneradorHorarioService
 
                 if (!BloqueCabeEnDisponibilidad(horaInicio, horaFin, disponibilidad)) continue;
 
+                // Respetar rango de jornada: diurna 07:00-18:00, nocturna 18:30-22:30
+                if (!EstaEnRangoJornada(escenario, horaInicio, horaFin)) continue;
+
                 if (ExisteBloqueoFranjaAsignatura(
                     asignatura.IdAsignatura, periodo,
                     disponibilidad.DiaSemana, horaInicio, horaFin, bloqueosFranja)) continue;
@@ -556,6 +559,27 @@ public class GeneradorHorarioService : IGeneradorHorarioService
             .Select(a => a.IdAsignatura)
             .Distinct()
             .Count();
+    }
+
+    /// <summary>
+    /// Verifica que la franja propuesta cae dentro del rango horario permitido para la jornada.
+    /// Diurna  → 07:00–18:00 · Nocturna → 18:30–22:30
+    /// </summary>
+    private static bool EstaEnRangoJornada(string escenario, string horaInicio, string horaFin)
+    {
+        TimeSpan inicio = TimeSpan.Parse(horaInicio);
+        TimeSpan fin    = TimeSpan.Parse(horaFin);
+
+        if (EscenarioGeneracion.EsDiurno(escenario))
+        {
+            // Jornada diurna: 07:00 – 18:00
+            return inicio >= new TimeSpan(7, 0, 0) && fin <= new TimeSpan(18, 0, 0);
+        }
+        else
+        {
+            // Jornada nocturna: 18:30 – 22:30
+            return inicio >= new TimeSpan(18, 30, 0) && fin <= new TimeSpan(22, 30, 0);
+        }
     }
 
     private static bool BloqueCabeEnDisponibilidad(

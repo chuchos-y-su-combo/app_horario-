@@ -1,0 +1,5 @@
+# This directory holds the self-contained .NET backend executable produced by
+# running `publish-backend.ps1` from the repository root.
+#
+# Contents are NOT committed to git.
+# Run `.\publish-backend.ps1` before `pnpm run electron:build`.

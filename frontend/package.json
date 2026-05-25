@@ -3,9 +3,14 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "electron:dev": "electron .",
+    "electron:build": "vite build && electron-builder --win --x64",
+    "electron:pack": "vite build && electron-builder --win --x64 --dir",
+    "build:backend": "powershell -ExecutionPolicy Bypass -File ../publish-backend.ps1"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -69,6 +74,8 @@
     "@tailwindcss/vite": "4.1.12",
     "@types/react": "^19.2.14",
     "@vitejs/plugin-react": "4.7.0",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8",
     "tailwindcss": "4.1.12",
     "vite": "6.3.5"
   },
@@ -87,6 +94,12 @@
   "pnpm": {
     "overrides": {
       "vite": "6.3.5"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@electron/get",
+      "electron",
+      "electron-builder",
+      "esbuild"
+    ]
   }
 }

@@ -260,6 +260,9 @@ function ManualAdjustmentInner() {
   // Disponibilidad cache: idDocente → DisponibilidadItem[]
   const dispCache = useRef<Map<string, DisponibilidadItem[]>>(new Map());
 
+  // Habilitados cache: idDocente → string[] (idAsignatura[])
+  const habCache = useRef<Map<string, string[]>>(new Map());
+
   const showToast = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
   }, []);
@@ -336,6 +339,21 @@ function ManualAdjustmentInner() {
     }
   };
 
+  // ── Habilitados (cached per docente): IDs de asignaturas que puede dictar ──
+  const obtenerHabilitados = async (idDocente: string): Promise<string[]> => {
+    if (habCache.current.has(idDocente)) {
+      return habCache.current.get(idDocente)!;
+    }
+    try {
+      const res = await api.get(`/profesores/${idDocente}/habilitados`);
+      const list: string[] = Array.isArray(res.data) ? res.data : [];
+      habCache.current.set(idDocente, list);
+      return list;
+    } catch {
+      return []; // sin datos → permisivo (no bloquea)
+    }
+  };
+
   const validarDisponibilidad = (
     disponibilidades: DisponibilidadItem[],
     dia: number,
@@ -369,13 +387,26 @@ function ManualAdjustmentInner() {
         if (!ok) {
           const dayName = DAYS[targetDay - 1] ?? `día ${targetDay}`;
           showToast(
-            `${item.nombreDocente} no disponible el ${dayName} a las ${horaInicio}`,
+            `${item.nombreDocente} no tiene disponibilidad el ${dayName} a las ${horaInicio}`,
             "error"
           );
           return;
         }
 
-        // 2. Call PATCH
+        // 2. Validate habilitados: el docente debe ofertar la asignatura
+        const asignacion = asignaciones.find((a) => a.id === item.id);
+        if (asignacion?.idAsignatura) {
+          const habilitados = await obtenerHabilitados(item.idDocente);
+          if (habilitados.length > 0 && !habilitados.includes(asignacion.idAsignatura)) {
+            showToast(
+              `${item.nombreDocente} no oferta la asignatura "${asignacion.nombreAsignatura}"`,
+              "error"
+            );
+            return;
+          }
+        }
+
+        // 3. Call PATCH
         await manualAdjustmentService.ajustarAsignacion(item.id, {
           dia: targetDay,
           horaInicio,
@@ -453,6 +484,7 @@ function ManualAdjustmentInner() {
             value={periodoSeleccionado}
             onChange={(e) => {
               dispCache.current.clear();
+              habCache.current.clear();
               setPeriodoSeleccionado(e.target.value);
             }}
             options={loadingPeriodos ? [{ value: "", label: "Cargando periodos..." }] : periodoOptions}
