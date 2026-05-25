@@ -102,14 +102,6 @@ export function LoginView({ onLogin, onForgotPassword }: LoginViewProps) {
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={onForgotPassword}
-              className="text-sm text-[#1A6BBF] hover:underline"
-            >
-              ¿Olvidó su contraseña?
-            </button>
-
             <Button
                 type="submit"
                 className="w-full"

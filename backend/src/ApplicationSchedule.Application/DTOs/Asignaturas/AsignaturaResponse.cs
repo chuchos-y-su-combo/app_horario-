@@ -22,4 +22,6 @@ public class AsignaturaResponse
     public bool EsFijaTapsi { get; set; }
 
     public bool EsOpcionalTapsiDiurna { get; set; }
+
+    public string Aula { get; set; } = string.Empty;
 }
