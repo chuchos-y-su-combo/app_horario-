@@ -6,12 +6,13 @@ public interface ICalendarioSemanalService
 {
     /// <summary>
     /// Issue #39: Devuelve el horario en vista de calendario semanal (Lunes-Sábado),
-    /// filtrable por plan de estudios y jornada.
+    /// filtrable por plan de estudios, jornada y semestre de la asignatura.
     /// </summary>
     Task<CalendarioSemanalResponse> ObtenerCalendarioAsync(
         string semestre,
         string? idPlan = null,
         string? jornada = null,
+        int? semestreAsignatura = null,
         CancellationToken cancellationToken = default
     );
 
