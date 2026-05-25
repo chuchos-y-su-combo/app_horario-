@@ -441,16 +441,21 @@ public class GeneradorHorarioService : IGeneradorHorarioService
     private static List<Asignatura> ObtenerAsignaturasParaEscenario(
         string escenario,
         List<Asignatura> asignaturasPlan,
-        int semestreIngenieria)
+        int semestreIngenieria)  // parámetro mantenido por compatibilidad; ya no filtra por semestre
     {
         if (escenario == EscenarioGeneracion.IngDiurna ||
             escenario == EscenarioGeneracion.IngNocturna)
         {
-            return semestreIngenieria == 1
-                ? asignaturasPlan.Where(a => a.Semestre == 1).OrderBy(a => a.Nombre).ToList()
-                : asignaturasPlan.Where(a => a.Semestre == semestreIngenieria && a.EsAreaProfesional).OrderBy(a => a.Nombre).ToList();
+            // Regla: semestre 1 → todas las asignaturas del plan
+            //        semestres 2+ → solo las de área profesional (EsAreaProfesional = true)
+            return asignaturasPlan
+                .Where(a => a.Semestre == 1 || (a.Semestre > 1 && a.EsAreaProfesional))
+                .OrderBy(a => a.Semestre)
+                .ThenBy(a => a.Nombre)
+                .ToList();
         }
 
+        // TAPSI: solo las asignaturas fijas del plan (EsFijaTapsi = true)
         return asignaturasPlan.Where(a => a.EsFijaTapsi).OrderBy(a => a.Nombre).ToList();
     }
 

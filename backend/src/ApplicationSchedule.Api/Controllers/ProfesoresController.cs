@@ -1,3 +1,4 @@
+using ApplicationSchedule.Application.DTOs.Disponibilidades;
 using ApplicationSchedule.Application.DTOs.Profesores;
 using ApplicationSchedule.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -115,6 +116,18 @@ public class ProfesoresController : ControllerBase
                 mensaje = ex.Message
             });
         }
+    }
+
+    /// <summary>
+    /// Retorna las franjas de disponibilidad horaria registradas para un docente.
+    /// </summary>
+    /// <param name="idProfesor">Identificador del docente.</param>
+    /// <returns>Lista de <see cref="DisponibilidadDocenteResponse"/>.</returns>
+    [HttpGet("{idProfesor}/disponibilidad")]
+    public async Task<ActionResult<List<DisponibilidadDocenteResponse>>> ObtenerDisponibilidad(string idProfesor)
+    {
+        var disponibilidades = await _profesorService.ObtenerDisponibilidadAsync(idProfesor);
+        return Ok(disponibilidades);
     }
 
     /// <summary>
