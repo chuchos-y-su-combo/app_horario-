@@ -78,6 +78,7 @@ public class HorariosController : ControllerBase
         [FromQuery] string semestre,
         [FromQuery] string? idPlan = null,
         [FromQuery] string? jornada = null,
+        [FromQuery] int? semestreAsignatura = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(semestre))
@@ -95,7 +96,7 @@ public class HorariosController : ControllerBase
 
         CalendarioSemanalResponse calendario =
             await _calendarioSemanalService.ObtenerCalendarioAsync(
-                semestre, idPlan, jornada, cancellationToken);
+                semestre, idPlan, jornada, semestreAsignatura, cancellationToken);
 
         return Ok(calendario);
     }
