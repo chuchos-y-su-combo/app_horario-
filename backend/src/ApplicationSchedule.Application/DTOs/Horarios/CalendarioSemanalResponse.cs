@@ -44,6 +44,11 @@ public class BloqueCalendario
 	public string IdAsignacion { get; set; } = string.Empty;
 
 	/// <summary>
+	/// Identificador del docente asignado (permite filtrado por ID en el cliente).
+	/// </summary>
+	public string IdDocente { get; set; } = string.Empty;
+
+	/// <summary>
 	/// Hora de inicio del bloque.
 	/// </summary>
 	public string HoraInicio { get; set; } = string.Empty;
@@ -67,6 +72,11 @@ public class BloqueCalendario
 	/// Nombre del docente asignado.
 	/// </summary>
 	public string NombreDocente { get; set; } = string.Empty;
+
+	/// <summary>
+	/// Semestre académico de la asignatura (1, 2, … 12) para filtrado por semestre.
+	/// </summary>
+	public int SemestreAsignatura { get; set; }
 
 	/// <summary>
 	/// Escenario de generación al que pertenece el bloque.
