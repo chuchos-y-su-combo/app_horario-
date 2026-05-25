@@ -37,10 +37,11 @@ export function SubjectsView() {
     creditos: 3,
     semestre: 1,
     minEstudiantes: 15,
+    aula: "",
     esFijaTapsi: false,
     esOpcionalTapsiDiurna: false,
   });
-  
+
   const [formData, setFormData] = useState<CreateSubjectRequest>({
     idPlan: "",
     codigo: "",
@@ -48,6 +49,7 @@ export function SubjectsView() {
     creditos: 3,
     semestre: 1,
     minEstudiantes: 15,
+    aula: "",
     esFijaTapsi: false,
     esOpcionalTapsiDiurna: false,
   });
@@ -89,6 +91,7 @@ const cargarDatos = async () => {
         creditos: 3,
         semestre: 1,
         minEstudiantes: 15,
+        aula: "",
         esFijaTapsi: false,
         esOpcionalTapsiDiurna: false,
       });
@@ -125,6 +128,7 @@ const cargarDatos = async () => {
       creditos: subject.creditos,
       semestre: subject.semestre,
       minEstudiantes: subject.minEstudiantes,
+      aula: subject.aula ?? "",
       esFijaTapsi: subject.esFijaTapsi,
       esOpcionalTapsiDiurna: subject.esOpcionalTapsiDiurna,
     });
@@ -313,6 +317,7 @@ const cargarDatos = async () => {
                 <TableHead>Créditos</TableHead>
                 <TableHead>Semestre</TableHead>
                 <TableHead>Plan</TableHead>
+                <TableHead>Aula</TableHead>
                 <TableHead>Mín. estudiantes</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Acciones</TableHead>
@@ -326,6 +331,7 @@ const cargarDatos = async () => {
                   <TableCell>{subject.creditos}</TableCell>
                   <TableCell>{subject.semestre}</TableCell>
                   <TableCell className="text-[#666666] text-xs">{getNombrePlan(subject.idPlan)}</TableCell>
+                  <TableCell className="text-[#666666] text-xs">{subject.aula || "—"}</TableCell>
                   <TableCell>{subject.minEstudiantes}</TableCell>
                   <TableCell>
                     {subject.esFijaTapsi ? (
@@ -417,6 +423,14 @@ const cargarDatos = async () => {
                   type="number"
                   value={formData.minEstudiantes}
                   onChange={(e) => setFormData({ ...formData, minEstudiantes: parseInt(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">Aula</label>
+                <Input
+                  value={formData.aula ?? ""}
+                  onChange={(e) => setFormData({ ...formData, aula: e.target.value })}
+                  placeholder="Ej: AULA-F301"
                 />
               </div>
               <div className="flex gap-4">
@@ -511,6 +525,14 @@ const cargarDatos = async () => {
                   type="number"
                   value={editData.minEstudiantes}
                   onChange={(e) => setEditData({ ...editData, minEstudiantes: parseInt(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">Aula</label>
+                <Input
+                  value={editData.aula ?? ""}
+                  onChange={(e) => setEditData({ ...editData, aula: e.target.value })}
+                  placeholder="Ej: AULA-F301"
                 />
               </div>
               <div className="flex gap-4">

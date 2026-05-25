@@ -32,4 +32,7 @@ public class CrearAsignaturaRequest
 
     public bool EsFijaTapsi { get; set; }
     public bool EsOpcionalTapsiDiurna { get; set; }
+
+    [MaxLength(50, ErrorMessage = "El aula no puede superar los 50 caracteres.")]
+    public string Aula { get; set; } = string.Empty;
 }

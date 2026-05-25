@@ -23,7 +23,18 @@ export const blockedSlotsService = {
       `/asignaturas/${idAsignatura}/bloqueos-franja`,
       data
     );
+    return response.data;
+  },
 
+  /** Crea un bloqueo global que aplica a TODOS los escenarios/asignaturas. */
+  crearBloqueoGlobal: async (data: {
+    periodo: string;
+    dia: number;
+    horaInicio: string;
+    horaFin: string;
+    motivo?: string;
+  }) => {
+    const response = await api.post('/asignaturas/bloqueos-franja', data);
     return response.data;
   },
 

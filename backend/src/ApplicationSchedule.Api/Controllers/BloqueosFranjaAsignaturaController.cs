@@ -59,6 +59,26 @@ public class BloqueosFranjaAsignaturaController : ControllerBase
     }
 
     /// <summary>
+    /// Crea un bloqueo de franja GLOBAL que aplica a todas las asignaturas del período.
+    /// Ningún escenario podrá ubicar clases en esa franja (p.ej. reunión de departamento).
+    /// </summary>
+    [HttpPost("bloqueos-franja")]
+    public async Task<IActionResult> CrearGlobal(
+        CrearBloqueoFranjaAsignaturaRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            int creados = await _bloqueoService.CrearGlobalAsync(request, cancellationToken);
+            return Ok(new { mensaje = $"Bloqueo global aplicado a {creados} asignatura(s).", creados });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { mensaje = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Bloquea una franja horaria para una asignatura específica.
     /// El generador automático y los ajustes manuales no podrán ubicar esa asignatura en esa franja.
     /// </summary>

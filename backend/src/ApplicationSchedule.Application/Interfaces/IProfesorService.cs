@@ -37,4 +37,9 @@ public interface IProfesorService
     /// Retorna las franjas de disponibilidad horaria de un docente.
     /// </summary>
     Task<List<DisponibilidadDocenteResponse>> ObtenerDisponibilidadAsync(string idProfesor);
+
+    /// <summary>
+    /// Elimina TODOS los docentes y sus asignaciones asociadas.
+    /// </summary>
+    Task<int> EliminarTodosAsync();
 }
