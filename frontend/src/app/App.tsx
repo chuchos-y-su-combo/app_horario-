@@ -15,6 +15,31 @@ import { BlockedSlotsView } from "./components/views/BlockedSlotsView";
 import { HistoryView } from "./components/views/HistoryView";
 
 type AuthState = "login" | "recover" | "authenticated";
+
+/** Lee el rol del usuario desde localStorage (fuente primaria) o JWT (fallback). */
+function getRolFromStorage(): string {
+  try {
+    const raw = localStorage.getItem("usuario");
+    if (raw && raw !== "undefined") {
+      const u = JSON.parse(raw);
+      if (u?.rol) return u.rol as string;
+    }
+  } catch {}
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return "";
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64));
+    const role =
+      (payload["role"] as string | undefined) ??
+      (payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] as string | undefined);
+    if (role) return role;
+    const idRol = String(payload["idRol"] ?? "");
+    if (idRol === "1") return "Administrador";
+    if (idRol === "2") return "Coordinador";
+  } catch {}
+  return "";
+}
 type View =
   | "dashboard"
   | "usuarios"
@@ -51,7 +76,12 @@ export default function App() {
   const [currentView, setCurrentView] = useState<View>("dashboard");
   const [navContext, setNavContext] = useState<Record<string, string>>({});
 
+  // Se calcula una vez al montar y no cambia durante la sesión
+  const [esAdmin] = useState(() => getRolFromStorage() === "Administrador");
+
   const navigate = (view: string, state?: Record<string, string>) => {
+    // Proteger ruta "usuarios": solo Administrador puede acceder
+    if (view === "usuarios" && !esAdmin) return;
     setCurrentView(view as View);
     setNavContext(state ?? {});
   };
@@ -80,7 +110,7 @@ export default function App() {
       <Sidebar currentView={currentView} onNavigate={navigate} onLogout={logout} />
       <div className="flex-1 ml-[260px]">
         {currentView === "dashboard" && <DashboardView />}
-        {currentView === "usuarios" && <UsersView />}
+        {currentView === "usuarios" && esAdmin && <UsersView />}
         {currentView === "docentes" && <TeachersListView />}
         {currentView === "asignaturas" && <SubjectsView />}
         {currentView === "generacion" && <GenerationView />}
