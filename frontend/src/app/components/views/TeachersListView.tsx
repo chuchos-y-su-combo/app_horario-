@@ -19,6 +19,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import { ConfirmModal } from "../Modal";
 import api from "../../../services/api";
 import {
   type Docente,
@@ -287,8 +288,22 @@ export function TeachersListView() {
   const [searchTerm, setSearchTerm] = useState("");
   const [contractFilter, setContractFilter] = useState("");
   const [docenteModal, setDocenteModal] = useState<Docente | null>(null);
+  const [docenteAEliminar, setDocenteAEliminar] = useState<Docente | null>(null);
+  const [eliminandoDocente, setEliminandoDocente] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+  const [docenteEditar, setDocenteEditar] = useState<Docente | null>(null);
+  const [editNombre, setEditNombre] = useState("");
+  const [editIdentificacion, setEditIdentificacion] = useState("");
+  const [editTipoContrato, setEditTipoContrato] = useState("TC");
+  const [editando, setEditando] = useState(false);
+  const [errorEditar, setErrorEditar] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
-  const [importResult, setImportResult] = useState<{ mensaje: string; tipo: "success" | "error" } | null>(null);
+  const [importProgress, setImportProgress] = useState<{ actual: number; total: number; nombre: string } | null>(null);
+  const [importSummary, setImportSummary] = useState<{
+    procesados: number;
+    exitosos: number;
+    errores: { archivo: string; mensaje: string }[];
+  } | null>(null);
 
   useEffect(() => {
     cargarDocentes();
@@ -306,32 +321,91 @@ export function TeachersListView() {
     }
   };
 
-  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-    setImportando(true);
-    setImportResult(null);
+  const abrirEditar = (docente: Docente) => {
+    setDocenteEditar(docente);
+    setEditNombre(docente.nombre);
+    setEditIdentificacion(docente.identificacion);
+    setEditTipoContrato(docente.tipoContrato);
+    setErrorEditar(null);
+  };
+
+  const handleEditSubmit = async () => {
+    if (!docenteEditar) return;
+    setEditando(true);
+    setErrorEditar(null);
     try {
-      const formData = new FormData();
-      formData.append("archivo", file);
-      const response = await api.post("/profesores/curriculos/importar-excel", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      await api.put(`/profesores/${docenteEditar.idDocente}`, {
+        nombre: editNombre.trim(),
+        identificacion: editIdentificacion.trim(),
+        tipoContrato: editTipoContrato,
       });
-      const res = response.data;
-      const msg =
-        `Importación completada: ${res.docentesProcesados ?? res.registrosProcesados ?? "?"} docentes procesados` +
-        (res.errores?.length ? `. ${res.errores.length} advertencias.` : ".");
-      setImportResult({ mensaje: msg, tipo: "success" });
+      setDocenteEditar(null);
       cargarDocentes();
     } catch (err: any) {
-      setImportResult({
-        mensaje: err.response?.data?.mensaje || "Error al importar el archivo.",
-        tipo: "error",
-      });
+      setErrorEditar(
+        err?.response?.data?.mensaje ??
+        err?.response?.data?.message ??
+        err?.message ??
+        "Error al actualizar el docente."
+      );
     } finally {
-      setImportando(false);
+      setEditando(false);
     }
+  };
+
+  const handleEliminarDocente = async () => {
+    if (!docenteAEliminar) return;
+    setEliminandoDocente(true);
+    setErrorEliminar(null);
+    try {
+      await api.delete(`/profesores/${docenteAEliminar.idDocente}`);
+      setDocenteAEliminar(null);
+      cargarDocentes();
+    } catch (err: any) {
+      setErrorEliminar(
+        err?.response?.data?.mensaje ??
+        err?.response?.data?.message ??
+        err?.message ??
+        "Error al eliminar el docente."
+      );
+    } finally {
+      setEliminandoDocente(false);
+    }
+  };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    e.target.value = "";
+
+    setImportando(true);
+    setImportSummary(null);
+
+    let exitosos = 0;
+    const errores: { archivo: string; mensaje: string }[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setImportProgress({ actual: i + 1, total: files.length, nombre: file.name });
+      try {
+        const formData = new FormData();
+        formData.append("archivo", file);
+        await api.post("/profesores/curriculos/importar-excel", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        exitosos++;
+      } catch (err: any) {
+        errores.push({
+          archivo: file.name,
+          mensaje: err.response?.data?.mensaje ?? err.response?.data?.message ?? err.message ?? "Error desconocido",
+        });
+      }
+    }
+
+    setImportProgress(null);
+    setImportando(false);
+    setImportSummary({ procesados: files.length, exitosos, errores });
+    cargarDocentes();
   };
 
   const filteredDocentes = docentes.filter((d) => {
@@ -377,6 +451,7 @@ export function TeachersListView() {
             <input
               type="file"
               accept=".xlsx,.xls"
+              multiple
               className="hidden"
               onChange={handleImportExcel}
               disabled={importando}
@@ -403,17 +478,52 @@ export function TeachersListView() {
         </div>
       </div>
 
-      {importResult && (
+      {errorEliminar && (
+        <div className="p-3 rounded border text-sm bg-[#C0392B]/10 border-[#C0392B]/30 text-[#C0392B]">
+          <div className="flex items-center justify-between gap-2">
+            <span>{errorEliminar}</span>
+            <button onClick={() => setErrorEliminar(null)} className="hover:opacity-70 shrink-0">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {importProgress && (
+        <div className="p-3 rounded border text-sm bg-[#1A6BBF]/10 border-[#1A6BBF]/30 text-[#1A6BBF]">
+          <div className="flex items-center gap-2">
+            <Loader2 size={16} className="animate-spin shrink-0" />
+            <span>Procesando archivo {importProgress.actual} de {importProgress.total}: {importProgress.nombre}</span>
+          </div>
+        </div>
+      )}
+
+      {importSummary && (
         <div
           className={`p-3 rounded border text-sm ${
-            importResult.tipo === "success"
+            importSummary.errores.length === 0
               ? "bg-[#1A7A4A]/10 border-[#1A7A4A]/30 text-[#1A7A4A]"
-              : "bg-[#C0392B]/10 border-[#C0392B]/30 text-[#C0392B]"
+              : importSummary.exitosos === 0
+              ? "bg-[#C0392B]/10 border-[#C0392B]/30 text-[#C0392B]"
+              : "bg-[#E8A020]/10 border-[#E8A020]/30 text-[#E8A020]"
           }`}
         >
-          <div className="flex items-center justify-between">
-            <span>{importResult.mensaje}</span>
-            <button onClick={() => setImportResult(null)} className="ml-2 hover:opacity-70">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="font-medium">
+                {importSummary.procesados} archivo{importSummary.procesados !== 1 ? "s" : ""} procesado{importSummary.procesados !== 1 ? "s" : ""}:&nbsp;
+                {importSummary.exitosos} registrado{importSummary.exitosos !== 1 ? "s" : ""},&nbsp;
+                {importSummary.errores.length} error{importSummary.errores.length !== 1 ? "es" : ""}
+              </p>
+              {importSummary.errores.length > 0 && (
+                <ul className="mt-1 space-y-0.5 text-xs">
+                  {importSummary.errores.map((e, i) => (
+                    <li key={i}><span className="font-medium">{e.archivo}:</span> {e.mensaje}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <button onClick={() => setImportSummary(null)} className="hover:opacity-70 shrink-0">
               <X size={16} />
             </button>
           </div>
@@ -462,7 +572,14 @@ export function TeachersListView() {
       {/* Tabla */}
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Docentes</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Lista de Docentes</CardTitle>
+            <span className="text-sm text-[#666666]">
+              {filteredDocentes.length === docentes.length
+                ? `${docentes.length} docente${docentes.length !== 1 ? "s" : ""}`
+                : `${filteredDocentes.length} de ${docentes.length} docentes`}
+            </span>
+          </div>
           <div className="grid grid-cols-2 gap-4 mt-4">
             <div className="relative">
               <Search
@@ -509,7 +626,7 @@ export function TeachersListView() {
                   <TableRow key={docente.idDocente} striped>
                     <TableCell>
                       <p className="font-medium text-[#333333]">{docente.nombre}</p>
-                      {docente.identificacion && (
+                      {docente.identificacion && !docente.identificacion.startsWith("IMP-") && (
                         <p className="text-xs text-[#999999]">{docente.identificacion}</p>
                       )}
                     </TableCell>
@@ -529,10 +646,18 @@ export function TeachersListView() {
                           <BookOpen size={16} />
                         </button>
                         <button
+                          onClick={() => abrirEditar(docente)}
                           className="p-1.5 hover:bg-[#F5F5F5] rounded transition-colors text-[#1A6BBF]"
                           title="Editar docente"
                         >
                           <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => setDocenteAEliminar(docente)}
+                          className="p-1.5 hover:bg-[#F5F5F5] rounded transition-colors text-[#C0392B]"
+                          title="Eliminar docente"
+                        >
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </TableCell>
@@ -551,6 +676,88 @@ export function TeachersListView() {
           onClose={() => setDocenteModal(null)}
         />
       )}
+
+      {docenteEditar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+            <div className="px-6 py-4 border-b border-[#E8E8E8] flex items-center justify-between bg-[#003087] rounded-t-lg">
+              <h2 className="text-base font-semibold text-white">Editar docente</h2>
+              <button
+                onClick={() => setDocenteEditar(null)}
+                className="p-1.5 hover:bg-white/20 rounded transition-colors text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {errorEditar && (
+                <div className="px-3 py-2 bg-[#C0392B]/10 border border-[#C0392B]/30 rounded text-sm text-[#C0392B]">
+                  {errorEditar}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">Nombre completo</label>
+                <Input
+                  value={editNombre}
+                  onChange={(e) => setEditNombre(e.target.value)}
+                  placeholder="Nombre del docente"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">Identificación</label>
+                <Input
+                  value={editIdentificacion}
+                  onChange={(e) => setEditIdentificacion(e.target.value)}
+                  placeholder="Número de identificación"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">Tipo de contrato</label>
+                <Select
+                  value={editTipoContrato}
+                  onChange={(e) => setEditTipoContrato(e.target.value)}
+                  options={[
+                    { value: "TC", label: "Tiempo completo (TC)" },
+                    { value: "TP", label: "Tiempo parcial (TP)" },
+                  ]}
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-[#E8E8E8] flex justify-end gap-3">
+              <button
+                onClick={() => setDocenteEditar(null)}
+                className="px-4 py-2 text-sm font-medium text-[#666666] bg-[#F5F5F5] rounded hover:bg-[#E8E8E8] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEditSubmit}
+                disabled={editando || !editNombre.trim() || !editIdentificacion.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-[#1A6BBF] rounded hover:bg-[#003087] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {editando && <Loader2 size={14} className="animate-spin" />}
+                {editando ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmModal
+        isOpen={!!docenteAEliminar}
+        onClose={() => setDocenteAEliminar(null)}
+        onConfirm={handleEliminarDocente}
+        title="Eliminar docente"
+        message={`¿Está seguro que desea eliminar a "${docenteAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmText={eliminandoDocente ? "Eliminando..." : "Eliminar"}
+        cancelText="Cancelar"
+        variant="danger"
+      />
     </div>
   );
 }

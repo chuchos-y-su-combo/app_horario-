@@ -20,7 +20,14 @@ export interface AsignaturaHabilitada {
 
 export const obtenerDocentes = async (): Promise<Docente[]> => {
   const response = await api.get('/profesores');
-  return response.data;
+  // Backend devuelve idProfesor; lo normalizamos a idDocente para el frontend
+  return (response.data as any[]).map((p) => ({
+    idDocente: p.idProfesor,
+    identificacion: p.identificacion,
+    nombre: p.nombre,
+    tipoContrato: p.tipoContrato,
+    maxAsignaturas: p.maxAsignaturas,
+  }));
 };
 
 export const crearDocente = async (data: Partial<Docente>): Promise<Docente> => {

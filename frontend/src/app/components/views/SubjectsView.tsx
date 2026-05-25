@@ -25,9 +25,21 @@ export function SubjectsView() {
   const [semesterFilter, setSemesterFilter] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [creando, setCreando] = useState(false);
+  const [editando, setEditando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  const [editData, setEditData] = useState<CreateSubjectRequest>({
+    idPlan: "",
+    codigo: "",
+    nombre: "",
+    creditos: 3,
+    semestre: 1,
+    minEstudiantes: 15,
+    esFijaTapsi: false,
+    esOpcionalTapsiDiurna: false,
+  });
   
   const [formData, setFormData] = useState<CreateSubjectRequest>({
     idPlan: "",
@@ -101,6 +113,39 @@ const cargarDatos = async () => {
       alert(error.response?.data?.message || "Error al eliminar la asignatura");
     } finally {
       setEliminando(false);
+    }
+  };
+
+  const abrirEditar = (subject: Subject) => {
+    setSelectedSubject(subject);
+    setEditData({
+      idPlan: subject.idPlan,
+      codigo: subject.codigo,
+      nombre: subject.nombre,
+      creditos: subject.creditos,
+      semestre: subject.semestre,
+      minEstudiantes: subject.minEstudiantes,
+      esFijaTapsi: subject.esFijaTapsi,
+      esOpcionalTapsiDiurna: subject.esOpcionalTapsiDiurna,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEdit = async () => {
+    if (!selectedSubject || !editData.idPlan || !editData.codigo || !editData.nombre) {
+      alert("Complete todos los campos obligatorios");
+      return;
+    }
+    setEditando(true);
+    try {
+      await subjectService.update(selectedSubject.idAsignatura, editData);
+      setShowEditModal(false);
+      setSelectedSubject(null);
+      cargarDatos();
+    } catch (error: any) {
+      alert(error.response?.data?.message || "Error al actualizar la asignatura");
+    } finally {
+      setEditando(false);
     }
   };
 
@@ -293,7 +338,10 @@ const cargarDatos = async () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <button className="p-1.5 hover:bg-[#F5F5F5] rounded transition-colors text-[#1A6BBF]">
+                      <button
+                        onClick={() => abrirEditar(subject)}
+                        className="p-1.5 hover:bg-[#F5F5F5] rounded transition-colors text-[#1A6BBF]"
+                      >
                         <Edit size={16} />
                       </button>
                       <button
@@ -404,6 +452,100 @@ const cargarDatos = async () => {
                 className="px-4 py-2 text-sm font-medium text-white bg-[#1A6BBF] rounded hover:bg-[#155BA0] transition-colors"
               >
                 {creando ? "Creando..." : "Crear"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de edición */}
+      {showEditModal && selectedSubject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg p-6">
+            <h2 className="text-lg font-semibold text-[#333333] mb-4">Editar asignatura</h2>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">Plan de estudios *</label>
+                <Select
+                  placeholder="Seleccionar plan"
+                  value={editData.idPlan}
+                  onChange={(e) => setEditData({ ...editData, idPlan: e.target.value })}
+                  options={planes.map(p => ({ value: p.idPlan, label: p.nombrePlan }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">Código *</label>
+                <Input
+                  value={editData.codigo}
+                  onChange={(e) => setEditData({ ...editData, codigo: e.target.value.toUpperCase() })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">Nombre *</label>
+                <Input
+                  value={editData.nombre}
+                  onChange={(e) => setEditData({ ...editData, nombre: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#333333] mb-1">Créditos</label>
+                  <Input
+                    type="number"
+                    value={editData.creditos}
+                    onChange={(e) => setEditData({ ...editData, creditos: parseInt(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#333333] mb-1">Semestre</label>
+                  <Input
+                    type="number"
+                    value={editData.semestre}
+                    onChange={(e) => setEditData({ ...editData, semestre: parseInt(e.target.value) })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">Mínimo estudiantes</label>
+                <Input
+                  type="number"
+                  value={editData.minEstudiantes}
+                  onChange={(e) => setEditData({ ...editData, minEstudiantes: parseInt(e.target.value) })}
+                />
+              </div>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editData.esFijaTapsi}
+                    onChange={(e) => setEditData({ ...editData, esFijaTapsi: e.target.checked })}
+                    className="rounded border-[#CCCCCC]"
+                  />
+                  <span className="text-sm text-[#333333]">Fija TAPSI</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editData.esOpcionalTapsiDiurna}
+                    onChange={(e) => setEditData({ ...editData, esOpcionalTapsiDiurna: e.target.checked })}
+                    className="rounded border-[#CCCCCC]"
+                  />
+                  <span className="text-sm text-[#333333]">Opcional TAPSI Diurna</span>
+                </label>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6 justify-end">
+              <button
+                onClick={() => { setShowEditModal(false); setSelectedSubject(null); }}
+                className="px-4 py-2 text-sm font-medium text-[#666666] bg-[#F5F5F5] rounded hover:bg-[#E8E8E8] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEdit}
+                className="px-4 py-2 text-sm font-medium text-white bg-[#1A6BBF] rounded hover:bg-[#155BA0] transition-colors"
+              >
+                {editando ? "Guardando..." : "Guardar cambios"}
               </button>
             </div>
           </div>
