@@ -44,6 +44,7 @@ public class CalendarioSemanalService : ICalendarioSemanalService
         string semestre,
         string? idPlan = null,
         string? jornada = null,
+        int? semestreAsignatura = null,
         CancellationToken cancellationToken = default)
     {
         string semestreLimpio = semestre.Trim();
@@ -58,6 +59,10 @@ public class CalendarioSemanalService : ICalendarioSemanalService
         if (jornadaLimpia is not null)
             query = query.Where(a =>
                 a.Asignatura!.PlanEstudio!.Jornada.ToLower() == jornadaLimpia.ToLower());
+
+        // Filtrar por semestre de la asignatura (número de semestre dentro del plan)
+        if (semestreAsignatura.HasValue && semestreAsignatura.Value > 0)
+            query = query.Where(a => a.Asignatura!.Semestre == semestreAsignatura.Value);
 
         List<Asignacion> asignaciones = await query
             .OrderBy(a => a.Dia)
@@ -159,17 +164,19 @@ public class CalendarioSemanalService : ICalendarioSemanalService
                     .Where(a => a.Dia == kv.Key)
                     .Select(a => new BloqueCalendario
                     {
-                        IdAsignacion = a.IdAsignacion,
-                        HoraInicio = a.HoraInicio,
-                        HoraFin = a.HoraFin,
-                        NombreAsignatura = a.Asignatura?.Nombre ?? string.Empty,
-                        CodigoAsignatura = a.Asignatura?.Codigo ?? string.Empty,
-                        NombreDocente = a.Docente?.Nombre ?? string.Empty,
-                        Escenario = a.Escenario,
-                        Jornada = a.Asignatura?.PlanEstudio?.Jornada ?? string.Empty,
-                        NombrePlan = a.Asignatura?.PlanEstudio?.NombrePlan ?? string.Empty,
-                        IdPlan = a.Asignatura?.IdPlan ?? string.Empty,
-                        Estado = a.Estado
+                        IdAsignacion        = a.IdAsignacion,
+                        IdDocente           = a.IdDocente,
+                        HoraInicio          = a.HoraInicio,
+                        HoraFin             = a.HoraFin,
+                        NombreAsignatura    = a.Asignatura?.Nombre    ?? string.Empty,
+                        CodigoAsignatura    = a.Asignatura?.Codigo    ?? string.Empty,
+                        NombreDocente       = a.Docente?.Nombre       ?? string.Empty,
+                        SemestreAsignatura  = a.Asignatura?.Semestre  ?? 0,
+                        Escenario           = a.Escenario,
+                        Jornada             = a.Asignatura?.PlanEstudio?.Jornada   ?? string.Empty,
+                        NombrePlan          = a.Asignatura?.PlanEstudio?.NombrePlan ?? string.Empty,
+                        IdPlan              = a.Asignatura?.IdPlan    ?? string.Empty,
+                        Estado              = a.Estado
                     })
                     .OrderBy(b => b.HoraInicio)
                     .ToList()
