@@ -199,7 +199,7 @@ export function GenerationView() {
         </div>
       )}
 
-      {/* 4 tarjetas fijas de escenarios */}
+      {/* 4 tarjetas fijas de escenarios — clic en la card dispara generación */}
       <div className="grid grid-cols-4 gap-6">
         {ESCENARIOS_FIJOS.map((esc) => {
           const isGenerandoThis = generandoEscenario === esc.id;
@@ -208,51 +208,50 @@ export function GenerationView() {
           const hasData  = assigned > 0;
 
           return (
-            <Card key={esc.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between mb-3">
-                  <CardTitle className="text-base">{esc.nombre}</CardTitle>
-                  {loadingStats
-                    ? <Loader2 className="animate-spin text-[#1A6BBF]" size={18} />
-                    : hasData
-                      ? <CheckCircle className="text-[#1A7A4A]" size={20} />
-                      : <Clock className="text-[#999999]" size={20} />}
-                </div>
-                <Badge variant={hasData ? "success" : "inactive"}>
-                  {hasData ? "Con propuesta" : "Sin datos"}
-                </Badge>
-              </CardHeader>
-
-              <CardContent>
-                <div className="space-y-3">
-                  <ProgressBar
-                    value={hasData ? 100 : 0}
-                    variant={hasData ? "success" : "warning"}
-                  />
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#666666]">Sesiones</span>
-                    <span className="text-[#333333] font-medium">
-                      {loadingStats ? "…" : assigned}
-                    </span>
+            <div
+              key={esc.id}
+              onClick={() => !hayGenerando && handleGenerarEscenario(esc.id)}
+              className={`cursor-pointer transition-all rounded-lg ${
+                hayGenerando ? "opacity-60 cursor-not-allowed" : "hover:shadow-md hover:ring-2 hover:ring-[#1A6BBF]"
+              } ${isGenerandoThis ? "ring-2 ring-[#1A6BBF] shadow-lg" : ""}`}
+              title={hayGenerando ? undefined : `Generar horario: ${esc.nombre}`}
+            >
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between mb-3">
+                    <CardTitle className="text-base">{esc.nombre}</CardTitle>
+                    {isGenerandoThis
+                      ? <Loader2 className="animate-spin text-[#1A6BBF]" size={20} />
+                      : loadingStats
+                        ? <Loader2 className="animate-spin text-[#1A6BBF]" size={18} />
+                        : hasData
+                          ? <CheckCircle className="text-[#1A7A4A]" size={20} />
+                          : <Clock className="text-[#999999]" size={20} />}
                   </div>
+                  <Badge variant={hasData ? "success" : "inactive"}>
+                    {isGenerandoThis ? "Generando…" : hasData ? "Con propuesta" : "Sin datos"}
+                  </Badge>
+                </CardHeader>
 
-                  {/* Botón generar por escenario */}
-                  <div className="pt-2 border-t border-[#CCCCCC]">
-                    <button
-                      onClick={() => handleGenerarEscenario(esc.id)}
-                      disabled={hayGenerando}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium
-                        text-[#1A6BBF] border border-[#1A6BBF] rounded hover:bg-[#1A6BBF] hover:text-white
-                        transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {isGenerandoThis
-                        ? <><Loader2 size={14} className="animate-spin" /> Generando...</>
-                        : <><Sparkles size={14} /> Generar</>}
-                    </button>
+                <CardContent>
+                  <div className="space-y-3">
+                    <ProgressBar
+                      value={hasData ? 100 : 0}
+                      variant={hasData ? "success" : "warning"}
+                    />
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#666666]">Sesiones</span>
+                      <span className="text-[#333333] font-medium">
+                        {loadingStats ? "…" : assigned}
+                      </span>
+                    </div>
+                    <p className="text-xs text-center text-[#1A6BBF] font-medium pt-1">
+                      {isGenerandoThis ? "Procesando…" : "Clic para generar"}
+                    </p>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           );
         })}
       </div>

@@ -141,7 +141,8 @@ public class AsignaturaService : IAsignaturaService
             Semestre = request.Semestre,
             MinEstudiantes = request.MinEstudiantes,
             EsFijaTapsi = request.EsFijaTapsi || EsAsignaturaObligatoriaTapsi(codigoNormalizado, nombreLimpio),
-            EsOpcionalTapsiDiurna = request.EsOpcionalTapsiDiurna || EsAsignaturaOpcionalTapsiDiurna(codigoNormalizado, nombreLimpio)
+            EsOpcionalTapsiDiurna = request.EsOpcionalTapsiDiurna || EsAsignaturaOpcionalTapsiDiurna(codigoNormalizado, nombreLimpio),
+            Aula = request.Aula?.Trim() ?? string.Empty
         };
 
         _context.Asignaturas.Add(asignatura);
@@ -194,6 +195,8 @@ public class AsignaturaService : IAsignaturaService
         asignatura.MinEstudiantes = request.MinEstudiantes;
         asignatura.EsFijaTapsi = request.EsFijaTapsi || EsAsignaturaObligatoriaTapsi(codigoNormalizado, nombreLimpio);
         asignatura.EsOpcionalTapsiDiurna = request.EsOpcionalTapsiDiurna || EsAsignaturaOpcionalTapsiDiurna(codigoNormalizado, nombreLimpio);
+        if (!string.IsNullOrWhiteSpace(request.Aula))
+            asignatura.Aula = request.Aula.Trim();
 
         await _context.SaveChangesAsync();
 
@@ -385,7 +388,8 @@ public class AsignaturaService : IAsignaturaService
         Semestre = a.Semestre,
         MinEstudiantes = a.MinEstudiantes,
         EsFijaTapsi = a.EsFijaTapsi,
-        EsOpcionalTapsiDiurna = a.EsOpcionalTapsiDiurna
+        EsOpcionalTapsiDiurna = a.EsOpcionalTapsiDiurna,
+        Aula = a.Aula
     };
 
 }

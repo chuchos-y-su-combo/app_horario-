@@ -204,6 +204,32 @@ public class ProfesorService : IProfesorService
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Elimina TODOS los docentes y sus asignaciones, disponibilidades y materias habilitadas.
+    /// </summary>
+    public async Task<int> EliminarTodosAsync()
+    {
+        // Eliminar asignaciones
+        var asignaciones = await _context.Asignaciones.ToListAsync();
+        _context.Asignaciones.RemoveRange(asignaciones);
+
+        // Eliminar disponibilidades
+        var disponibilidades = await _context.Disponibilidades.ToListAsync();
+        _context.Disponibilidades.RemoveRange(disponibilidades);
+
+        // Eliminar docentes habilitados (relación M:M)
+        var habilitados = await _context.DocentesHabilitados.ToListAsync();
+        _context.DocentesHabilitados.RemoveRange(habilitados);
+
+        // Eliminar docentes
+        var docentes = await _context.Docentes.ToListAsync();
+        int total = docentes.Count;
+        _context.Docentes.RemoveRange(docentes);
+
+        await _context.SaveChangesAsync();
+        return total;
+    }
+
     private static string ObtenerNombreDia(int dia) => dia switch
     {
         1 => "Lunes",

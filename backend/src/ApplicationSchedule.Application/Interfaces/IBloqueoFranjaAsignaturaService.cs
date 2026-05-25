@@ -34,6 +34,15 @@ public interface IBloqueoFranjaAsignaturaService
     );
 
     /// <summary>
+    /// Crea un bloqueo global de franja: aplica a TODAS las asignaturas del período.
+    /// Devuelve el número de registros creados.
+    /// </summary>
+    Task<int> CrearGlobalAsync(
+        CrearBloqueoFranjaAsignaturaRequest request,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
     /// Elimina un bloqueo por su identificador.
     /// </summary>
     Task<bool> EliminarAsync(
