@@ -6,7 +6,6 @@ import { Button } from "../Button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../Table";
 import { Download, Eye, Archive, Loader2, FileText, FileSpreadsheet } from "lucide-react";
 import { historyService, SemesterHistory, SemesterDetail } from "../../../services/history.service";
-import { excelService } from "../../../services/excel.service";
 
 export function HistoryView() {
   const [semesters, setSemesters] = useState<SemesterHistory[]>([]);
@@ -26,10 +25,9 @@ export function HistoryView() {
   const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   const hours = Array.from({ length: 7 }, (_, i) => i + 7);
 
-  // Cargar periodos históricos
+  // Cargar periodos históricos (las estadísticas se derivan de los periodos)
   useEffect(() => {
     cargarPeriodos();
-    cargarEstadisticas();
   }, []);
 
   // Cargar detalle cuando se selecciona un periodo
@@ -47,19 +45,20 @@ export function HistoryView() {
       if (data.length > 0 && !selectedPeriodo) {
         setSelectedPeriodo(data[0].periodo);
       }
+      // Calcular estadísticas históricas a partir de los datos ya cargados
+      const totalAsignaturas = data.reduce((s, d) => s + d.asignaturas, 0);
+      const maxDocentes      = data.reduce((m, d) => Math.max(m, d.docentes), 0);
+      setEstadisticas({
+        totalAsignaturas,
+        maxDocentes,
+        totalConflictos: 0,
+        totalExportaciones: 0,
+        periodos: data.length,
+      });
     } catch (error) {
       console.error("Error cargando periodos:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const cargarEstadisticas = async () => {
-    try {
-      const data = await historyService.getEstadisticasGlobales();
-      setEstadisticas(data);
-    } catch (error) {
-      console.error("Error cargando estadísticas:", error);
     }
   };
 
@@ -96,19 +95,24 @@ export function HistoryView() {
     }
   };
 
-  // Exportar a Excel
+  // Helper para descargar un Blob
+  const descargarBlob = (blob: Blob, nombre: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Exportar a Excel (horario del período)
   const handleExportarExcel = async (periodo: string) => {
     setExportando(true);
     try {
-      const blob = await (excelService as any).exportarHistorial(periodo);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Historico_${periodo}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const blob = await historyService.exportarHistorico(periodo, 'excel');
+      descargarBlob(blob, `Historico_${periodo}.xlsx`);
     } catch (error) {
       console.error("Error exportando:", error);
       alert("Error al exportar el historial");
@@ -117,20 +121,13 @@ export function HistoryView() {
     }
   };
 
-  // Exportar histórico general
+  // Exportar histórico general del período seleccionado
   const handleExportarHistoricoGeneral = async () => {
     if (!selectedPeriodo) return;
     setExportando(true);
     try {
-      const blob = await (excelService as any).exportarHistorial(selectedPeriodo);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Historico_${selectedPeriodo}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const blob = await historyService.exportarHistorico(selectedPeriodo, 'excel');
+      descargarBlob(blob, `Historico_${selectedPeriodo}.xlsx`);
     } catch (error) {
       console.error("Error exportando:", error);
       alert("Error al exportar el histórico");
