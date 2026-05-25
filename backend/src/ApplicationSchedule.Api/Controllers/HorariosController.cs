@@ -49,18 +49,20 @@ public class HorariosController : ControllerBase
     /// <summary>
     /// Exporta el horario filtrado por semestre, docente o asignatura a Excel.
     /// </summary>
+    /// <param name="porSemestre">Si es true y se envía idPlan, genera una hoja por semestre del plan.</param>
     [HttpGet("exportar")]
     public async Task<IActionResult> ExportarHorario(
         [FromQuery] int? semestre,
         [FromQuery] string? idDocente,
         [FromQuery] string? idAsignatura,
         [FromQuery] string? idPlan,
-        [FromQuery] string? periodo)
+        [FromQuery] string? periodo,
+        [FromQuery] bool porSemestre = false)
     {
         var excelBytes = await _horarioExportService.ExportarHorariosAsync(
-            semestre, idDocente, idAsignatura, idPlan, periodo);
+            semestre, idDocente, idAsignatura, idPlan, periodo, porSemestre);
 
-        var nombreArchivo = $"Horarios_Confirmados_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+        var nombreArchivo = $"Horarios_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
 
         return File(
             excelBytes,

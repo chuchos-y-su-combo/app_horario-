@@ -8,12 +8,20 @@ namespace ApplicationSchedule.Infrastructure.Services;
 
 public class HorarioExportService : IHorarioExportService
 {
-    private static readonly string[] Dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    // Días completos (diurna Lun-Sáb = 6 días; nocturna Lun-Vie = 5 días)
+    private static readonly string[] DiasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-    // Hora de inicio y fin de la jornada (7:00 a 21:00 → 14 slots de 1h)
-    private const int HoraInicio = 7;
-    private const int HoraFin = 21;
-    private const int TotalSlots = HoraFin - HoraInicio; // 14
+    // Jornada diurna: 07:00 – 18:00 (11 slots de 1h)
+    private const int HoraInicioDiurna = 7;
+    private const int HoraFinDiurna = 18;
+
+    // Jornada nocturna: 18:00 – 23:00 (5 slots de 1h)
+    private const int HoraInicioNocturna = 18;
+    private const int HoraFinNocturna = 23;
+
+    // Sin filtro de jornada: rango completo 07:00 – 23:00
+    private const int HoraInicioGeneral = 7;
+    private const int HoraFinGeneral = 23;
 
     private readonly AppDbContext _context;
 
@@ -27,11 +35,14 @@ public class HorarioExportService : IHorarioExportService
         string? idDocente,
         string? idAsignatura,
         string? idPlan,
-        string? periodo)
+        string? periodo,
+        bool porSemestre = false)
     {
+        // ── Consulta base ────────────────────────────────────────────────────
         var query = _context.Set<Asignacion>()
             .Include(a => a.Docente)
             .Include(a => a.Asignatura)
+                .ThenInclude(asig => asig!.PlanEstudio)
             .Where(a => a.Estado == "Propuesta" || a.Estado == "Confirmada")
             .AsQueryable();
 
@@ -41,45 +52,86 @@ public class HorarioExportService : IHorarioExportService
         if (semestre.HasValue)
             query = query.Where(a => a.Asignatura!.Semestre == semestre.Value);
 
-        if (!string.IsNullOrEmpty(idDocente))
-            query = query.Where(a => a.IdDocente == idDocente);
-
         if (!string.IsNullOrEmpty(idAsignatura))
             query = query.Where(a => a.IdAsignatura == idAsignatura);
 
         if (!string.IsNullOrEmpty(idPlan))
             query = query.Where(a => a.Asignatura!.IdPlan == idPlan);
 
+        // No filtramos por idDocente aún porque "__ALL__" requiere iteración.
+        bool todosDocentes = idDocente?.ToUpperInvariant() == "__ALL__";
+        if (!todosDocentes && !string.IsNullOrEmpty(idDocente))
+            query = query.Where(a => a.IdDocente == idDocente);
+
         var asignaciones = await query.ToListAsync();
 
         using var workbook = new XLWorkbook();
 
-        if (!string.IsNullOrEmpty(idDocente))
+        if (todosDocentes)
         {
-            var nombreDocente = asignaciones.FirstOrDefault()?.Docente?.Nombre ?? "Docente";
-            CrearHojaHorario(workbook, Truncar(nombreDocente, 31), asignaciones);
+            // ── Modo: una hoja por docente ────────────────────────────────
+            var grupos = asignaciones
+                .GroupBy(a => new { a.IdDocente, Nombre = a.Docente?.Nombre ?? "Sin nombre" })
+                .OrderBy(g => g.Key.Nombre);
+
+            foreach (var grupo in grupos)
+            {
+                string nombreHoja = Truncar(grupo.Key.Nombre, 31);
+                var jornada = DetectarJornada(grupo.ToList());
+                CrearHojaHorario(workbook, nombreHoja, grupo.ToList(), jornada);
+            }
         }
-        else if (!string.IsNullOrEmpty(idPlan))
+        else if (!string.IsNullOrEmpty(idPlan) && porSemestre)
         {
+            // ── Modo: una hoja por semestre del plan ──────────────────────
+            var plan = await _context.PlanesEstudio
+                .Include(p => p.Asignaturas)
+                .FirstOrDefaultAsync(p => p.IdPlan == idPlan);
+
+            string jornada = plan?.Jornada ?? "Diurna";
+
+            // Semestres que realmente tienen asignaciones
+            var semestreGroups = asignaciones
+                .GroupBy(a => a.Asignatura?.Semestre ?? 0)
+                .Where(g => g.Key > 0)
+                .OrderBy(g => g.Key);
+
+            foreach (var grupo in semestreGroups)
+            {
+                string nombreHoja = $"Semestre {grupo.Key}";
+                CrearHojaHorario(workbook, nombreHoja, grupo.ToList(), jornada);
+            }
+        }
+        else if (!string.IsNullOrEmpty(idDocente) && !todosDocentes)
+        {
+            // ── Modo: horario individual de un docente ────────────────────
+            var nombreDocente = asignaciones.FirstOrDefault()?.Docente?.Nombre ?? "Docente";
+            var jornada = DetectarJornada(asignaciones);
+            CrearHojaHorario(workbook, Truncar(nombreDocente, 31), asignaciones, jornada);
+        }
+        else if (!string.IsNullOrEmpty(idPlan) && !porSemestre)
+        {
+            // ── Modo: horario de un plan (hoja única) ─────────────────────
             var plan = await _context.PlanesEstudio.FindAsync(idPlan);
-            var nombreHoja = plan?.NombrePlan ?? "Plan";
-            CrearHojaHorario(workbook, Truncar(nombreHoja, 31), asignaciones);
+            string nombreHoja = Truncar(plan?.NombrePlan ?? "Plan", 31);
+            string jornada = plan?.Jornada ?? "Diurna";
+            CrearHojaHorario(workbook, nombreHoja, asignaciones, jornada);
         }
         else
         {
-            // 4 hojas — una por escenario
+            // ── Modo: 4 hojas (una por escenario) ────────────────────────
             var escenarios = new[]
             {
-                ("ING_DIURNA",    "Ingeniería Diurna"),
-                ("ING_NOCTURNA",  "Ingeniería Nocturna"),
-                ("TAPSI_DIURNA",  "TAPSI Diurna"),
-                ("TAPSI_NOCTURNA","TAPSI Nocturna")
+                ("ING_DIURNA",    "Ingeniería Diurna",   "Diurna"),
+                ("ING_NOCTURNA",  "Ingeniería Nocturna",  "Nocturna"),
+                ("TAPSI_DIURNA",  "TAPSI Diurna",         "Diurna"),
+                ("TAPSI_NOCTURNA","TAPSI Nocturna",        "Nocturna")
             };
 
-            foreach (var (clave, nombre) in escenarios)
+            foreach (var (clave, nombre, jornada) in escenarios)
             {
                 var subset = asignaciones.Where(a => a.Escenario == clave).ToList();
-                CrearHojaHorario(workbook, nombre, subset);
+                CrearHojaHorario(workbook, nombre, subset, jornada);
             }
         }
 
@@ -91,44 +143,75 @@ public class HorarioExportService : IHorarioExportService
         return stream.ToArray();
     }
 
-    private static void CrearHojaHorario(IXLWorkbook workbook, string nombreHoja, List<Asignacion> asignaciones)
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Detecta la jornada mayoritaria de una lista de asignaciones.
+    /// </summary>
+    private static string DetectarJornada(List<Asignacion> asignaciones)
     {
+        int nocturnas = asignaciones.Count(a =>
+            a.Asignatura?.PlanEstudio?.Jornada?.ToLower() == "nocturna" ||
+            (a.Escenario?.Contains("NOCTURNA", StringComparison.OrdinalIgnoreCase) == true));
+        return nocturnas > asignaciones.Count / 2 ? "Nocturna" : "Diurna";
+    }
+
+    private static void CrearHojaHorario(
+        IXLWorkbook workbook,
+        string nombreHoja,
+        List<Asignacion> asignaciones,
+        string jornada)
+    {
+        bool esNocturna = jornada.Equals("Nocturna", StringComparison.OrdinalIgnoreCase);
+
+        int horaInicio = esNocturna ? HoraInicioNocturna : HoraInicioDiurna;
+        int horaFin    = esNocturna ? HoraFinNocturna    : HoraFinDiurna;
+        int totalSlots = horaFin - horaInicio;
+
+        // Nocturna: Lun-Vie (5 días). Diurna: Lun-Sáb (6 días).
+        string[] dias = esNocturna
+            ? ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
+            : DiasSemana;
+        int totalDias = dias.Length;
+
         var ws = workbook.Worksheets.Add(nombreHoja);
 
         // ----- Encabezados -----
         ws.Cell(1, 1).Value = "Hora";
-        for (int d = 0; d < Dias.Length; d++)
-            ws.Cell(1, d + 2).Value = Dias[d];
+        for (int d = 0; d < totalDias; d++)
+            ws.Cell(1, d + 2).Value = dias[d];
 
-        var headerRange = ws.Range(1, 1, 1, 7);
+        var headerRange = ws.Range(1, 1, 1, totalDias + 1);
         headerRange.Style.Font.Bold = true;
         headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#003087");
         headerRange.Style.Font.FontColor = XLColor.White;
         headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
         // ----- Filas de franjas horarias -----
-        for (int slot = 0; slot < TotalSlots; slot++)
+        for (int slot = 0; slot < totalSlots; slot++)
         {
             int row = slot + 2;
-            ws.Cell(row, 1).Value = $"{HoraInicio + slot:00}:00";
+            int h = horaInicio + slot;
+            ws.Cell(row, 1).Value = $"{h:00}:00 – {h + 1:00}:00";
             ws.Cell(row, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             ws.Cell(row, 1).Style.Font.Bold = true;
-            ws.Row(row).Height = 52;
+            ws.Row(row).Height = 45;
 
-            // Fondo alterno en columna hora
             ws.Cell(row, 1).Style.Fill.BackgroundColor =
                 slot % 2 == 0 ? XLColor.FromHtml("#E8EFF7") : XLColor.FromHtml("#F5F5F5");
 
-            // Celdas de días: borde y fondo suave
-            for (int col = 2; col <= 7; col++)
+            for (int col = 2; col <= totalDias + 1; col++)
             {
                 ws.Cell(row, col).Style.Fill.BackgroundColor =
                     slot % 2 == 0 ? XLColor.White : XLColor.FromHtml("#FAFAFA");
+                ws.Cell(row, col).Style.Alignment.WrapText = true;
+                ws.Cell(row, col).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                ws.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             }
         }
 
         // ----- Borde general -----
-        var tableRange = ws.Range(1, 1, TotalSlots + 1, 7);
+        var tableRange = ws.Range(1, 1, totalSlots + 1, totalDias + 1);
         tableRange.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
         tableRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
@@ -136,31 +219,37 @@ public class HorarioExportService : IHorarioExportService
         foreach (var asig in asignaciones)
         {
             int hora = ObtenerHora(asig.HoraInicio);
-            if (hora < HoraInicio || hora >= HoraFin) continue;
+            if (hora < horaInicio || hora >= horaFin) continue;
 
-            int row = hora - HoraInicio + 2;   // fila en hoja (2 = primera franja = 7:00)
-            int col = asig.Dia + 1;            // Dia 1=Lunes → col 2
-            if (col < 2 || col > 7) continue;
+            // Dia 1=Lunes → col 2, etc. Para nocturna máx día 5 (Viernes)
+            int col = asig.Dia + 1;
+            if (col < 2 || col > totalDias + 1) continue;
 
-            // Sesión de 2 horas: combinar 2 filas
-            int rowFin = Math.Min(row + 1, TotalSlots + 1);
+            int row = hora - horaInicio + 2;
+
+            // Calcular duración en slots (mín 1)
+            int horaFinAsig = ObtenerHora(asig.HoraFin);
+            int duracion = horaFinAsig > hora ? Math.Min(horaFinAsig - hora, totalSlots) : 1;
+            int rowFin = Math.Min(row + duracion - 1, totalSlots + 1);
+
+            // Combinar filas si duración > 1
             if (rowFin > row)
-            {
                 ws.Range(row, col, rowFin, col).Merge();
-            }
 
-            string contenido =
-                $"{asig.Asignatura?.Nombre ?? "—"}\n" +
-                $"{asig.Asignatura?.Codigo ?? ""}\n" +
-                $"{asig.Docente?.Nombre ?? "—"}\n" +
-                "Aula por asignar";
+            // Formato: "[Nombre] - [Código] | [Docente] | [Aula]"
+            string nombre = asig.Asignatura?.Nombre ?? "—";
+            string codigo = asig.Asignatura?.Codigo ?? "";
+            string docente = asig.Docente?.Nombre ?? "—";
+            string contenido = $"{nombre} - {codigo} | {docente} | Aula por asignar";
 
             var cell = ws.Cell(row, col);
             cell.Value = contenido;
             cell.Style.Alignment.WrapText = true;
             cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
             cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-            cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#1A6BBF");
+            cell.Style.Fill.BackgroundColor = esNocturna
+                ? XLColor.FromHtml("#003087")
+                : XLColor.FromHtml("#1A6BBF");
             cell.Style.Font.FontColor = XLColor.White;
             cell.Style.Font.FontSize = 8;
             cell.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
@@ -168,8 +257,8 @@ public class HorarioExportService : IHorarioExportService
         }
 
         // ----- Anchos de columna -----
-        ws.Column(1).Width = 9;
-        for (int col = 2; col <= 7; col++)
+        ws.Column(1).Width = 14;
+        for (int col = 2; col <= totalDias + 1; col++)
             ws.Column(col).Width = 22;
     }
 
