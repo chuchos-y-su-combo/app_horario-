@@ -1,13 +1,15 @@
-// views/CalendarView.tsx - Corregido
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import { Select } from "../Select";
 import { Button } from "../Button";
-import { Download, User, Home, AlertCircle, RefreshCw, Upload, Loader2 } from "lucide-react";
+import { Download, User, AlertCircle, RefreshCw } from "lucide-react";
 import { calendarioService } from "../../../services/calendarioService";
-import { excelService } from "../../../services/excel.service";
 
-export function CalendarView() {
+interface Props {
+  onNavigate?: (view: string, state?: Record<string, string>) => void;
+}
+
+export function CalendarView({ onNavigate }: Props) {
   const [scenarioFilter, setScenarioFilter] = useState("");
   const [teacherFilter, setTeacherFilter] = useState("");
   const [roomFilter, setRoomFilter] = useState("");
@@ -16,9 +18,6 @@ export function CalendarView() {
   const [error, setError] = useState<string | null>(null);
   const [selectedSemestre, setSelectedSemestre] = useState("2026-1");
   const [docentes, setDocentes] = useState<any[]>([]);
-  const [generandoPropuestas, setGenerandoPropuestas] = useState(false);
-  const [importando, setImportando] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   const hours = Array.from({ length: 14 }, (_, i) => i + 7);
@@ -44,25 +43,18 @@ export function CalendarView() {
     setLoading(true);
     setError(null);
     try {
-      let idPlan: string | undefined;
       let jornada: string | undefined;
-
       switch (scenarioFilter) {
         case "ing-diurna":
-          jornada = "Diurna";
-          break;
-        case "ing-nocturna":
-          jornada = "Nocturna";
-          break;
         case "tapsi-diurno":
           jornada = "Diurna";
           break;
+        case "ing-nocturna":
         case "tapsi-nocturno":
           jornada = "Nocturna";
           break;
       }
-
-      const data = await calendarioService.getCalendarioSemanal(selectedSemestre, idPlan, jornada);
+      const data = await calendarioService.getCalendarioSemanal(selectedSemestre, undefined, jornada);
       setCalendario(data);
     } catch (err: any) {
       setError(err?.response?.data?.message || "No se pudo cargar el calendario");
@@ -71,61 +63,25 @@ export function CalendarView() {
     }
   };
 
-  const handleGenerarPropuestas = async () => {
-    setGenerandoPropuestas(true);
-    try {
-      await calendarioService.generarPropuestas(selectedSemestre, ["ING_DIURNA", "ING_NOCTURNA", "TAPSI_DIURNA", "TAPSI_NOCTURNA"], 1);
-      alert("Propuestas generadas exitosamente");
-      cargarCalendario();
-    } catch (err: any) {
-      alert(err?.response?.data?.message || "Error al generar propuestas");
-    } finally {
-      setGenerandoPropuestas(false);
-    }
-  };
-
-  // Importar currículo desde Excel
-  const handleImportarCurriculo = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setImportando(true);
-    try {
-      const result = await excelService.importarCurriculo(file);
-      alert(`Importación completada: ${result.procesadas} registros procesados. Errores: ${result.errores?.length || 0}`);
-      if (result.errores?.length > 0) {
-        console.error('Errores:', result.errores);
-      }
-      // Recargar datos después de importar
-      cargarCalendario();
-    } catch (error: any) {
-      console.error('Error importando:', error);
-      alert(error?.response?.data?.message || 'Error al importar el archivo');
-    } finally {
-      setImportando(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
   const horaStringToNumber = (horaStr: string): number => {
     if (!horaStr) return 0;
-    const [hora] = horaStr.split(":");
-    return parseInt(hora, 10);
+    return parseInt(horaStr.split(":")[0], 10);
   };
 
   const calcularDuracion = (horaInicio: string, horaFin: string): number => {
     if (!horaInicio || !horaFin) return 1;
-    const inicio = horaStringToNumber(horaInicio);
-    const fin = horaStringToNumber(horaFin);
-    return Math.max(fin - inicio, 1);
+    return Math.max(horaStringToNumber(horaFin) - horaStringToNumber(horaInicio), 1);
   };
 
   const getColorPorPlan = (nombrePlan: string): string => {
     if (!nombrePlan) return "bg-[#1A6BBF]";
-    if (nombrePlan.toLowerCase().includes("ingenieria")) return "bg-[#1A6BBF]";
     if (nombrePlan.toLowerCase().includes("tapsi")) return "bg-[#003087]";
     return "bg-[#1A6BBF]";
   };
+
+  const teacherFilterNombre = teacherFilter
+    ? (docentes.find((d: any) => d.idProfesor === teacherFilter) as any)?.nombre ?? ""
+    : "";
 
   const scheduleBlocks = calendario?.dias?.flatMap((dia: any) =>
     (dia.bloques || []).map((bloque: any) => ({
@@ -134,10 +90,9 @@ export function CalendarView() {
       hour: horaStringToNumber(bloque.horaInicio),
       duration: calcularDuracion(bloque.horaInicio, bloque.horaFin),
       color: getColorPorPlan(bloque.nombrePlan),
-      room: bloque.escenario
     }))
   ).filter((block: any) => {
-    if (teacherFilter && !block.nombreDocente?.toLowerCase().includes(teacherFilter.toLowerCase())) return false;
+    if (teacherFilterNombre && !block.nombreDocente?.toLowerCase().includes(teacherFilterNombre.toLowerCase())) return false;
     if (roomFilter && !block.escenario?.toLowerCase().includes(roomFilter.toLowerCase())) return false;
     return true;
   }) || [];
@@ -161,49 +116,19 @@ export function CalendarView() {
           <h1 className="text-2xl font-medium text-[#333333]">Calendario Semanal</h1>
           <p className="text-sm text-[#666666] mt-1">Total bloques: {scheduleBlocks.length}</p>
         </div>
-        <div className="flex gap-3 flex-wrap">
-          {/* Botón de importar currículo */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportarCurriculo}
-            accept=".xlsx,.xls"
-            className="hidden"
-          />
-          <Button 
-            variant="secondary" 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importando}
-            className="gap-2"
-          >
-            {importando ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
-            Importar Currículo
-          </Button>
-          
-          <Button 
-            variant="secondary" 
-            onClick={cargarCalendario}
-            className="gap-2"
-          >
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={cargarCalendario} className="gap-2">
             <RefreshCw size={20} />
           </Button>
-          
-          <Button 
-            variant="secondary" 
-            onClick={handleGenerarPropuestas} 
-            disabled={generandoPropuestas}
-          >
-            {generandoPropuestas ? "Generando..." : "Generar propuestas"}
-          </Button>
-          
-          {/* Botón de exportar - deshabilitado hasta implementar endpoint */}
-          <Button 
-            variant="secondary"
-            disabled
-            className="gap-2 opacity-50 cursor-not-allowed"
+          <Button
+            className="gap-2"
+            onClick={() => onNavigate?.("reportes", {
+              semestre: selectedSemestre,
+              ...(teacherFilter ? { idDocente: teacherFilter } : {}),
+            })}
           >
             <Download size={20} />
-            Exportar (Próximamente)
+            Exportar
           </Button>
         </div>
       </div>
@@ -223,7 +148,8 @@ export function CalendarView() {
               { value: "tapsi-nocturno", label: "TAPSI Nocturno" }
             ]} />
             <Select value={teacherFilter} onChange={(e) => setTeacherFilter(e.target.value)} options={[
-              { value: "", label: "Todos" }, ...docentes.map((d: any) => ({ value: d.nombre, label: d.nombre }))
+              { value: "", label: "Todos los docentes" },
+              ...docentes.map((d: any) => ({ value: d.idProfesor, label: d.nombre }))
             ]} />
             <Select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)} options={[{ value: "", label: "Todos" }]} />
           </div>
@@ -241,12 +167,8 @@ export function CalendarView() {
             </div>
           ) : scheduleBlocks.length === 0 ? (
             <div className="p-6 text-center">
-              <p>No hay horarios asignados. Genera propuestas primero.</p>
-              <div className="flex gap-3 mt-4 justify-center">
-                <Button onClick={handleGenerarPropuestas} disabled={generandoPropuestas}>
-                  {generandoPropuestas ? "Generando..." : "Generar propuestas"}
-                </Button>
-              </div>
+              <p className="text-[#666666]">No hay horarios asignados para el período seleccionado.</p>
+              <p className="text-sm text-[#999999] mt-2">Genera propuestas desde la sección de Generación.</p>
             </div>
           ) : (
             <div className="border rounded-lg overflow-hidden min-w-[800px]">

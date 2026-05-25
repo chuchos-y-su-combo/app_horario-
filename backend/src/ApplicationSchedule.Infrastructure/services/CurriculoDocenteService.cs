@@ -430,7 +430,7 @@ public class CurriculoDocenteService : ICurriculoDocenteService
             docente = new Docente
             {
                 IdDocente = Guid.NewGuid().ToString(),
-                Identificacion = string.Empty,
+                Identificacion = $"IMP-{Guid.NewGuid():N}"[..20],
                 Nombre = item.NombreDocente,
                 TipoContrato = item.TipoContrato,
                 MaxAsignaturas = maxAsignaturas

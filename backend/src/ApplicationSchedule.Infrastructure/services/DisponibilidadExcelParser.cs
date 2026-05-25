@@ -34,37 +34,76 @@ internal static class DisponibilidadExcelParser
     /// </summary>
     public static MiDisponibilidadExcelItem LeerHojaMiDisponibilidad(IXLWorksheet worksheet)
     {
-        string nombre = worksheet.Cell(6, 2).GetString().Trim();
-
-        string tipoContratoRaw = NormalizarTexto(worksheet.Cell(7, 2).GetString().Trim());
-        string tipoContrato = tipoContratoRaw switch
-        {
-            "TC" or "TIEMPO COMPLETO" or "PLANTA" => "TC",
-            _ => "TP"
-        };
-
-        var materias = new List<string>();
-        for (int fila = 11; fila <= 15; fila++)
-        {
-            string materia = worksheet.Cell(fila, 2).GetString().Trim();
-            if (!string.IsNullOrWhiteSpace(materia))
-                materias.Add(materia);
-        }
-
-        string textoDisponibilidad = worksheet.Cell(18, 2).GetString().Trim();
-
         var mensajes = new List<string>();
-        List<DisponibilidadBloque> bloques = InterpretarTextoLibre(textoDisponibilidad, mensajes);
 
-        return new MiDisponibilidadExcelItem
+        try
         {
-            NombreDocente = nombre,
-            TipoContrato = tipoContrato,
-            NombresMaterias = materias,
-            TextoDisponibilidad = textoDisponibilidad,
-            Bloques = bloques,
-            Mensajes = mensajes
-        };
+            string nombre = LeerCeldaSegura(worksheet, 6, 2, mensajes, "B6 nombre");
+
+            string cellB7 = LeerCeldaSegura(worksheet, 7, 2, mensajes, "B7 tipoContrato");
+            // Strip control characters (newlines, tabs) that Trim() alone doesn't remove
+            string cellB7Clean = new string(cellB7.Where(c => !char.IsControl(c)).ToArray()).Trim();
+            string tipoContratoRaw = NormalizarTexto(cellB7Clean);
+            string tipoContrato = (tipoContratoRaw == "TC"
+                || tipoContratoRaw.StartsWith("TC")
+                || tipoContratoRaw == "TIEMPO COMPLETO"
+                || tipoContratoRaw == "PLANTA")
+                ? "TC" : "TP";
+            mensajes.Add($"[B7] Tipo contrato interpretado: '{tipoContrato}' (raw: '{cellB7Clean}')");
+
+            var materias = new List<string>();
+            for (int fila = 11; fila <= 15; fila++)
+            {
+                string materia = LeerCeldaSegura(worksheet, fila, 2, mensajes, $"B{fila} materia");
+                if (!string.IsNullOrWhiteSpace(materia))
+                    materias.Add(materia);
+            }
+
+            string textoDisponibilidad = LeerCeldaSegura(worksheet, 18, 2, mensajes, "B18 disponibilidad");
+
+            List<DisponibilidadBloque> bloques;
+            try
+            {
+                bloques = InterpretarTextoLibre(textoDisponibilidad, mensajes);
+            }
+            catch (Exception ex)
+            {
+                mensajes.Add($"[InterpretarTextoLibre] Error: {ex.Message}");
+                bloques = new List<DisponibilidadBloque>();
+            }
+
+            return new MiDisponibilidadExcelItem
+            {
+                NombreDocente = nombre,
+                TipoContrato = tipoContrato,
+                NombresMaterias = materias,
+                TextoDisponibilidad = textoDisponibilidad,
+                Bloques = bloques,
+                Mensajes = mensajes
+            };
+        }
+        catch (Exception ex)
+        {
+            mensajes.Add($"[LeerHojaMiDisponibilidad] Error crítico: {ex.Message}");
+            return new MiDisponibilidadExcelItem { Mensajes = mensajes };
+        }
+    }
+
+    private static string LeerCeldaSegura(IXLWorksheet worksheet, int fila, int columna, List<string> mensajes, string etiqueta)
+    {
+        try
+        {
+            var cell = worksheet.Cell(fila, columna);
+            string valor = cell.IsEmpty() ? string.Empty : cell.GetString().Trim();
+            mensajes.Add($"[{etiqueta}] = '{valor}'");
+            return valor;
+        }
+        catch (Exception ex)
+        {
+            mensajes.Add($"[{etiqueta}] Error al leer celda ({fila},{columna}): {ex.Message}");
+            try { return worksheet.Cell(fila, columna).Value.ToString()?.Trim() ?? string.Empty; }
+            catch { return string.Empty; }
+        }
     }
 
     private static bool TieneFormatoNormalizado(IXLWorksheet worksheet)
