@@ -30,17 +30,17 @@ const ROLES = [
 ];
 
 const permissions = [
-  { module: "Dashboard", admin: "Completo", coordinator: "Solo lectura" },
-  { module: "Usuarios y roles", admin: "Completo", coordinator: "Sin acceso" },
-  { module: "Docentes", admin: "Completo", coordinator: "Completo" },
-  { module: "Asignaturas", admin: "Completo", coordinator: "Completo" },
-  { module: "Generación", admin: "Completo", coordinator: "Solo lectura" },
-  { module: "Ajuste manual", admin: "Completo", coordinator: "Completo" },
+  { module: "Dashboard",          admin: "Completo", coordinator: "Completo" },
+  { module: "Usuarios y roles",   admin: "Completo", coordinator: "Sin acceso" },
+  { module: "Docentes",           admin: "Completo", coordinator: "Completo" },
+  { module: "Asignaturas",        admin: "Completo", coordinator: "Completo" },
+  { module: "Generación",         admin: "Completo", coordinator: "Completo" },
+  { module: "Ajuste manual",      admin: "Completo", coordinator: "Completo" },
   { module: "Franjas bloqueadas", admin: "Completo", coordinator: "Completo" },
-  { module: "Calendario", admin: "Completo", coordinator: "Solo lectura" },
-  { module: "Alertas", admin: "Completo", coordinator: "Completo" },
-  { module: "Reportes", admin: "Completo", coordinator: "Solo lectura" },
-  { module: "Historial", admin: "Completo", coordinator: "Solo lectura" },
+  { module: "Calendario",         admin: "Completo", coordinator: "Completo" },
+  { module: "Alertas",            admin: "Completo", coordinator: "Completo" },
+  { module: "Reportes",           admin: "Completo", coordinator: "Completo" },
+  { module: "Historial",          admin: "Completo", coordinator: "Solo lectura" },
 ];
 
 const FORM_VACIO: FormUsuario = { nombreCompleto: "", correo: "", password: "", idRol: 2 };
