@@ -31,11 +31,11 @@ export function LoginView({ onLogin, onForgotPassword }: LoginViewProps) {
             console.log(data);
 
             localStorage.setItem("token", data.token);
-
-            localStorage.setItem(
-                "usuario",
-                JSON.stringify(data.usuario)
-            );
+            localStorage.setItem("usuario", JSON.stringify({
+                nombreCompleto: data.nombreCompleto,
+                correo: data.correo,
+                rol: data.rol,
+            }));
 
             onLogin();
         } catch (err: any) {

@@ -11,5 +11,5 @@ public interface IHorarioExportService
     /// <summary>
     /// Exporta horarios filtrados a un archivo y devuelve su contenido en bytes.
     /// </summary>
-    Task<byte[]> ExportarHorariosAsync(int? semestre, string? idDocente, string? idAsignatura, string? periodo);
+    Task<byte[]> ExportarHorariosAsync(int? semestre, string? idDocente, string? idAsignatura, string? idPlan, string? periodo);
 }

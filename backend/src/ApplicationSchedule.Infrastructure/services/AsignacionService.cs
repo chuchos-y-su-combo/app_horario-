@@ -450,7 +450,8 @@ public class AsignacionService : IAsignacionService
         HoraInicio = asignacion.HoraInicio,
         HoraFin = asignacion.HoraFin,
         Periodo = asignacion.Periodo,
-        Estado = asignacion.Estado
+        Estado = asignacion.Estado,
+        Escenario = asignacion.Escenario
     };
     public async Task<List<AsignacionResponse>> ObtenerPropuestasPorPeriodoAsync(string periodo)
     {

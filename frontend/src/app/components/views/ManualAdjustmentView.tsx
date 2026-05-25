@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import { Badge } from "../Badge";
 import { Button } from "../Button";
+import { Select } from "../Select";
 import { GripVertical, Loader2, BookOpen } from "lucide-react";
 import { manualAdjustmentService } from "../../../services/manual-adjustment.service";
 
@@ -15,7 +16,16 @@ interface Asignacion {
   horaInicio: string | null;
   horaFin: string | null;
   estado: string;
+  escenario: string;
 }
+
+const ESCENARIOS_OPCIONES = [
+  { value: "", label: "Todos los escenarios" },
+  { value: "ING_DIURNA",     label: "Ingeniería Diurna" },
+  { value: "ING_NOCTURNA",   label: "Ingeniería Nocturna" },
+  { value: "TAPSI_DIURNA",   label: "TAPSI Diurna" },
+  { value: "TAPSI_NOCTURNA", label: "TAPSI Nocturna" },
+];
 
 export function ManualAdjustmentView() {
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
@@ -23,6 +33,7 @@ export function ManualAdjustmentView() {
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [escenarioFiltro, setEscenarioFiltro] = useState("");
 
   const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   const hours = Array.from({ length: 14 }, (_, i) => i + 7);
@@ -62,8 +73,12 @@ export function ManualAdjustmentView() {
     }
   };
 
-  const pendingSubjects = asignaciones.filter((a) => a.dia === null);
-  const assignedBlocks = asignaciones.filter((a) => a.dia !== null);
+  const asignacionesFiltradas = escenarioFiltro
+    ? asignaciones.filter((a) => a.escenario === escenarioFiltro)
+    : asignaciones;
+
+  const pendingSubjects = asignacionesFiltradas.filter((a) => a.dia === null);
+  const assignedBlocks = asignacionesFiltradas.filter((a) => a.dia !== null);
 
   const parseHour = (hora: string | null) => {
     if (!hora) return 7;
@@ -88,15 +103,23 @@ export function ManualAdjustmentView() {
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto bg-[#F5F5F5]">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-medium text-[#333333]">Ajuste Manual de Propuesta</h1>
           <p className="text-sm text-[#666666] mt-1">Reasignación de horarios con validación en tiempo real</p>
         </div>
-        <Button onClick={guardarCambios} disabled={guardando || assignedBlocks.length === 0}>
-          {guardando ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
-          Guardar cambios
-        </Button>
+        <div className="flex items-center gap-3">
+          <Select
+            value={escenarioFiltro}
+            onChange={(e) => setEscenarioFiltro(e.target.value)}
+            options={ESCENARIOS_OPCIONES}
+            className="w-52"
+          />
+          <Button onClick={guardarCambios} disabled={guardando || assignedBlocks.length === 0}>
+            {guardando ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+            Guardar cambios
+          </Button>
+        </div>
       </div>
 
       {error && (
