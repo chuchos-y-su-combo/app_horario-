@@ -58,6 +58,11 @@ public class Asignatura
     public bool EsAreaProfesional { get; set; }
 
     /// <summary>
+    /// Aula asignada a la asignatura (ej. AULA-F301).
+    /// </summary>
+    public string Aula { get; set; } = string.Empty;
+
+    /// <summary>
     /// Plan de estudios asociado a la asignatura.
     /// </summary>
     public PlanEstudio? PlanEstudio { get; set; }

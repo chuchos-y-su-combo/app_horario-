@@ -141,6 +141,56 @@ public class BloqueoFranjaAsignaturaService : IBloqueoFranjaAsignaturaService
     }
 
     /// <summary>
+    /// Crea un bloqueo de franja para TODAS las asignaturas (bloqueo global institucional).
+    /// Omite asignaturas que ya tienen ese horario bloqueado.
+    /// </summary>
+    public async Task<int> CrearGlobalAsync(
+        CrearBloqueoFranjaAsignaturaRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        string periodo = request.Periodo.Trim();
+        string horaInicio = request.HoraInicio.Trim();
+        string horaFin = request.HoraFin.Trim();
+        string? motivo = string.IsNullOrWhiteSpace(request.Motivo) ? null : request.Motivo.Trim();
+
+        ValidarDatos(periodo, request.Dia, horaInicio, horaFin);
+
+        List<Asignatura> todasAsignaturas = await _context.Asignaturas
+            .ToListAsync(cancellationToken);
+
+        // Bloqueos existentes en ese dia/periodo para no duplicar
+        HashSet<string> yaBloquedas = (await _context.BloqueosFranjaAsignatura
+            .Where(b => b.Periodo == periodo && b.Dia == request.Dia)
+            .ToListAsync(cancellationToken))
+            .Where(b => HorariosSeCruzan(horaInicio, horaFin, b.HoraInicio, b.HoraFin))
+            .Select(b => b.IdAsignatura)
+            .ToHashSet();
+
+        var nuevos = todasAsignaturas
+            .Where(a => !yaBloquedas.Contains(a.IdAsignatura))
+            .Select(a => new BloqueoFranjaAsignatura
+            {
+                IdBloqueo = Guid.NewGuid().ToString(),
+                IdAsignatura = a.IdAsignatura,
+                Periodo = periodo,
+                Dia = request.Dia,
+                HoraInicio = horaInicio,
+                HoraFin = horaFin,
+                Motivo = motivo,
+                FechaCreacionUtc = DateTime.UtcNow
+            })
+            .ToList();
+
+        if (nuevos.Count > 0)
+        {
+            _context.BloqueosFranjaAsignatura.AddRange(nuevos);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        return nuevos.Count;
+    }
+
+    /// <summary>
     /// Elimina un bloqueo por su identificador.
     /// </summary>
     public async Task<bool> EliminarAsync(

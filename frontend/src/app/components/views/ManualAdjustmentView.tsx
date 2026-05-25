@@ -292,13 +292,28 @@ function ManualAdjustmentInner() {
     setLoading(true);
     setError(null);
     try {
-      let data: Asignacion[];
+      let raw: any[];
       if (periodoSeleccionado) {
-        data = await manualAdjustmentService.obtenerPropuestas(periodoSeleccionado);
+        raw = await manualAdjustmentService.obtenerPropuestas(periodoSeleccionado);
       } else {
-        data = await manualAdjustmentService.obtenerAsignaciones();
+        raw = await manualAdjustmentService.obtenerAsignaciones();
       }
-      setAsignaciones(Array.isArray(data) ? data : []);
+      const list: any[] = Array.isArray(raw) ? raw : [];
+      // El backend retorna 'idAsignacion' (camelCase) — lo mapeamos a 'id' para el frontend
+      const mapped: Asignacion[] = list.map((a) => ({
+        id: a.idAsignacion ?? a.id ?? "",
+        idDocente: a.idDocente ?? "",
+        idAsignatura: a.idAsignatura ?? "",
+        codigoAsignatura: a.codigoAsignatura ?? "",
+        nombreAsignatura: a.nombreAsignatura ?? "",
+        nombreDocente: a.nombreDocente ?? "",
+        dia: a.dia > 0 ? a.dia : null,
+        horaInicio: a.horaInicio || null,
+        horaFin: a.horaFin || null,
+        estado: a.estado ?? "",
+        escenario: a.escenario ?? "",
+      }));
+      setAsignaciones(mapped);
     } catch (err: any) {
       setError(err?.response?.data?.mensaje || "Error al cargar asignaciones");
     } finally {

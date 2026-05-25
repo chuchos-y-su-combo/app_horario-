@@ -8,7 +8,6 @@ import { ConfirmModal } from "../Modal";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../Table";
 import { Plus, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import { blockedSlotsService } from "../../../services/blocked-slots.service";
-import api from "../../../services/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,15 +25,20 @@ interface Bloqueo {
   fechaCreacionUtc: string;
 }
 
-interface AsignaturaOpt {
-  idAsignatura: string;
-  codigo: string;
-  nombre: string;
+/** Bloqueo deduplicado para mostrar en calendario y tabla (uno por franja). */
+interface BloqueoUnico {
+  key: string;           // dia|horaInicio|horaFin
+  ids: string[];         // todos los idBloqueo del grupo
+  dia: number;
+  diaNombre: string;
+  horaInicio: string;
+  horaFin: string;
+  motivo?: string;
+  fechaCreacionUtc: string;
 }
 
 interface FormErrors {
   motivo?: string;
-  asignatura?: string;
   dia?: string;
   horaInicio?: string;
   horaFin?: string;
@@ -64,12 +68,10 @@ function formatFecha(iso: string): string {
 export function BlockedSlotsView() {
   // Data
   const [bloqueos, setBloqueos]         = useState<Bloqueo[]>([]);
-  const [asignaturas, setAsignaturas]   = useState<AsignaturaOpt[]>([]);
   const [loadingData, setLoadingData]   = useState(true);
 
   // Form
   const [motivo, setMotivo]             = useState("");
-  const [asignaturaId, setAsignaturaId] = useState("");
   const [dia, setDia]                   = useState("");
   const [horaInicio, setHoraInicio]     = useState("");
   const [horaFin, setHoraFin]           = useState("");
@@ -81,12 +83,37 @@ export function BlockedSlotsView() {
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
   const [pendingCreate, setPendingCreate]     = useState(false);
 
-  // Delete modal
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedBloqueoId, setSelectedBloqueoId] = useState<string | null>(null);
-  const [eliminando, setEliminando] = useState(false);
+  // Delete modal — eliminar todos los registros de un grupo (franja)
+  const [showDeleteModal, setShowDeleteModal]           = useState(false);
+  const [selectedBloqueoKey, setSelectedBloqueoKey]     = useState<string | null>(null);
+  const [eliminando, setEliminando]                     = useState(false);
 
   const formRef = useRef<HTMLDivElement>(null);
+
+  // ── Deduplicar bloqueos: uno por (dia, horaInicio, horaFin) ─────────────────
+  const bloqueoUnicos: BloqueoUnico[] = (() => {
+    const map = new Map<string, BloqueoUnico>();
+    for (const b of bloqueos) {
+      const key = `${b.dia}|${b.horaInicio}|${b.horaFin}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          ids: [b.idBloqueo],
+          dia: b.dia,
+          diaNombre: b.diaNombre,
+          horaInicio: b.horaInicio,
+          horaFin: b.horaFin,
+          motivo: b.motivo,
+          fechaCreacionUtc: b.fechaCreacionUtc,
+        });
+      } else {
+        map.get(key)!.ids.push(b.idBloqueo);
+      }
+    }
+    return Array.from(map.values()).sort(
+      (a, b) => a.dia - b.dia || a.horaInicio.localeCompare(b.horaInicio)
+    );
+  })();
 
   // ── Load data ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -96,24 +123,8 @@ export function BlockedSlotsView() {
   const cargarTodo = async () => {
     setLoadingData(true);
     try {
-      const [bloqueoRes, asigRes] = await Promise.allSettled([
-        blockedSlotsService.obtenerBloqueos(PERIODO_ACTIVO),
-        api.get("/asignaturas"),
-      ]);
-
-      if (bloqueoRes.status === "fulfilled") {
-        setBloqueos(Array.isArray(bloqueoRes.value) ? bloqueoRes.value : []);
-      }
-      if (asigRes.status === "fulfilled") {
-        const list = Array.isArray(asigRes.value.data) ? asigRes.value.data : [];
-        setAsignaturas(
-          list.map((a: any) => ({
-            idAsignatura: a.idAsignatura,
-            codigo: a.codigo,
-            nombre: a.nombre,
-          }))
-        );
-      }
+      const data = await blockedSlotsService.obtenerBloqueos(PERIODO_ACTIVO);
+      setBloqueos(Array.isArray(data) ? data : []);
     } catch {
       // silently degrade
     } finally {
@@ -125,7 +136,6 @@ export function BlockedSlotsView() {
   const validar = (): boolean => {
     const errs: FormErrors = {};
     if (!motivo.trim())   errs.motivo     = "El motivo es obligatorio.";
-    if (!asignaturaId)    errs.asignatura = "Selecciona una asignatura.";
     if (!dia)             errs.dia        = "Selecciona un día.";
     if (!horaInicio)      errs.horaInicio = "Selecciona la hora de inicio.";
     if (!horaFin)         errs.horaFin    = "Selecciona la hora de fin.";
@@ -179,7 +189,7 @@ export function BlockedSlotsView() {
       }
     }
 
-    // Actually create
+    // Actually create (global — aplica a todos los escenarios)
     setGuardando(true);
     setFieldErrors({});
     setFormSuccess(null);
@@ -187,7 +197,7 @@ export function BlockedSlotsView() {
     setPendingCreate(false);
 
     try {
-      await blockedSlotsService.crearBloqueo(asignaturaId, {
+      await blockedSlotsService.crearBloqueoGlobal({
         periodo: PERIODO_ACTIVO,
         dia: parseInt(dia),
         horaInicio: padH(parseInt(horaInicio)),
@@ -197,13 +207,11 @@ export function BlockedSlotsView() {
 
       // Reset form
       setMotivo("");
-      setAsignaturaId("");
       setDia("");
       setHoraInicio("");
       setHoraFin("");
 
-      const asgNombre = asignaturas.find((a) => a.idAsignatura === asignaturaId)?.nombre ?? "";
-      setFormSuccess(`Bloqueo creado para "${asgNombre}" el ${DAYS[parseInt(dia) - 1]} ${padH(parseInt(horaInicio))}–${padH(parseInt(horaFin))}.`);
+      setFormSuccess(`Bloqueo global creado: ${DAYS[parseInt(dia) - 1]} ${padH(parseInt(horaInicio))}–${padH(parseInt(horaFin))}.`);
       setTimeout(() => setFormSuccess(null), 5000);
 
       await cargarTodo();
@@ -215,14 +223,16 @@ export function BlockedSlotsView() {
     }
   };
 
-  // ── Delete ──────────────────────────────────────────────────────────────────
+  // ── Delete — elimina todos los registros del grupo (franja global) ──────────
   const handleEliminar = async () => {
-    if (!selectedBloqueoId) return;
+    if (!selectedBloqueoKey) return;
+    const grupo = bloqueoUnicos.find((b) => b.key === selectedBloqueoKey);
+    if (!grupo) return;
     setEliminando(true);
     try {
-      await blockedSlotsService.eliminarBloqueo(selectedBloqueoId);
+      await Promise.all(grupo.ids.map((id) => blockedSlotsService.eliminarBloqueo(id)));
       setShowDeleteModal(false);
-      setSelectedBloqueoId(null);
+      setSelectedBloqueoKey(null);
       await cargarTodo();
     } catch (err: any) {
       console.error("Error eliminando bloqueo:", err);
@@ -250,7 +260,7 @@ export function BlockedSlotsView() {
         <div>
           <h1 className="text-2xl font-medium text-[#333333]">Franjas Horarias Bloqueadas</h1>
           <p className="text-sm text-[#666666] mt-1">
-            Gestión de bloqueos por asignatura — período activo: {PERIODO_ACTIVO}
+            Bloqueos globales — ningún escenario puede tener clases en estas franjas · {PERIODO_ACTIVO}
           </p>
         </div>
         <Button className="gap-2" onClick={focusForm}>
@@ -267,7 +277,7 @@ export function BlockedSlotsView() {
             <CardHeader>
               <CardTitle>Calendario Semanal – Vista de Bloqueos</CardTitle>
               <p className="text-sm text-[#666666] mt-1">
-                Franjas bloqueadas con patrón rayado · {bloqueos.length} bloqueo(s) activo(s)
+                Franjas bloqueadas con patrón rayado · {bloqueoUnicos.length} franja(s) bloqueada(s)
               </p>
             </CardHeader>
             <CardContent>
@@ -306,7 +316,7 @@ export function BlockedSlotsView() {
                           <div key={h} className="h-[42.85px] border-b border-[#CCCCCC]" />
                         ))}
 
-                        {bloqueos
+                        {bloqueoUnicos
                           .filter((b) => b.dia === dayIdx + 1)   // backend 1-indexed
                           .map((b) => {
                             const startH = parseHour(b.horaInicio);
@@ -314,7 +324,7 @@ export function BlockedSlotsView() {
                             const dur    = Math.max(endH - startH, 1);
                             return (
                               <div
-                                key={b.idBloqueo}
+                                key={b.key}
                                 className="absolute left-1 right-1 rounded overflow-hidden cursor-pointer hover:shadow-lg transition-shadow text-white text-xs p-1.5 border border-[#333333]"
                                 style={{
                                   top: `${((startH - 7) / 14) * 100}%`,
@@ -323,12 +333,12 @@ export function BlockedSlotsView() {
                                     "repeating-linear-gradient(45deg,#595959,#595959 8px,#6e6e6e 8px,#6e6e6e 16px)",
                                 }}
                                 onClick={() => {
-                                  setSelectedBloqueoId(b.idBloqueo);
+                                  setSelectedBloqueoKey(b.key);
                                   setShowDeleteModal(true);
                                 }}
-                                title={`${b.nombreAsignatura} · ${b.motivo ?? ""}`}
+                                title={b.motivo ?? "Bloqueo global"}
                               >
-                                <div className="font-medium truncate text-[10px]">{b.codigoAsignatura}</div>
+                                <div className="font-medium truncate text-[10px]">BLOQUEADO</div>
                                 <div className="text-white/80 text-[9px] truncate">{b.horaInicio}–{b.horaFin}</div>
                               </div>
                             );
@@ -346,8 +356,8 @@ export function BlockedSlotsView() {
         <div ref={formRef}>
           <Card>
             <CardHeader>
-              <CardTitle>Nuevo Bloqueo</CardTitle>
-              <p className="text-sm text-[#666666] mt-1">Período: {PERIODO_ACTIVO}</p>
+              <CardTitle>Nuevo Bloqueo Global</CardTitle>
+              <p className="text-sm text-[#666666] mt-1">Aplica a todos los escenarios · {PERIODO_ACTIVO}</p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -396,27 +406,6 @@ export function BlockedSlotsView() {
                   />
                   {fieldErrors.motivo && (
                     <p className="mt-1 text-xs text-[#C0392B]">{fieldErrors.motivo}</p>
-                  )}
-                </div>
-
-                {/* Asignatura */}
-                <div>
-                  <label className="block text-sm font-medium text-[#333333] mb-1">
-                    Asignatura <span className="text-[#C0392B]">*</span>
-                  </label>
-                  <Select
-                    value={asignaturaId}
-                    onChange={(e) => { setAsignaturaId(e.target.value); setFieldErrors((p) => ({ ...p, asignatura: undefined })); }}
-                    options={[
-                      { value: "", label: loadingData ? "Cargando…" : "— Seleccionar asignatura —" },
-                      ...asignaturas.map((a) => ({
-                        value: a.idAsignatura,
-                        label: `${a.codigo} – ${a.nombre}`,
-                      })),
-                    ]}
-                  />
-                  {fieldErrors.asignatura && (
-                    <p className="mt-1 text-xs text-[#C0392B]">{fieldErrors.asignatura}</p>
                   )}
                 </div>
 
@@ -498,11 +487,11 @@ export function BlockedSlotsView() {
         <CardHeader>
           <CardTitle>Bloqueos Activos</CardTitle>
           <p className="text-sm text-[#666666] mt-1">
-            {bloqueos.length} franja{bloqueos.length !== 1 ? "s" : ""} bloqueada{bloqueos.length !== 1 ? "s" : ""} en {PERIODO_ACTIVO}
+            {bloqueoUnicos.length} franja{bloqueoUnicos.length !== 1 ? "s" : ""} bloqueada{bloqueoUnicos.length !== 1 ? "s" : ""} en {PERIODO_ACTIVO}
           </p>
         </CardHeader>
         <CardContent>
-          {bloqueos.length === 0 ? (
+          {bloqueoUnicos.length === 0 ? (
             <div className="text-center py-8 text-[#999999] text-sm">
               No hay bloqueos registrados para este período.
             </div>
@@ -510,7 +499,6 @@ export function BlockedSlotsView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Asignatura</TableHead>
                   <TableHead>Motivo</TableHead>
                   <TableHead>Día</TableHead>
                   <TableHead>Horario</TableHead>
@@ -519,14 +507,8 @@ export function BlockedSlotsView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bloqueos.map((b) => (
-                  <TableRow key={b.idBloqueo} striped>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium text-[#333333]">{b.codigoAsignatura}</p>
-                        <p className="text-xs text-[#666666]">{b.nombreAsignatura}</p>
-                      </div>
-                    </TableCell>
+                {bloqueoUnicos.map((b) => (
+                  <TableRow key={b.key} striped>
                     <TableCell className="text-[#666666]">
                       {b.motivo ?? <span className="text-[#AAAAAA] italic">Sin motivo</span>}
                     </TableCell>
@@ -542,7 +524,7 @@ export function BlockedSlotsView() {
                     <TableCell>
                       <button
                         onClick={() => {
-                          setSelectedBloqueoId(b.idBloqueo);
+                          setSelectedBloqueoKey(b.key);
                           setShowDeleteModal(true);
                         }}
                         className="p-1.5 hover:bg-[#F5F5F5] rounded transition-colors text-[#C0392B]"
@@ -562,10 +544,10 @@ export function BlockedSlotsView() {
       {/* Delete confirmation */}
       <ConfirmModal
         isOpen={showDeleteModal}
-        onClose={() => { setShowDeleteModal(false); setSelectedBloqueoId(null); }}
+        onClose={() => { setShowDeleteModal(false); setSelectedBloqueoKey(null); }}
         onConfirm={handleEliminar}
-        title="Eliminar bloqueo"
-        message="¿Está seguro que desea eliminar este bloqueo? Las asignaciones futuras en esa franja ya no tendrán esta restricción."
+        title="Eliminar bloqueo global"
+        message="¿Está seguro? Esta acción elimina el bloqueo en todos los escenarios para esa franja horaria."
         confirmText={eliminando ? "Eliminando…" : "Eliminar"}
         cancelText="Cancelar"
         variant="danger"

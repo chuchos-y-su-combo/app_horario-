@@ -39,6 +39,16 @@ public class ProfesoresController : ControllerBase
     }
 
     /// <summary>
+    /// Elimina TODOS los docentes y sus asignaciones. Operación irreversible.
+    /// </summary>
+    [HttpDelete("todos")]
+    public async Task<IActionResult> EliminarTodos()
+    {
+        int eliminados = await _profesorService.EliminarTodosAsync();
+        return Ok(new { mensaje = $"Se eliminaron {eliminados} docente(s) y sus asignaciones.", eliminados });
+    }
+
+    /// <summary>
     /// Obtiene un docente por su identificador único.
     /// </summary>
     /// <param name="idProfesor">Identificador del docente.</param>

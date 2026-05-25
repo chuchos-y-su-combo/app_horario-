@@ -304,6 +304,8 @@ export function TeachersListView() {
     exitosos: number;
     errores: { archivo: string; mensaje: string }[];
   } | null>(null);
+  const [showEliminarTodosModal, setShowEliminarTodosModal] = useState(false);
+  const [eliminandoTodos, setEliminandoTodos] = useState(false);
 
   useEffect(() => {
     cargarDocentes();
@@ -408,6 +410,24 @@ export function TeachersListView() {
     cargarDocentes();
   };
 
+  const handleEliminarTodos = async () => {
+    setEliminandoTodos(true);
+    try {
+      await api.delete("/profesores/todos");
+      setShowEliminarTodosModal(false);
+      cargarDocentes();
+    } catch (err: any) {
+      alert(
+        err?.response?.data?.mensaje ??
+        err?.response?.data?.message ??
+        err?.message ??
+        "Error al eliminar todos los profesores."
+      );
+    } finally {
+      setEliminandoTodos(false);
+    }
+  };
+
   const filteredDocentes = docentes.filter((d) => {
     const matchesSearch = d.nombre.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesContract = !contractFilter || d.tipoContrato === contractFilter;
@@ -446,6 +466,15 @@ export function TeachersListView() {
           <Button variant="secondary" onClick={cargarDocentes} className="gap-2">
             <RefreshCw size={20} />
             Actualizar
+          </Button>
+          <Button
+            variant="destructive"
+            className="gap-2"
+            onClick={() => setShowEliminarTodosModal(true)}
+            disabled={docentes.length === 0}
+          >
+            <Trash2 size={20} />
+            Eliminar todos
           </Button>
           <label>
             <input
@@ -755,6 +784,17 @@ export function TeachersListView() {
         title="Eliminar docente"
         message={`¿Está seguro que desea eliminar a "${docenteAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
         confirmText={eliminandoDocente ? "Eliminando..." : "Eliminar"}
+        cancelText="Cancelar"
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={showEliminarTodosModal}
+        onClose={() => setShowEliminarTodosModal(false)}
+        onConfirm={handleEliminarTodos}
+        title="Eliminar todos los profesores"
+        message="¿Estás seguro? Esta acción eliminará TODOS los docentes y sus asignaciones. Esta operación no se puede deshacer."
+        confirmText={eliminandoTodos ? "Eliminando..." : "Sí, eliminar todo"}
         cancelText="Cancelar"
         variant="danger"
       />

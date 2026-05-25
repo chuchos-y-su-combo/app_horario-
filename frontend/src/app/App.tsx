@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { LoginView } from "./components/views/LoginView";
 import { RecoverPasswordView } from "./components/views/RecoverPasswordView";
@@ -76,8 +76,11 @@ export default function App() {
   const [currentView, setCurrentView] = useState<View>("dashboard");
   const [navContext, setNavContext] = useState<Record<string, string>>({});
 
-  // Se calcula una vez al montar y no cambia durante la sesión
-  const [esAdmin] = useState(() => getRolFromStorage() === "Administrador");
+  // Se recalcula cada vez que cambia authState (p.ej. tras el login)
+  const esAdmin = useMemo(() => {
+    const rol = getRolFromStorage();
+    return rol.toLowerCase() === "administrador" || rol === "1";
+  }, [authState]);
 
   const navigate = (view: string, state?: Record<string, string>) => {
     // Proteger ruta "usuarios": solo Administrador puede acceder
