@@ -129,6 +129,18 @@ public class ProfesoresController : ControllerBase
     }
 
     /// <summary>
+    /// Retorna los identificadores de asignaturas que el docente está habilitado para dictar.
+    /// </summary>
+    /// <param name="idProfesor">Identificador del docente.</param>
+    /// <returns>Lista de IDs de asignaturas habilitadas.</returns>
+    [HttpGet("{idProfesor}/habilitados")]
+    public async Task<ActionResult<List<string>>> ObtenerHabilitados(string idProfesor)
+    {
+        List<string> habilitados = await _profesorService.ObtenerHabilitadosAsync(idProfesor);
+        return Ok(habilitados);
+    }
+
+    /// <summary>
     /// Retorna las franjas de disponibilidad horaria registradas para un docente.
     /// </summary>
     /// <param name="idProfesor">Identificador del docente.</param>

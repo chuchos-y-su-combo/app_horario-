@@ -1,5 +1,5 @@
 // views/SubjectsView.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../Table";
 import { Badge } from "../Badge";
@@ -158,6 +158,14 @@ const cargarDatos = async () => {
     return plan?.nombrePlan || idPlan;
   };
 
+  /** Semestres únicos disponibles para un plan dado, ordenados. */
+  const semestresDeplan = useMemo(() => (idPlan: string) =>
+    [...new Set(subjects.filter(s => s.idPlan === idPlan).map(s => s.semestre))]
+      .sort((a, b) => a - b)
+      .map(s => ({ value: String(s), label: `Semestre ${s}` })),
+    [subjects]
+  );
+
   const filteredSubjects = subjects.filter((subject) => {
     const matchesSearch =
       subject.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -283,7 +291,7 @@ const cargarDatos = async () => {
             <Select
               placeholder="Filtrar por plan de estudios"
               value={planFilter}
-              onChange={(e) => setPlanFilter(e.target.value)}
+              onChange={(e) => { setPlanFilter(e.target.value); setSemesterFilter(""); }}
               options={[
                 { value: "", label: "Todos" },
                 ...planes.map(p => ({ value: p.idPlan, label: p.nombrePlan }))
@@ -379,7 +387,11 @@ const cargarDatos = async () => {
                 <Select
                   placeholder="Seleccionar plan"
                   value={formData.idPlan}
-                  onChange={(e) => setFormData({ ...formData, idPlan: e.target.value })}
+                  onChange={(e) => {
+                    const newPlan = e.target.value;
+                    const sems = semestresDeplan(newPlan);
+                    setFormData({ ...formData, idPlan: newPlan, semestre: sems[0] ? parseInt(sems[0].value) : 1 });
+                  }}
                   options={planes.map(p => ({ value: p.idPlan, label: p.nombrePlan }))}
                 />
               </div>
@@ -410,11 +422,22 @@ const cargarDatos = async () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#333333] mb-1">Semestre</label>
-                  <Input
-                    type="number"
-                    value={formData.semestre}
-                    onChange={(e) => setFormData({ ...formData, semestre: parseInt(e.target.value) })}
-                  />
+                  {semestresDeplan(formData.idPlan).length > 0 ? (
+                    <Select
+                      value={String(formData.semestre)}
+                      onChange={(e) => setFormData({ ...formData, semestre: parseInt(e.target.value) })}
+                      options={semestresDeplan(formData.idPlan)}
+                    />
+                  ) : (
+                    <Input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={formData.semestre}
+                      onChange={(e) => setFormData({ ...formData, semestre: parseInt(e.target.value) })}
+                      placeholder="Selecciona primero un plan"
+                    />
+                  )}
                 </div>
               </div>
               <div>
@@ -483,7 +506,11 @@ const cargarDatos = async () => {
                 <Select
                   placeholder="Seleccionar plan"
                   value={editData.idPlan}
-                  onChange={(e) => setEditData({ ...editData, idPlan: e.target.value })}
+                  onChange={(e) => {
+                    const newPlan = e.target.value;
+                    const sems = semestresDeplan(newPlan);
+                    setEditData({ ...editData, idPlan: newPlan, semestre: sems[0] ? parseInt(sems[0].value) : 1 });
+                  }}
                   options={planes.map(p => ({ value: p.idPlan, label: p.nombrePlan }))}
                 />
               </div>
@@ -512,11 +539,21 @@ const cargarDatos = async () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#333333] mb-1">Semestre</label>
-                  <Input
-                    type="number"
-                    value={editData.semestre}
-                    onChange={(e) => setEditData({ ...editData, semestre: parseInt(e.target.value) })}
-                  />
+                  {semestresDeplan(editData.idPlan).length > 0 ? (
+                    <Select
+                      value={String(editData.semestre)}
+                      onChange={(e) => setEditData({ ...editData, semestre: parseInt(e.target.value) })}
+                      options={semestresDeplan(editData.idPlan)}
+                    />
+                  ) : (
+                    <Input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={editData.semestre}
+                      onChange={(e) => setEditData({ ...editData, semestre: parseInt(e.target.value) })}
+                    />
+                  )}
                 </div>
               </div>
               <div>

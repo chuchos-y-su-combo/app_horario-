@@ -12,3 +12,8 @@ dist/
 *.sqlite
 *.log
 appsettings.Development.json
+
+# Electron packaging output
+frontend/dist-electron/
+frontend/resources/backend/*
+!frontend/resources/backend/.gitkeep

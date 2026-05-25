@@ -2,5 +2,6 @@ packages:
   - '.'
 allowBuilds:
   '@tailwindcss/oxide': true
+  electron: set this to true or false
   electron-winstaller: true
   esbuild: true
