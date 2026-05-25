@@ -1,3 +1,4 @@
+using ApplicationSchedule.Application.DTOs.Disponibilidades;
 using ApplicationSchedule.Application.DTOs.Profesores;
 
 namespace ApplicationSchedule.Application.Interfaces;
@@ -31,4 +32,9 @@ public interface IProfesorService
     /// Elimina un profesor por su identificador.
     /// </summary>
     Task<bool> EliminarAsync(string idProfesor);
+
+    /// <summary>
+    /// Retorna las franjas de disponibilidad horaria de un docente.
+    /// </summary>
+    Task<List<DisponibilidadDocenteResponse>> ObtenerDisponibilidadAsync(string idProfesor);
 }

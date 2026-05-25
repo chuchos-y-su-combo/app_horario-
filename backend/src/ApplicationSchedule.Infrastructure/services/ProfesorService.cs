@@ -1,3 +1,4 @@
+using ApplicationSchedule.Application.DTOs.Disponibilidades;
 using ApplicationSchedule.Application.DTOs.Profesores;
 using ApplicationSchedule.Application.Interfaces;
 using ApplicationSchedule.Domain.Entities;
@@ -181,6 +182,38 @@ public class ProfesorService : IProfesorService
             _ => throw new InvalidOperationException("Tipo de contrato no válido. Use TC o TP.")
         };
     }
+
+    /// <summary>
+    /// Retorna las franjas de disponibilidad horaria registradas para un docente.
+    /// </summary>
+    public async Task<List<DisponibilidadDocenteResponse>> ObtenerDisponibilidadAsync(string idProfesor)
+    {
+        return await _context.Disponibilidades
+            .Where(d => d.IdDocente == idProfesor)
+            .OrderBy(d => d.DiaSemana)
+            .ThenBy(d => d.HoraInicio)
+            .Select(d => new DisponibilidadDocenteResponse
+            {
+                IdDisponibilidad = d.IdDisponibilidad,
+                IdDocente       = d.IdDocente,
+                DiaSemana       = d.DiaSemana,
+                DiaNombre       = ObtenerNombreDia(d.DiaSemana),
+                HoraInicio      = d.HoraInicio,
+                HoraFin         = d.HoraFin,
+            })
+            .ToListAsync();
+    }
+
+    private static string ObtenerNombreDia(int dia) => dia switch
+    {
+        1 => "Lunes",
+        2 => "Martes",
+        3 => "Miércoles",
+        4 => "Jueves",
+        5 => "Viernes",
+        6 => "Sábado",
+        _ => "Desconocido",
+    };
 
     /// <summary>
     /// Mappea la entidad <see cref="Docente"/> a su DTO <see cref="ProfesorResponse"/>.
