@@ -32,12 +32,14 @@ function getInitialAuthState(): AuthState {
   const token = localStorage.getItem("token");
   if (!token) return "login";
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
+    // JWT usa base64url (- y _); atob requiere base64 estándar (+ y /)
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64));
     if (typeof payload.exp === "number" && payload.exp * 1000 > Date.now()) {
       return "authenticated";
     }
   } catch {
-    // token malformado
+    // token malformado o expirado
   }
   localStorage.removeItem("token");
   localStorage.removeItem("usuario");
@@ -47,6 +49,18 @@ function getInitialAuthState(): AuthState {
 export default function App() {
   const [authState, setAuthState] = useState<AuthState>(getInitialAuthState);
   const [currentView, setCurrentView] = useState<View>("dashboard");
+  const [navContext, setNavContext] = useState<Record<string, string>>({});
+
+  const navigate = (view: string, state?: Record<string, string>) => {
+    setCurrentView(view as View);
+    setNavContext(state ?? {});
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("usuario");
+    setAuthState("login");
+  };
 
   if (authState === "login") {
     return (
@@ -63,7 +77,7 @@ export default function App() {
 
   return (
     <div className="w-screen h-screen flex bg-[#F5F5F5]">
-      <Sidebar currentView={currentView} onNavigate={(view) => setCurrentView(view as View)} />
+      <Sidebar currentView={currentView} onNavigate={navigate} onLogout={logout} />
       <div className="flex-1 ml-[260px]">
         {currentView === "dashboard" && <DashboardView />}
         {currentView === "usuarios" && <UsersView />}
@@ -72,9 +86,9 @@ export default function App() {
         {currentView === "generacion" && <GenerationView />}
         {currentView === "ajuste" && <ManualAdjustmentView />}
         {currentView === "bloqueos" && <BlockedSlotsView />}
-        {currentView === "calendario" && <CalendarView />}
+        {currentView === "calendario" && <CalendarView onNavigate={navigate} />}
         {currentView === "alertas" && <AlertsView />}
-        {currentView === "reportes" && <ReportsView />}
+        {currentView === "reportes" && <ReportsView initialSemestre={navContext.semestre} initialDocenteId={navContext.idDocente} />}
         {currentView === "historial" && <HistoryView />}
       </div>
     </div>

@@ -54,10 +54,11 @@ public class HorariosController : ControllerBase
         [FromQuery] int? semestre,
         [FromQuery] string? idDocente,
         [FromQuery] string? idAsignatura,
+        [FromQuery] string? idPlan,
         [FromQuery] string? periodo)
     {
         var excelBytes = await _horarioExportService.ExportarHorariosAsync(
-            semestre, idDocente, idAsignatura, periodo);
+            semestre, idDocente, idAsignatura, idPlan, periodo);
 
         var nombreArchivo = $"Horarios_Confirmados_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
 

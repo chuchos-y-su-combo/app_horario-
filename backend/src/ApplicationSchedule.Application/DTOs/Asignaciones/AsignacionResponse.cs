@@ -32,4 +32,6 @@ public class AsignacionResponse
     public string Periodo { get; set; } = string.Empty;
 
     public string Estado { get; set; } = string.Empty;
+
+    public string Escenario { get; set; } = string.Empty;
 }
