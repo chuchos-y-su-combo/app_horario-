@@ -316,8 +316,8 @@ export function TeachersListView() {
     try {
       const data = await obtenerDocentes();
       setDocentes(data);
-    } catch (error) {
-      console.error("Error cargando docentes:", error);
+    } catch {
+      // La UI muestra estado vacío si falla la carga
     } finally {
       setLoading(false);
     }

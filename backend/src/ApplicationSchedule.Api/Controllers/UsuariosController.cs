@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Authorization;
 using ApplicationSchedule.Application.Security;
 
 namespace ApplicationSchedule.Api.Controllers;
-//[Authorize] //quitar el comentario en caso de que se quiera que solo los de token creen los usuarios
 [Authorize(Roles = RolesSistema.Administrador)]
 [ApiController]
 [Route("api/usuarios")]

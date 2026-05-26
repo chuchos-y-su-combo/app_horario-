@@ -11,8 +11,10 @@ import api from "../../../services/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/** Identificador del tipo de elemento arrastrable para react-dnd. */
 const DRAG_TYPE = "ASIGNACION";
 
+/** Asignación de una sesión de clase: puede estar ubicada (con día y hora) o pendiente (sin ubicar). */
 interface Asignacion {
   id: string;
   idDocente: string;
@@ -20,28 +22,39 @@ interface Asignacion {
   codigoAsignatura: string;
   nombreAsignatura: string;
   nombreDocente: string;
+  /** Día de la semana (1=Lunes … 5=Viernes). null si la asignación no tiene día asignado aún. */
   dia: number | null;
+  /** Hora de inicio en formato "HH:MM". null si sin ubicar. */
   horaInicio: string | null;
+  /** Hora de fin en formato "HH:MM". null si sin ubicar. */
   horaFin: string | null;
+  /** Estado de la asignación: "Propuesta", "AsignadaManual", "Confirmada" o "Cancelada". */
   estado: string;
+  /** Escenario al que pertenece, p.ej. "ING_DIURNA". */
   escenario: string;
 }
 
+/** Datos transportados por react-dnd al arrastrar una asignación hacia una celda de la cuadrícula. */
 interface DragItem {
   id: string;
   idDocente: string;
   nombreAsignatura: string;
   nombreDocente: string;
-  duracion: number;   // hours
+  /** Duración estimada del bloque en horas (por defecto 2). */
+  duracion: number;
+  /** Día de origen si el bloque ya estaba ubicado; null si venía del panel pendiente. */
   fromDia: number | null;
 }
 
+/** Franja de disponibilidad horaria de un docente (proveniente del endpoint /profesores/{id}/disponibilidad). */
 interface DisponibilidadItem {
+  /** Día de la semana (1=Lunes … 5=Viernes). */
   diaSemana: number;
   horaInicio: string;
   horaFin: string;
 }
 
+/** Estado del toast de notificación temporal (desaparece a los 4 s). */
 interface ToastState {
   message: string;
   type: "success" | "error";
@@ -49,7 +62,7 @@ interface ToastState {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie"];
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 07 – 20
 const ESCENARIOS_OPCIONES = [
   { value: "",              label: "Todos los escenarios" },
@@ -61,18 +74,25 @@ const ESCENARIOS_OPCIONES = [
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Extrae la hora entera de una cadena "HH:MM"; devuelve 7 si la cadena es null. */
 const parseHour = (hora: string | null) =>
   hora ? parseInt(hora.split(":")[0], 10) : 7;
 
+/** Calcula la duración en horas entre dos franjas; mínimo 1 hora; por defecto 2 si falta alguna. */
 const calcDuration = (inicio: string | null, fin: string | null) => {
   if (!inicio || !fin) return 2;
   return Math.max(parseHour(fin) - parseHour(inicio), 1);
 };
 
+/** Formatea un número de hora como cadena "HH:00" para enviarla al backend. */
 const padHour = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
 // ─── DraggablePendingCard ─────────────────────────────────────────────────────
 
+/**
+ * Tarjeta arrastrable para asignaturas sin ubicar en el panel izquierdo.
+ * Al arrastrarla hacia la cuadrícula, transporta los datos del DragItem al DroppableCell destino.
+ */
 function DraggablePendingCard({
   asignacion,
   isSelected,
@@ -126,6 +146,10 @@ function DraggablePendingCard({
 
 // ─── DraggableGridBlock ───────────────────────────────────────────────────────
 
+/**
+ * Bloque de horario posicionado absolutamente en la cuadrícula semanal.
+ * Es arrastrable para reubicar la asignación a otra celda; al soltarse llama al handleDrop del padre.
+ */
 function DraggableGridBlock({
   asignacion,
   style,
@@ -177,6 +201,10 @@ function DraggableGridBlock({
 
 // ─── DroppableCell ────────────────────────────────────────────────────────────
 
+/**
+ * Celda de la cuadrícula semanal que acepta soltar bloques arrastrados.
+ * Cada celda corresponde a un par (día, hora); al soltar llama a onDrop con los datos del item y la posición.
+ */
 function DroppableCell({
   dayIdx,
   hour,
@@ -219,6 +247,10 @@ function DroppableCell({
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
+/**
+ * Notificación temporal (toast) que se auto-cierra después de 4 segundos.
+ * Muestra un mensaje de éxito (verde) o error (rojo) sobre el contenido de la página.
+ */
 function Toast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
   useEffect(() => {
     const t = setTimeout(onClose, 4000);
@@ -243,6 +275,13 @@ function Toast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
 
 // ─── Main view (inner — requires DndProvider above) ───────────────────────────
 
+/**
+ * Lógica principal del módulo de ajuste manual.
+ * Gestiona el estado de todas las asignaciones del periodo seleccionado,
+ * el selector de periodo, el filtro por escenario, los caches de disponibilidad
+ * y habilitaciones de docentes, y el handler de drag-and-drop que llama a la API.
+ * Separado del componente público para poder envolverse en DndProvider sin ciclos.
+ */
 function ManualAdjustmentInner() {
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -291,6 +330,10 @@ function ManualAdjustmentInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodoSeleccionado]);
 
+  /**
+   * Carga las asignaciones del periodo seleccionado (o todas si no hay periodo)
+   * y las normaliza al tipo local Asignacion para el estado del componente.
+   */
   const cargarAsignaciones = async () => {
     setLoading(true);
     setError(null);
@@ -324,7 +367,11 @@ function ManualAdjustmentInner() {
     }
   };
 
-  // ── Disponibilidad (cached per docente) ────────────────────────────────────
+  /**
+   * Obtiene y cachea las franjas de disponibilidad de un docente para evitar
+   * llamadas repetidas durante la misma sesión de drag-and-drop.
+   * Si el endpoint falla, retorna [] (modo permisivo: permite el drop).
+   */
   const obtenerDisponibilidad = async (idDocente: string): Promise<DisponibilidadItem[]> => {
     if (dispCache.current.has(idDocente)) {
       return dispCache.current.get(idDocente)!;
@@ -339,7 +386,10 @@ function ManualAdjustmentInner() {
     }
   };
 
-  // ── Habilitados (cached per docente): IDs de asignaturas que puede dictar ──
+  /**
+   * Obtiene y cachea los IDs de asignaturas para las que un docente está habilitado.
+   * Si el endpoint falla o devuelve lista vacía, retorna [] (modo permisivo: no bloquea el drop).
+   */
   const obtenerHabilitados = async (idDocente: string): Promise<string[]> => {
     if (habCache.current.has(idDocente)) {
       return habCache.current.get(idDocente)!;
@@ -354,6 +404,12 @@ function ManualAdjustmentInner() {
     }
   };
 
+  /**
+   * Verifica si el docente tiene disponibilidad para la franja propuesta.
+   * Comprueba que la franja [horaInicio, horaInicio+duracion) quede completamente dentro
+   * de alguna de sus disponibilidades declaradas para el día indicado.
+   * Si la lista de disponibilidades está vacía, retorna true (modo permisivo).
+   */
   const validarDisponibilidad = (
     disponibilidades: DisponibilidadItem[],
     dia: number,
@@ -370,7 +426,11 @@ function ManualAdjustmentInner() {
     });
   };
 
-  // ── Drop handler ────────────────────────────────────────────────────────────
+  /**
+   * Handler central de drag-and-drop: valida disponibilidad del docente y habilitación
+   * de la asignatura, luego llama a PATCH /asignaciones/{id}/ajustar para persistir el cambio.
+   * Muestra un toast de éxito o error según el resultado. Debounceado con el flag `dropping`.
+   */
   const handleDrop = useCallback(
     async (item: DragItem, targetDay: number, targetHour: number) => {
       if (dropping) return;
@@ -559,7 +619,7 @@ function ManualAdjustmentInner() {
             <CardContent>
               <div className="border border-[#CCCCCC] rounded overflow-hidden bg-white">
                 {/* Header row */}
-                <div className="grid grid-cols-7 bg-[#333333]">
+                <div className="grid grid-cols-6 bg-[#333333]">
                   <div className="p-2 text-xs text-white font-medium text-center border-r border-white/20">
                     Hora
                   </div>
@@ -574,7 +634,7 @@ function ManualAdjustmentInner() {
                 </div>
 
                 {/* Grid body */}
-                <div className="grid grid-cols-7" style={{ minHeight: "600px" }}>
+                <div className="grid grid-cols-6" style={{ minHeight: "600px" }}>
                   {/* Hour labels column */}
                   <div className="border-r border-[#CCCCCC] bg-[#F5F5F5]">
                     {HOURS.map((hour) => (
@@ -719,6 +779,11 @@ function ManualAdjustmentInner() {
 
 // ─── Public export — wraps with DndProvider ────────────────────────────────────
 
+/**
+ * Vista pública de ajuste manual de horarios.
+ * Envuelve ManualAdjustmentInner con el DndProvider de react-dnd (HTML5Backend),
+ * que habilita la API de drag-and-drop nativa del navegador en toda la vista.
+ */
 export function ManualAdjustmentView() {
   return (
     <DndProvider backend={HTML5Backend}>

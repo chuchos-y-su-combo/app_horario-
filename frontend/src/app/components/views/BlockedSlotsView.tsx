@@ -17,7 +17,7 @@ interface Bloqueo {
   codigoAsignatura: string;
   nombreAsignatura: string;
   periodo: string;
-  dia: number;           // 1=Lunes … 6=Sábado
+  dia: number;           // 1=Lunes … 5=Viernes
   diaNombre: string;
   horaInicio: string;    // "HH:mm"
   horaFin: string;       // "HH:mm"
@@ -47,7 +47,7 @@ interface FormErrors {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PERIODO_ACTIVO = "2026-1";
-const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7–20
 
 const parseHour = (t: string) => parseInt(t.split(":")[0], 10);
@@ -235,7 +235,7 @@ export function BlockedSlotsView() {
       setSelectedBloqueoKey(null);
       await cargarTodo();
     } catch (err: any) {
-      console.error("Error eliminando bloqueo:", err);
+      setFormError(err?.response?.data?.mensaje || "Error al eliminar el bloqueo.");
     } finally {
       setEliminando(false);
     }
@@ -289,7 +289,7 @@ export function BlockedSlotsView() {
               ) : (
                 <div className="border border-[#CCCCCC] rounded overflow-hidden bg-white">
                   {/* Header row */}
-                  <div className="grid grid-cols-7 bg-[#333333]">
+                  <div className="grid grid-cols-6 bg-[#333333]">
                     <div className="p-2 text-xs text-white font-medium text-center border-r border-white/20">Hora</div>
                     {DAYS.map((day) => (
                       <div key={day} className="p-2 text-xs text-white font-medium text-center border-r border-white/20 last:border-r-0">
@@ -299,7 +299,7 @@ export function BlockedSlotsView() {
                   </div>
 
                   {/* Grid body */}
-                  <div className="grid grid-cols-7" style={{ minHeight: "600px" }}>
+                  <div className="grid grid-cols-6" style={{ minHeight: "600px" }}>
                     {/* Hour labels */}
                     <div className="border-r border-[#CCCCCC] bg-[#F5F5F5]">
                       {HOURS.map((h) => (

@@ -14,6 +14,10 @@ public class HorariosController : ControllerBase
     private readonly IHorarioExportService _horarioExportService;
     private readonly ICalendarioSemanalService _calendarioSemanalService;
 
+    /// <summary>
+    /// Inicializa el controlador inyectando los servicios de generación,
+    /// exportación y consulta de calendario semanal.
+    /// </summary>
     public HorariosController(
         IGeneradorHorarioService generadorHorarioService,
         IHorarioExportService horarioExportService,

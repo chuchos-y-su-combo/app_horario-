@@ -6,6 +6,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApplicationSchedule.Infrastructure.Services;
 
+/// <summary>
+/// Servicio principal de generación automática de horarios académicos.
+/// Para cada escenario (ING_DIURNA, ING_NOCTURNA, TAPSI_DIURNA, TAPSI_NOCTURNA) busca
+/// la mejor combinación de docente + franja disponible para cada asignatura del plan,
+/// evitando cruces de horario y respetando la jornada y los días permitidos (Lun–Vie).
+/// Las asignaturas que no pueden ubicarse quedan registradas en el campo NoAsignadas
+/// del resultado con el motivo específico (sin docente habilitado, sin franja libre, etc.).
+/// </summary>
 public class GeneradorHorarioService : IGeneradorHorarioService
 {
     private const string EstadoPropuesta = "Propuesta";
