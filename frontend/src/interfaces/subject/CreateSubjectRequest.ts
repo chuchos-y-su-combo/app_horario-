@@ -5,6 +5,7 @@ export interface CreateSubjectRequest {
     creditos: number;
     semestre: number;
     minEstudiantes: number;
+    aula?: string;
     esFijaTapsi?: boolean;
     esOpcionalTapsiDiurna?: boolean;
 }

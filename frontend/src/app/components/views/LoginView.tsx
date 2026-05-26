@@ -3,17 +3,27 @@ import { Input } from "../Input";
 import { Button } from "../Button";
 import { loginRequest } from "../../../services/authService";
 
+/** Props del componente LoginView. */
 interface LoginViewProps {
+  /** Callback ejecutado tras autenticación exitosa; señala a App que muestre el layout principal. */
   onLogin: () => void;
+  /** Callback para navegar al flujo de recuperación de contraseña. */
   onForgotPassword: () => void;
 }
 
+/**
+ * Vista de inicio de sesión de la aplicación.
+ * Presenta un formulario de correo y contraseña, valida los campos,
+ * llama al servicio de autenticación y persiste el JWT y los datos del usuario
+ * en localStorage antes de notificar al padre que el login fue exitoso.
+ */
 export function LoginView({ onLogin, onForgotPassword }: LoginViewProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
+    /** Envía las credenciales al backend; en caso de éxito guarda el token y el objeto usuario en localStorage. */
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -28,19 +38,15 @@ export function LoginView({ onLogin, onForgotPassword }: LoginViewProps) {
 
             const data = await loginRequest(email, password);
 
-            console.log(data);
-
             localStorage.setItem("token", data.token);
-
-            localStorage.setItem(
-                "usuario",
-                JSON.stringify(data.usuario)
-            );
+            localStorage.setItem("usuario", JSON.stringify({
+                nombreCompleto: data.nombreCompleto,
+                correo: data.correo,
+                rol: data.rol,
+            }));
 
             onLogin();
         } catch (err: any) {
-            console.error(err);
-
             setError(
                 err.response?.data?.message ||
                 "Credenciales incorrectas"
@@ -101,14 +107,6 @@ export function LoginView({ onLogin, onForgotPassword }: LoginViewProps) {
                 <p className="text-sm text-[#C0392B]">{error}</p>
               </div>
             )}
-
-            <button
-              type="button"
-              onClick={onForgotPassword}
-              className="text-sm text-[#1A6BBF] hover:underline"
-            >
-              ¿Olvidó su contraseña?
-            </button>
 
             <Button
                 type="submit"

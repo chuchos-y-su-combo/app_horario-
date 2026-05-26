@@ -1,147 +1,135 @@
-// views/ReportsView.tsx
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import { Badge } from "../Badge";
 import { Button } from "../Button";
 import { ProgressBar } from "../ProgressBar";
 import { Select } from "../Select";
-import { FileSpreadsheet, FileText, History, Download, Eye, Loader2 } from "lucide-react";
+import { FileSpreadsheet, FileText, History, Download, Loader2 } from "lucide-react";
 import { reportsService, ReporteCargaDocenteResponse } from "../../../services/reports.service";
+import { obtenerDocentes } from "../../../services/teachersService";
+import { obtenerPlanes, PlanEstudio } from "../../../services/planesService";
+import api from "../../../services/api";
 
-export function ReportsView() {
-  const [selectedReport, setSelectedReport] = useState<string>("workload");
-  const [selectedSemestre, setSelectedSemestre] = useState("2026-1");
+/** Datos mínimos de un docente para los selectores de filtro en la vista de reportes. */
+interface Docente { idDocente: string; nombre: string; }
+
+const reportTypes = [
+  { id: "workload",  title: "Horas asignadas vs contrato", description: "Comparativo de carga docente",    icon: FileSpreadsheet, format: "Excel", color: "text-[#1A7A4A]", bg: "bg-[#1A7A4A]/10" },
+  { id: "schedule",  title: "Exportar horarios",           description: "Calendario completo por escenario", icon: FileText,       format: "Excel", color: "text-[#1A6BBF]", bg: "bg-[#1A6BBF]/10" },
+  { id: "conflicts", title: "Conflictos y excepciones",    description: "Registro de auditoría",             icon: History,        format: "Excel", color: "text-[#E8A020]", bg: "bg-[#E8A020]/10" },
+];
+
+/** Props de ReportsView. Si CalendarView redirige aquí con filtros, se pre-seleccionan semestre y docente. */
+interface Props {
+  /** Código de periodo a preseleccionar en el selector de semestre (p.ej. "2026-1"). */
+  initialSemestre?: string;
+  /** ID del docente a preseleccionar en el filtro de exportación por docente. */
+  initialDocenteId?: string;
+}
+
+/**
+ * Vista de reportes y exportaciones del sistema.
+ * Muestra tres secciones: reporte de carga docente (con barra de progreso por docente),
+ * exportación de horarios (por escenario, por docente o por plan) y registro de conflictos.
+ * Acepta filtros iniciales provenientes de CalendarView para pre-seleccionar el tab correcto.
+ */
+export function ReportsView({ initialSemestre, initialDocenteId }: Props) {
+  const [selectedReport, setSelectedReport] = useState<string>(initialDocenteId ? "schedule" : "workload");
+  const [selectedSemestre, setSelectedSemestre] = useState(initialSemestre ?? "2026-1");
   const [reporteData, setReporteData] = useState<ReporteCargaDocenteResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [exportando, setExportando] = useState(false);
-  const [exportOptions, setExportOptions] = useState({
-    escenarios: ["ING_DIURNA", "ING_NOCTURNA", "TAPSI_DIURNA", "TAPSI_NOCTURNA"],
-    incluirDocentes: true,
-    mostrarSalones: true,
-    incluirCodigos: false,
-  });
+  const [exportando, setExportando] = useState<string | null>(null);
+  const [docentes, setDocentes] = useState<Docente[]>([]);
+  const [planes, setPlanes] = useState<PlanEstudio[]>([]);
+  const [docenteSeleccionado, setDocenteSeleccionado] = useState(initialDocenteId ?? "");
+  const [planSeleccionado, setPlanSeleccionado] = useState("");
 
-  const reportTypes = [
-    {
-      id: "workload",
-      title: "Horas asignadas vs contrato",
-      description: "Comparativo de carga docente",
-      icon: FileSpreadsheet,
-      format: "Excel",
-      color: "text-[#1A7A4A]",
-      bg: "bg-[#1A7A4A]/10",
-    },
-    {
-      id: "schedule",
-      title: "Horario semanal",
-      description: "Calendario completo por escenario",
-      icon: FileText,
-      format: "PDF",
-      color: "text-[#1A6BBF]",
-      bg: "bg-[#1A6BBF]/10",
-    },
-    {
-      id: "conflicts",
-      title: "Conflictos y excepciones",
-      description: "Registro de auditoría",
-      icon: History,
-      format: "Excel",
-      color: "text-[#E8A020]",
-      bg: "bg-[#E8A020]/10",
-    },
-  ];
-
-  // Cargar reporte cuando se selecciona
   useEffect(() => {
-    if (selectedReport === "workload") {
-      cargarReporteCarga();
-    } else if (selectedReport === "conflicts") {
-      cargarConflictos();
-    }
+    cargarFiltros();
+  }, []);
+
+  useEffect(() => {
+    if (selectedReport === "workload") cargarReporteCarga();
   }, [selectedReport, selectedSemestre]);
 
+  /** Carga en paralelo docentes y planes de estudio para los selectores de filtro de exportación. */
+  const cargarFiltros = async () => {
+    try {
+      const [docs, plans] = await Promise.allSettled([obtenerDocentes(), obtenerPlanes()]);
+      if (docs.status === "fulfilled") setDocentes(docs.value || []);
+      if (plans.status === "fulfilled") setPlanes(plans.value || []);
+    } catch { /* graceful */ }
+  };
+
+  /** Solicita al backend el reporte de carga docente del semestre seleccionado y actualiza el estado local. */
   const cargarReporteCarga = async () => {
     setLoading(true);
     try {
       const data = await reportsService.getReporteCarga(selectedSemestre);
       setReporteData(data);
-    } catch (error) {
-      console.error("Error cargando reporte:", error);
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* silent */ } finally { setLoading(false); }
   };
 
-  const cargarConflictos = async () => {
-    setLoading(true);
+  /**
+   * Fuerza la descarga de un Blob en el navegador/Electron con el nombre de archivo indicado.
+   * Crea un anchor temporal en el DOM, hace clic programáticamente y lo elimina.
+   */
+  const descargarBlob = (blob: Blob, nombreArchivo: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  /**
+   * Exporta el horario en formato Excel según el tipo seleccionado:
+   * - "todos": una hoja por cada uno de los cuatro escenarios.
+   * - "docente": horario individual del docente seleccionado, o una hoja por docente si se eligió "__ALL__".
+   * - "plan": una hoja por semestre del plan de estudios seleccionado.
+   */
+  const exportarHorario = async (tipo: "todos" | "docente" | "plan") => {
+    setExportando(tipo);
     try {
-      const data = await reportsService.getConflictos(selectedSemestre);
-      console.log("Conflictos:", data);
-    } catch (error) {
-      console.error("Error cargando conflictos:", error);
+      const params = new URLSearchParams({ periodo: selectedSemestre });
+
+      if (tipo === "docente") {
+        if (docenteSeleccionado === "__ALL__") {
+          // Una hoja por cada docente
+          params.set("idDocente", "__ALL__");
+        } else if (docenteSeleccionado) {
+          params.set("idDocente", docenteSeleccionado);
+        }
+      }
+
+      if (tipo === "plan" && planSeleccionado) {
+        params.set("idPlan", planSeleccionado);
+        params.set("porSemestre", "true"); // Una hoja por semestre
+      }
+
+      const response = await api.get(`/horarios/exportar?${params}`, { responseType: "blob" });
+      const sufijo =
+        tipo === "todos" ? "4_Horarios" :
+        tipo === "docente" ? (docenteSeleccionado === "__ALL__" ? "Todos_Docentes" : "Por_Docente") :
+        "Por_Plan";
+      descargarBlob(response.data, `Horarios_${sufijo}_${selectedSemestre}.xlsx`);
+    } catch (err: any) {
+      alert("Error al exportar: " + (err?.response?.data?.message || err?.message));
     } finally {
-      setLoading(false);
+      setExportando(null);
     }
   };
 
-  const handleExportarExcel = async () => {
-    setExportando(true);
+  /** Descarga el reporte de carga docente del semestre seleccionado en formato Excel (.xlsx). */
+  const exportarReporteCarga = async () => {
+    setExportando("carga");
     try {
       const blob = await reportsService.exportarReporteCargaExcel(selectedSemestre);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Reporte_Carga_${selectedSemestre}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error exportando:", error);
-      alert("Error al exportar el reporte");
-    } finally {
-      setExportando(false);
-    }
-  };
-
-  const handleExportarHorarioPDF = async () => {
-    setExportando(true);
-    try {
-      const blob = await reportsService.exportarHorarioPDF(selectedSemestre, exportOptions.escenarios);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Horario_${selectedSemestre}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error exportando:", error);
-      alert("Error al exportar el horario PDF");
-    } finally {
-      setExportando(false);
-    }
-  };
-
-  const handleExportarConflictosExcel = async () => {
-    setExportando(true);
-    try {
-      const blob = await reportsService.exportarConflictosExcel(selectedSemestre);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Conflictos_${selectedSemestre}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error exportando:", error);
-      alert("Error al exportar conflictos");
-    } finally {
-      setExportando(false);
-    }
+      descargarBlob(blob, `Reporte_Carga_${selectedSemestre}.xlsx`);
+    } catch { alert("Error al exportar el reporte."); } finally { setExportando(null); }
   };
 
   const teacherWorkload = reporteData?.docentes?.map(d => ({
@@ -149,18 +137,19 @@ export function ReportsView() {
     contract: d.horasContractuales,
     assigned: d.totalHorasSemanales,
     difference: d.diferenciaHoras,
-    status: d.estadoCarga === "Excedida" ? "error" : "success"
+    isOverloaded: d.estadoCarga === "Excedida"
   })) || [];
 
-  const stats = reporteData ? {
-    totalAsignadas: reporteData.docentes.reduce((sum, d) => sum + d.totalHorasSemanales, 0),
-    totalContractuales: reporteData.docentes.reduce((sum, d) => sum + d.horasContractuales, 0),
-    docentesSobrecarga: reporteData.docentesConCargaExcedida,
-  } : { totalAsignadas: 0, totalContractuales: 0, docentesSobrecarga: 0 };
+  const stats = reporteData
+    ? {
+        totalAsignadas: reporteData.docentes.reduce((s, d) => s + d.totalHorasSemanales, 0),
+        totalContractuales: reporteData.docentes.reduce((s, d) => s + d.horasContractuales, 0),
+        docentesSobrecarga: reporteData.docentesConCargaExcedida,
+      }
+    : { totalAsignadas: 0, totalContractuales: 0, docentesSobrecarga: 0 };
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto bg-[#F5F5F5]">
-      {/* Header con selector de semestre */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-medium text-[#333333]">Reportes y Exportación</h1>
@@ -170,27 +159,21 @@ export function ReportsView() {
           value={selectedSemestre}
           onChange={(e) => setSelectedSemestre(e.target.value)}
           options={[
-            { value: "2026-1", label: "2026-1" },
-            { value: "2026-2", label: "2026-2" },
-            { value: "2025-1", label: "2025-1" },
-            { value: "2025-2", label: "2025-2" },
+            { value: "2026-1", label: "2026-1" }, { value: "2026-2", label: "2026-2" },
+            { value: "2025-1", label: "2025-1" }, { value: "2025-2", label: "2025-2" },
           ]}
           className="w-32"
         />
       </div>
 
-      {/* Tarjetas de tipos de reporte */}
+      {/* Tarjetas de tipo */}
       <div className="grid grid-cols-3 gap-6">
         {reportTypes.map((report) => {
           const Icon = report.icon;
           return (
             <div
               key={report.id}
-              className={`cursor-pointer transition-all ${
-                selectedReport === report.id
-                  ? "ring-2 ring-[#1A6BBF] shadow-lg"
-                  : "hover:shadow-md"
-              }`}
+              className={`cursor-pointer transition-all ${selectedReport === report.id ? "ring-2 ring-[#1A6BBF] shadow-lg" : "hover:shadow-md"}`}
               onClick={() => setSelectedReport(report.id)}
             >
               <Card>
@@ -200,9 +183,7 @@ export function ReportsView() {
                   </div>
                   <h3 className="text-base font-medium text-[#333333] mb-1">{report.title}</h3>
                   <p className="text-sm text-[#666666] mb-3">{report.description}</p>
-                  <Badge variant="secondary" className="text-xs">
-                    {report.format}
-                  </Badge>
+                  <Badge variant="secondary" className="text-xs">{report.format}</Badge>
                 </CardContent>
               </Card>
             </div>
@@ -217,13 +198,11 @@ export function ReportsView() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Vista Previa - Horas Asignadas vs Contrato ({selectedSemestre})</CardTitle>
-                  <div className="flex gap-2">
-                    <Button size="sm" className="gap-2" onClick={handleExportarExcel} disabled={exportando}>
-                      {exportando ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                      Exportar Excel
-                    </Button>
-                  </div>
+                  <CardTitle>Vista Previa — Horas Asignadas vs Contrato ({selectedSemestre})</CardTitle>
+                  <Button size="sm" className="gap-2" onClick={exportarReporteCarga} disabled={exportando === "carga"}>
+                    {exportando === "carga" ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                    Exportar Excel
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
@@ -234,37 +213,27 @@ export function ReportsView() {
                   </div>
                 ) : teacherWorkload.length === 0 ? (
                   <div className="text-center py-8 text-[#666666]">
-                    No hay datos de carga docente para el semestre {selectedSemestre}
+                    No hay datos de carga docente para {selectedSemestre}.
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {teacherWorkload.map((teacher, idx) => {
-                      const percentage = (teacher.assigned / teacher.contract) * 100;
-                      const isOverloaded = percentage > 100;
-
+                      const pct = (teacher.assigned / teacher.contract) * 100;
                       return (
                         <div key={idx} className="space-y-2">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <p className="text-sm font-medium text-[#333333]">{teacher.name}</p>
-                              <p className="text-xs text-[#666666]">
-                                {teacher.assigned}h asignadas de {teacher.contract}h contractuales
-                              </p>
+                              <p className="text-xs text-[#666666]">{teacher.assigned}h de {teacher.contract}h contractuales</p>
                             </div>
-                            <Badge variant={isOverloaded ? "error" : "success"} className="ml-4">
-                              {isOverloaded ? "Sobrecarga" : "OK"}
+                            <Badge variant={teacher.isOverloaded ? "error" : "success"} className="ml-4">
+                              {teacher.isOverloaded ? "Sobrecarga" : "OK"}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-3">
-                            <ProgressBar
-                              value={teacher.assigned}
-                              max={teacher.contract}
-                              variant={isOverloaded ? "error" : "success"}
-                              size="sm"
-                              className="flex-1"
-                            />
-                            <span className={`text-sm font-medium ${isOverloaded ? "text-[#C0392B]" : "text-[#1A7A4A]"}`}>
-                              {isOverloaded ? "-" : "+"}{Math.abs(teacher.difference)}h
+                            <ProgressBar value={teacher.assigned} max={teacher.contract} variant={teacher.isOverloaded ? "error" : "success"} size="sm" className="flex-1" />
+                            <span className={`text-sm font-medium ${teacher.isOverloaded ? "text-[#C0392B]" : "text-[#1A7A4A]"}`}>
+                              {teacher.isOverloaded ? "-" : "+"}{Math.abs(teacher.difference)}h
                             </span>
                           </div>
                         </div>
@@ -272,57 +241,28 @@ export function ReportsView() {
                     })}
                   </div>
                 )}
-
                 {!loading && teacherWorkload.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-[#CCCCCC]">
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <p className="text-sm text-[#666666]">Total asignadas</p>
-                        <p className="text-xl font-medium text-[#333333]">{stats.totalAsignadas}h</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-[#666666]">Total contractuales</p>
-                        <p className="text-xl font-medium text-[#333333]">{stats.totalContractuales}h</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-[#666666]">Docentes sobrecarga</p>
-                        <p className="text-xl font-medium text-[#C0392B]">{stats.docentesSobrecarga}</p>
-                      </div>
-                    </div>
+                  <div className="mt-6 pt-6 border-t border-[#CCCCCC] grid grid-cols-3 gap-4 text-center">
+                    <div><p className="text-sm text-[#666666]">Total asignadas</p><p className="text-xl font-medium text-[#333333]">{stats.totalAsignadas}h</p></div>
+                    <div><p className="text-sm text-[#666666]">Total contractuales</p><p className="text-xl font-medium text-[#333333]">{stats.totalContractuales}h</p></div>
+                    <div><p className="text-sm text-[#666666]">Sobrecarga</p><p className="text-xl font-medium text-[#C0392B]">{stats.docentesSobrecarga}</p></div>
                   </div>
                 )}
               </CardContent>
             </Card>
           </div>
-
           <div>
             <Card>
-              <CardHeader>
-                <CardTitle>Resumen</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>Resumen</CardTitle></CardHeader>
               <CardContent>
                 {loading ? (
-                  <div className="text-center py-4">
-                    <Loader2 className="w-6 h-6 animate-spin text-[#1A6BBF] mx-auto" />
-                  </div>
+                  <div className="text-center py-4"><Loader2 className="w-6 h-6 animate-spin text-[#1A6BBF] mx-auto" /></div>
                 ) : reporteData ? (
                   <div className="space-y-3">
-                    <div className="p-3 bg-[#F5F5F5] rounded">
-                      <p className="text-xs text-[#666666]">Total docentes</p>
-                      <p className="text-xl font-medium text-[#333333]">{reporteData.totalDocentes}</p>
-                    </div>
-                    <div className="p-3 bg-[#F5F5F5] rounded">
-                      <p className="text-xs text-[#666666]">Carga completa</p>
-                      <p className="text-xl font-medium text-[#1A7A4A]">{reporteData.docentesConCargaCompleta}</p>
-                    </div>
-                    <div className="p-3 bg-[#F5F5F5] rounded">
-                      <p className="text-xs text-[#666666]">Carga parcial</p>
-                      <p className="text-xl font-medium text-[#E8A020]">{reporteData.docentesConCargaParcial}</p>
-                    </div>
-                    <div className="p-3 bg-[#F5F5F5] rounded">
-                      <p className="text-xs text-[#666666]">Sin asignaciones</p>
-                      <p className="text-xl font-medium text-[#999999]">{reporteData.docentesSinAsignaciones}</p>
-                    </div>
+                    <div className="p-3 bg-[#F5F5F5] rounded"><p className="text-xs text-[#666666]">Total docentes</p><p className="text-xl font-medium text-[#333333]">{reporteData.totalDocentes}</p></div>
+                    <div className="p-3 bg-[#F5F5F5] rounded"><p className="text-xs text-[#666666]">Carga completa</p><p className="text-xl font-medium text-[#1A7A4A]">{reporteData.docentesConCargaCompleta}</p></div>
+                    <div className="p-3 bg-[#F5F5F5] rounded"><p className="text-xs text-[#666666]">Carga parcial</p><p className="text-xl font-medium text-[#E8A020]">{reporteData.docentesConCargaParcial}</p></div>
+                    <div className="p-3 bg-[#F5F5F5] rounded"><p className="text-xs text-[#666666]">Sin asignaciones</p><p className="text-xl font-medium text-[#999999]">{reporteData.docentesSinAsignaciones}</p></div>
                   </div>
                 ) : (
                   <p className="text-sm text-[#999999] text-center py-4">Selecciona un semestre</p>
@@ -333,132 +273,124 @@ export function ReportsView() {
         </div>
       )}
 
-      {/* Configuración de exportación de horario PDF */}
+      {/* Exportar horarios */}
       {selectedReport === "schedule" && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Configuración de Exportación - Horario Semanal</CardTitle>
-              <Button className="gap-2" onClick={handleExportarHorarioPDF} disabled={exportando}>
-                {exportando ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                Exportar PDF
-              </Button>
-            </div>
+            <CardTitle>Exportar Horarios — {selectedSemestre}</CardTitle>
+            <p className="text-sm text-[#666666] mt-1">Descarga el horario semanal en formato Excel (cuadrícula por día y hora)</p>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-[#333333] mb-2 block">
-                    Seleccionar escenario
-                  </label>
-                  <div className="space-y-2">
-                    {["Ingeniería Diurna", "Ingeniería Nocturna", "TAPSI Diurno", "TAPSI Nocturno"].map((scenario) => (
-                      <label key={scenario} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          className="rounded border-[#CCCCCC]"
-                          checked={exportOptions.escenarios.includes(scenario.replace(" ", "_").toUpperCase())}
-                          onChange={(e) => {
-                            const valor = scenario.replace(" ", "_").toUpperCase();
-                            if (e.target.checked) {
-                              setExportOptions({ ...exportOptions, escenarios: [...exportOptions.escenarios, valor] });
-                            } else {
-                              setExportOptions({ ...exportOptions, escenarios: exportOptions.escenarios.filter(s => s !== valor) });
-                            }
-                          }}
-                        />
-                        <span className="text-sm text-[#333333]">{scenario}</span>
-                      </label>
-                    ))}
+            <div className="grid grid-cols-3 gap-6">
+              {/* Los 4 horarios */}
+              <div className="p-5 border border-[#CCCCCC] rounded-lg space-y-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-lg bg-[#1A6BBF]/10 flex items-center justify-center">
+                    <FileText className="text-[#1A6BBF]" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#333333]">Los 4 horarios</p>
+                    <p className="text-xs text-[#666666]">Una hoja por escenario</p>
                   </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-[#333333] mb-2 block">
-                    Opciones de visualización
-                  </label>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="rounded border-[#CCCCCC]"
-                        checked={exportOptions.incluirDocentes}
-                        onChange={(e) => setExportOptions({ ...exportOptions, incluirDocentes: e.target.checked })}
-                      />
-                      <span className="text-sm text-[#333333]">Incluir nombres de docentes</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="rounded border-[#CCCCCC]"
-                        checked={exportOptions.mostrarSalones}
-                        onChange={(e) => setExportOptions({ ...exportOptions, mostrarSalones: e.target.checked })}
-                      />
-                      <span className="text-sm text-[#333333]">Mostrar salones asignados</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="rounded border-[#CCCCCC]"
-                        checked={exportOptions.incluirCodigos}
-                        onChange={(e) => setExportOptions({ ...exportOptions, incluirCodigos: e.target.checked })}
-                      />
-                      <span className="text-sm text-[#333333]">Incluir códigos de materia</span>
-                    </label>
-                  </div>
-                </div>
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => exportarHorario("todos")}
+                  disabled={exportando !== null}
+                >
+                  {exportando === "todos" ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                  {exportando === "todos" ? "Descargando..." : "Descargar Excel"}
+                </Button>
               </div>
-              <div className="bg-[#F5F5F5] rounded p-6 text-center flex items-center justify-center">
-                <div>
-                  <FileText className="text-[#999999] mx-auto mb-3" size={48} />
-                  <p className="text-sm text-[#666666]">Vista previa del documento PDF</p>
-                  <p className="text-xs text-[#999999] mt-2">
-                    El archivo contendrá el calendario semanal completo con los filtros seleccionados
-                  </p>
+
+              {/* Por docente */}
+              <div className="p-5 border border-[#CCCCCC] rounded-lg space-y-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-lg bg-[#1A7A4A]/10 flex items-center justify-center">
+                    <FileText className="text-[#1A7A4A]" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#333333]">Por docente</p>
+                    <p className="text-xs text-[#666666]">
+                      {docenteSeleccionado === "__ALL__" ? "Una hoja por docente" : "Horario individual del docente"}
+                    </p>
+                  </div>
                 </div>
+                <Select
+                  placeholder="Seleccionar docente"
+                  value={docenteSeleccionado}
+                  onChange={(e) => setDocenteSeleccionado(e.target.value)}
+                  options={[
+                    { value: "", label: "Seleccionar docente..." },
+                    { value: "__ALL__", label: "Todos los docentes" },
+                    ...docentes.map((d) => ({ value: d.idDocente, label: d.nombre })),
+                  ]}
+                />
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => exportarHorario("docente")}
+                  disabled={!docenteSeleccionado || exportando !== null}
+                >
+                  {exportando === "docente" ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                  {exportando === "docente" ? "Descargando..." : "Descargar Excel"}
+                </Button>
+              </div>
+
+              {/* Por plan */}
+              <div className="p-5 border border-[#CCCCCC] rounded-lg space-y-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-lg bg-[#E8A020]/10 flex items-center justify-center">
+                    <FileText className="text-[#E8A020]" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#333333]">Por plan de estudios</p>
+                    <p className="text-xs text-[#666666]">Una hoja por semestre del plan</p>
+                  </div>
+                </div>
+                <Select
+                  placeholder="Seleccionar plan"
+                  value={planSeleccionado}
+                  onChange={(e) => setPlanSeleccionado(e.target.value)}
+                  options={[
+                    { value: "", label: "Seleccionar plan..." },
+                    ...planes.map((p) => ({ value: p.idPlan, label: p.nombrePlan })),
+                  ]}
+                />
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => exportarHorario("plan")}
+                  disabled={!planSeleccionado || exportando !== null}
+                >
+                  {exportando === "plan" ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                  {exportando === "plan" ? "Descargando..." : "Descargar Excel"}
+                </Button>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Reporte de conflictos */}
+      {/* Conflictos */}
       {selectedReport === "conflicts" && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Configuración de Exportación - Conflictos y Excepciones</CardTitle>
-              <Button className="gap-2" onClick={handleExportarConflictosExcel} disabled={exportando}>
-                {exportando ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                Exportar Excel
-              </Button>
+              <CardTitle>Conflictos y Excepciones — {selectedSemestre}</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <p className="text-sm text-[#666666]">
-                Este reporte incluye el historial completo de conflictos detectados, excepciones aprobadas
-                y su registro de auditoría con usuario y fecha.
+                Historial completo de conflictos detectados y excepciones aprobadas para el período seleccionado.
               </p>
               <div className="grid grid-cols-3 gap-4 p-4 bg-[#F5F5F5] rounded">
-                <div className="text-center">
-                  <p className="text-2xl font-medium text-[#C0392B]">-</p>
-                  <p className="text-xs text-[#666666]">Errores críticos</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-medium text-[#E8A020]">-</p>
-                  <p className="text-xs text-[#666666]">Advertencias</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-medium text-[#1A7A4A]">-</p>
-                  <p className="text-xs text-[#666666]">Resueltos</p>
-                </div>
+                <div className="text-center"><p className="text-2xl font-medium text-[#C0392B]">—</p><p className="text-xs text-[#666666]">Errores críticos</p></div>
+                <div className="text-center"><p className="text-2xl font-medium text-[#E8A020]">—</p><p className="text-xs text-[#666666]">Advertencias</p></div>
+                <div className="text-center"><p className="text-2xl font-medium text-[#1A7A4A]">—</p><p className="text-xs text-[#666666]">Resueltos</p></div>
               </div>
-              {loading && (
-                <div className="text-center py-4">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#1A6BBF] mx-auto" />
-                </div>
-              )}
+              <p className="text-sm text-[#999999] text-center py-2">
+                Ve a la sección de Alertas para ver el detalle de conflictos activos.
+              </p>
             </div>
           </CardContent>
         </Card>

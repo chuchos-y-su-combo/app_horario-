@@ -6,6 +6,7 @@ export interface Subject {
     creditos: number;
     semestre: number;
     minEstudiantes: number;
+    aula?: string;
     esFijaTapsi?: boolean;
     esOpcionalTapsiDiurna?: boolean;
 }

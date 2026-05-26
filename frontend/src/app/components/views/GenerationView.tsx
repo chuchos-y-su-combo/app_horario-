@@ -2,229 +2,343 @@ import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import { Badge } from "../Badge";
 import { Button } from "../Button";
 import { ProgressBar } from "../ProgressBar";
-import { ConfirmModal } from "../Modal";
-import { Sparkles, CheckCircle, AlertTriangle, Clock } from "lucide-react";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../Table";
+import { Sparkles, CheckCircle, Clock, Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { generationService } from "../../../services/generation.service";
+import api from "../../../services/api";
 
+const PERIODO_ACTIVO = "2026-1";
+
+const ESCENARIOS_FIJOS = [
+  { id: "ING_DIURNA",     nombre: "Ingeniería Diurna" },
+  { id: "ING_NOCTURNA",   nombre: "Ingeniería Nocturna" },
+  { id: "TAPSI_DIURNA",   nombre: "TAPSI Diurna" },
+  { id: "TAPSI_NOCTURNA", nombre: "TAPSI Nocturna" },
+];
+
+/** Contador de sesiones asignadas para un escenario en el periodo activo. */
+interface EscenarioStats {
+  /** Número de asignaciones (sesiones) en la propuesta del escenario. */
+  assigned: number;
+}
+
+/** Fila del historial de generaciones: un escenario en un periodo dado. */
+interface HistoricoRow {
+  periodo: string;
+  escenario: string;
+  /** Total de sesiones generadas para ese escenario y periodo. */
+  total: number;
+  /** Estado predominante de las asignaciones del grupo ("Propuesta" o "Confirmada"). */
+  estado: string;
+}
+
+/**
+ * Vista de generación automática de horarios.
+ * Presenta cuatro tarjetas fijas (una por escenario) con el estado de la propuesta activa;
+ * al hacer clic en una tarjeta se dispara la generación solo para ese escenario.
+ * También permite generar todos los escenarios en un solo click y muestra un historial
+ * de generaciones de periodos anteriores consultando el endpoint de periodos históricos.
+ */
 export function GenerationView() {
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [scenarios, setScenarios] = useState<any[]>([]);
+  const [statsMap, setStatsMap]                   = useState<Record<string, EscenarioStats>>({});
+  const [loadingStats, setLoadingStats]           = useState(true);
+  const [errorStats, setErrorStats]               = useState<string | null>(null);
+  const [generandoEscenario, setGenerandoEscenario] = useState<string | null>(null);
+  const [mensajeGeneracion, setMensajeGeneracion] = useState<{ texto: string; ok: boolean } | null>(null);
+  const [historico, setHistorico]                 = useState<HistoricoRow[]>([]);
+  const [loadingHistorico, setLoadingHistorico]   = useState(false);
 
   useEffect(() => {
     cargarPropuestas();
+    cargarHistorico();
   }, []);
 
+  /** Obtiene las propuestas del periodo activo y agrupa el conteo de sesiones por escenario para las tarjetas de estado. */
   const cargarPropuestas = async () => {
+    setLoadingStats(true);
+    setErrorStats(null);
     try {
-      const response = await generationService.obtenerPropuestas("2026-1");
-
-      const propuestasTransformadas = response.map((item: any) => ({
-        id: item.id,
-        name: item.nombreEscenario,
-        status: item.estado,
-        badge:
-          item.estado === "Activo"
-            ? "primary"
-            : item.estado === "Validando"
-            ? "warning"
-            : item.estado === "Fijas aplicadas"
-            ? "success"
-            : "inactive",
-        progress: item.progreso,
-        assigned: item.asignadas,
-        total: item.total,
-        conflicts: item.conflictos,
-      }));
-
-      setScenarios(propuestasTransformadas);
-    } catch (error) {
-      console.error("Error cargando propuestas", error);
+      const data: any[] = await generationService.obtenerPropuestas(PERIODO_ACTIVO);
+      const map: Record<string, EscenarioStats> = {};
+      const list = Array.isArray(data) ? data : [];
+      for (const item of list) {
+        const esc: string = item.escenario ?? "";
+        if (!map[esc]) map[esc] = { assigned: 0 };
+        map[esc].assigned++;
+      }
+      setStatsMap(map);
+    } catch {
+      setErrorStats("No se pudieron cargar las propuestas del servidor.");
+    } finally {
+      setLoadingStats(false);
     }
   };
 
-  const constraints = [
-    { name: "Disponibilidad docente", status: "success", percentage: 95, description: "Respetando franjas horarias cargadas" },
-    { name: "Carga contractual", status: "warning", percentage: 88, description: "3 docentes cerca del límite" },
-    { name: "Materias fijas TAPSI", status: "success", percentage: 100, description: "Todas las restricciones aplicadas" },
-    { name: "Bloqueos activos", status: "success", percentage: 100, description: "12 franjas bloqueadas respetadas" },
-  ];
+  /** Carga el historial de generaciones de todos los periodos disponibles en el backend para la tabla de historial. */
+  const cargarHistorico = async () => {
+    setLoadingHistorico(true);
+    try {
+      const res = await api.get("/asignaciones/periodos-historicos");
+      const periodos: string[] = Array.isArray(res.data) ? res.data : [];
+
+      const rows: HistoricoRow[] = [];
+      await Promise.allSettled(
+        periodos.map(async (periodo) => {
+          try {
+            const propuestas = await generationService.obtenerPropuestas(periodo);
+            const list = Array.isArray(propuestas) ? propuestas : [];
+            for (const esc of ESCENARIOS_FIJOS) {
+              const grupo = list.filter((p: any) => p.escenario === esc.id);
+              if (grupo.length > 0) {
+                rows.push({
+                  periodo,
+                  escenario: esc.nombre,
+                  total: grupo.length,
+                  estado: grupo[0]?.estado ?? "Propuesta",
+                });
+              }
+            }
+          } catch {}
+        })
+      );
+
+      rows.sort((a, b) =>
+        b.periodo.localeCompare(a.periodo) || a.escenario.localeCompare(b.escenario)
+      );
+      setHistorico(rows);
+    } catch {}
+    finally { setLoadingHistorico(false); }
+  };
+
+  /**
+   * Genera las propuestas de horario para un escenario específico.
+   * Borra las propuestas previas del periodo antes de generar las nuevas.
+   * @param escId Identificador del escenario (p.ej. "ING_DIURNA").
+   */
+  const handleGenerarEscenario = async (escId: string) => {
+    setGenerandoEscenario(escId);
+    setMensajeGeneracion(null);
+    try {
+      const result = await generationService.generarPropuestas({
+        periodo: PERIODO_ACTIVO,
+        escenarios: [escId],
+        semestreIngenieria: 1,          // el backend procesa todos los semestres automáticamente
+        borrarPropuestasPrevias: true,
+      });
+      const nombre = ESCENARIOS_FIJOS.find((e) => e.id === escId)?.nombre ?? escId;
+      setMensajeGeneracion({
+        ok: true,
+        texto: `${nombre}: ${result.totalPropuestasCreadas ?? 0} sesiones generadas, ` +
+               `${result.totalAsignaturasNoAsignadas ?? 0} sin ubicar.`,
+      });
+      await cargarPropuestas();
+      await cargarHistorico();
+    } catch (err: any) {
+      setMensajeGeneracion({
+        ok: false,
+        texto: "Error: " + (err?.response?.data?.mensaje || err?.message || "Error desconocido"),
+      });
+    } finally {
+      setGenerandoEscenario(null);
+    }
+  };
+
+  /**
+   * Genera propuestas para todos los escenarios en un solo request (array vacío = todos en el backend).
+   * Borra las propuestas previas antes de generar.
+   */
+  const handleGenerarTodos = async () => {
+    setGenerandoEscenario("TODOS");
+    setMensajeGeneracion(null);
+    try {
+      const result = await generationService.generarPropuestas({
+        periodo: PERIODO_ACTIVO,
+        escenarios: [],                 // [] = todos los escenarios en el backend
+        semestreIngenieria: 1,
+        borrarPropuestasPrevias: true,
+      });
+      setMensajeGeneracion({
+        ok: true,
+        texto: `Todos los escenarios: ${result.totalPropuestasCreadas ?? 0} sesiones generadas, ` +
+               `${result.totalAsignaturasNoAsignadas ?? 0} sin ubicar.`,
+      });
+      await cargarPropuestas();
+      await cargarHistorico();
+    } catch (err: any) {
+      setMensajeGeneracion({
+        ok: false,
+        texto: "Error: " + (err?.response?.data?.mensaje || err?.message || "Error desconocido"),
+      });
+    } finally {
+      setGenerandoEscenario(null);
+    }
+  };
+
+  const totalAssigned = Object.values(statsMap).reduce((s, e) => s + e.assigned, 0);
+  const hayGenerando   = generandoEscenario !== null;
 
   return (
     <div className="flex-1 p-6 space-y-6 overflow-auto bg-[#F5F5F5]">
+
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-medium text-[#333333]">Generación Automática de Horarios</h1>
-          <p className="text-sm text-[#666666] mt-1">Motor inteligente de asignación con validación de restricciones</p>
+          <p className="text-sm text-[#666666] mt-1">
+            Motor inteligente de asignación · Período activo: {PERIODO_ACTIVO}
+          </p>
         </div>
-        <Button className="gap-2" onClick={() => setShowConfirmModal(true)}>
-          <Sparkles size={20} />
-          Generar horarios
-        </Button>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => { cargarPropuestas(); cargarHistorico(); }} className="gap-2" disabled={hayGenerando}>
+            <RefreshCw size={18} />
+          </Button>
+          <Button className="gap-2" onClick={handleGenerarTodos} disabled={hayGenerando}>
+            {generandoEscenario === "TODOS"
+              ? <><Loader2 size={18} className="animate-spin" /> Generando todos...</>
+              : <><Sparkles size={18} /> Generar todos</>}
+          </Button>
+        </div>
       </div>
 
+      {/* Mensaje de resultado */}
+      {mensajeGeneracion && (
+        <div className={`rounded p-3 text-sm border ${
+          mensajeGeneracion.ok
+            ? "bg-[#1A7A4A]/10 border-[#1A7A4A]/30 text-[#1A7A4A]"
+            : "bg-[#C0392B]/10 border-[#C0392B]/30 text-[#C0392B]"
+        }`}>
+          {mensajeGeneracion.texto}
+        </div>
+      )}
+
+      {errorStats && (
+        <div className="bg-[#C0392B]/10 border border-[#C0392B]/30 text-[#C0392B] rounded p-3 text-sm">
+          {errorStats}
+        </div>
+      )}
+
+      {/* 4 tarjetas fijas de escenarios — clic en la card dispara generación */}
       <div className="grid grid-cols-4 gap-6">
-        {scenarios.map((scenario) => {
-          const statusIcons = {
-            Activo: CheckCircle,
-            Validando: Clock,
-            "Fijas aplicadas": CheckCircle,
-            Pendiente: AlertTriangle,
-          };
-          const Icon = statusIcons[scenario.status as keyof typeof statusIcons];
+        {ESCENARIOS_FIJOS.map((esc) => {
+          const isGenerandoThis = generandoEscenario === esc.id;
+          const stats    = statsMap[esc.id];
+          const assigned = stats?.assigned ?? 0;
+          const hasData  = assigned > 0;
 
           return (
-            <Card key={scenario.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between mb-3">
-                  <CardTitle className="text-base">{scenario.name}</CardTitle>
-                  <Icon
-                    className={
-                      scenario.badge === "success"
-                        ? "text-[#1A7A4A]"
-                        : scenario.badge === "warning"
-                        ? "text-[#E8A020]"
-                        : scenario.badge === "primary"
-                        ? "text-[#1A6BBF]"
-                        : "text-[#999999]"
-                    }
-                    size={20}
-                  />
-                </div>
-                <Badge variant={scenario.badge as any}>{scenario.status}</Badge>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <ProgressBar
-                    value={scenario.progress}
-                    variant={scenario.progress >= 80 ? "success" : scenario.progress >= 60 ? "primary" : "warning"}
-                  />
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#666666]">Progreso</span>
-                    <span className="text-[#333333] font-medium">{scenario.progress}%</span>
+            <div
+              key={esc.id}
+              onClick={() => !hayGenerando && handleGenerarEscenario(esc.id)}
+              className={`cursor-pointer transition-all rounded-lg ${
+                hayGenerando ? "opacity-60 cursor-not-allowed" : "hover:shadow-md hover:ring-2 hover:ring-[#1A6BBF]"
+              } ${isGenerandoThis ? "ring-2 ring-[#1A6BBF] shadow-lg" : ""}`}
+              title={hayGenerando ? undefined : `Generar horario: ${esc.nombre}`}
+            >
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between mb-3">
+                    <CardTitle className="text-base">{esc.nombre}</CardTitle>
+                    {isGenerandoThis
+                      ? <Loader2 className="animate-spin text-[#1A6BBF]" size={20} />
+                      : loadingStats
+                        ? <Loader2 className="animate-spin text-[#1A6BBF]" size={18} />
+                        : hasData
+                          ? <CheckCircle className="text-[#1A7A4A]" size={20} />
+                          : <Clock className="text-[#999999]" size={20} />}
                   </div>
-                  <div className="pt-3 border-t border-[#CCCCCC] space-y-2">
+                  <Badge variant={hasData ? "success" : "inactive"}>
+                    {isGenerandoThis ? "Generando…" : hasData ? "Con propuesta" : "Sin datos"}
+                  </Badge>
+                </CardHeader>
+
+                <CardContent>
+                  <div className="space-y-3">
+                    <ProgressBar
+                      value={hasData ? 100 : 0}
+                      variant={hasData ? "success" : "warning"}
+                    />
                     <div className="flex justify-between text-sm">
-                      <span className="text-[#666666]">Asignadas</span>
-                      <span className="text-[#333333]">{scenario.assigned} / {scenario.total}</span>
+                      <span className="text-[#666666]">Sesiones</span>
+                      <span className="text-[#333333] font-medium">
+                        {loadingStats ? "…" : assigned}
+                      </span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#666666]">Conflictos</span>
-                      <Badge variant={scenario.conflicts > 0 ? "error" : "success"} className="text-xs">
-                        {scenario.conflicts}
-                      </Badge>
-                    </div>
+                    <p className="text-xs text-center text-[#1A6BBF] font-medium pt-1">
+                      {isGenerandoThis ? "Procesando…" : "Clic para generar"}
+                    </p>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           );
         })}
       </div>
 
+      {/* Resumen global (solo si hay propuestas) */}
+      {totalAssigned > 0 && !loadingStats && (
+        <Card>
+          <CardContent className="flex items-center gap-4 py-4">
+            <CheckCircle className="text-[#1A7A4A] shrink-0" size={28} />
+            <div>
+              <p className="text-sm text-[#666666]">Total sesiones en propuesta activa ({PERIODO_ACTIVO})</p>
+              <p className="text-2xl font-medium text-[#1A7A4A]">{totalAssigned}</p>
+            </div>
+            <p className="text-xs text-[#999999] ml-auto">
+              Revisa en Ajuste Manual antes de confirmar.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Historial de generaciones */}
       <Card>
         <CardHeader>
-          <CardTitle>Motor de Generación - Validación de Restricciones</CardTitle>
-          <p className="text-sm text-[#666666] mt-1">Estado de cumplimiento de reglas institucionales</p>
+          <CardTitle>Historial de Generaciones</CardTitle>
+          <p className="text-sm text-[#666666] mt-1">Propuestas registradas por período y escenario</p>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {constraints.map((constraint, idx) => (
-              <div key={idx} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        constraint.status === "success" ? "bg-[#1A7A4A]" : "bg-[#E8A020]"
-                      }`}
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-[#333333]">{constraint.name}</p>
-                      <p className="text-xs text-[#666666]">{constraint.description}</p>
-                    </div>
-                  </div>
-                  <span className="text-sm font-medium text-[#333333]">{constraint.percentage}%</span>
-                </div>
-                <ProgressBar
-                  value={constraint.percentage}
-                  variant={constraint.status === "success" ? "success" : "warning"}
-                  size="sm"
-                />
-              </div>
-            ))}
-          </div>
+          {loadingHistorico ? (
+            <div className="flex items-center justify-center py-8 gap-2 text-[#666666]">
+              <Loader2 className="animate-spin text-[#1A6BBF]" size={22} />
+              <span className="text-sm">Cargando historial...</span>
+            </div>
+          ) : historico.length === 0 ? (
+            <div className="text-center py-8 text-[#999999] text-sm">
+              No hay generaciones registradas.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Período</TableHead>
+                  <TableHead>Escenario</TableHead>
+                  <TableHead>Total sesiones</TableHead>
+                  <TableHead>Estado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {historico.map((row, idx) => (
+                  <TableRow key={idx} striped>
+                    <TableCell className="font-medium text-[#333333]">{row.periodo}</TableCell>
+                    <TableCell className="text-[#666666]">{row.escenario}</TableCell>
+                    <TableCell className="text-[#666666]">{row.total}</TableCell>
+                    <TableCell>
+                      <Badge variant={
+                        row.estado === "Confirmada" ? "success"
+                        : row.estado === "Propuesta" ? "primary"
+                        : "inactive"
+                      }>
+                        {row.estado}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
-
-      <div className="grid grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Resultado Preliminar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-[#1A7A4A]/5 rounded border border-[#1A7A4A]/20">
-                <div>
-                  <p className="text-sm text-[#666666]">Asignaturas ubicadas</p>
-                  <p className="text-2xl font-medium text-[#1A7A4A]">148</p>
-                </div>
-                <CheckCircle className="text-[#1A7A4A]" size={32} />
-              </div>
-              <div className="flex items-center justify-between p-4 bg-[#E8A020]/5 rounded border border-[#E8A020]/20">
-                <div>
-                  <p className="text-sm text-[#666666]">Conflictos pendientes</p>
-                  <p className="text-2xl font-medium text-[#E8A020]">11</p>
-                </div>
-                <AlertTriangle className="text-[#E8A020]" size={32} />
-              </div>
-              <div className="pt-4 border-t border-[#CCCCCC]">
-                <p className="text-xs text-[#666666] mb-3">
-                  El sistema ha generado una propuesta inicial. Se recomienda revisar los conflictos en el módulo de Ajuste Manual antes de aplicar.
-                </p>
-                <Button variant="secondary" className="w-full">
-                  Ver detalles de generación
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Historial de Generaciones</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {[
-                { date: "12 May 2026 - 14:30", status: "Actual", conflicts: 11 },
-                { date: "10 May 2026 - 09:15", status: "Anterior", conflicts: 18 },
-                { date: "08 May 2026 - 16:45", status: "Descartada", conflicts: 24 },
-              ].map((gen, idx) => (
-                <div key={idx} className="p-3 border border-[#CCCCCC] rounded hover:bg-[#F5F5F5] transition-colors">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-[#333333]">{gen.date}</p>
-                    <Badge variant={gen.status === "Actual" ? "success" : "inactive"} className="text-xs">
-                      {gen.status}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-[#666666]">{gen.conflicts} conflictos detectados</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <ConfirmModal
-        isOpen={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
-        onConfirm={() => console.log("Generación iniciada")}
-        title="Confirmar generación de horarios"
-        message="¿Está seguro que desea iniciar la generación automática? Esta acción creará una nueva propuesta de horarios que quedará como versión oficial preliminar. La versión actual se guardará en el historial."
-        confirmText="Generar"
-        cancelText="Cancelar"
-        variant="warning"
-      />
     </div>
   );
 }

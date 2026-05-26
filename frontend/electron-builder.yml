@@ -1,0 +1,43 @@
+appId: com.apphorario.scheduler
+productName: AppHorario
+copyright: "© 2025 AppHorario"
+
+# Where electron-builder writes the installer / unpacked folder
+directories:
+  output: dist-electron
+
+# Files bundled into the Electron app (ASAR archive inside the installer)
+files:
+  - dist/**              # Vite-built React frontend
+  - electron/**          # main.cjs + preload.cjs
+  - resources/icon.ico   # app icon — accessible from main.cjs via __dirname
+  - package.json
+
+# Extra files copied OUTSIDE the ASAR, into <resources>/
+extraResources:
+  - from: resources/backend
+    to: backend
+    filter:
+      - "**/*"
+      - "!.gitkeep"
+      - "!icon.ico"      # icon.ico is bundled in the ASAR, not here
+
+# Windows target
+win:
+  target:
+    - target: nsis
+      arch: x64
+  # Icon burned into AppHorario.exe (used by taskbar, alt-tab, desktop shortcut)
+  icon: resources/icon.ico
+
+# NSIS installer options
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: AppHorario
+  # Icons for the installer and uninstaller wizards
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+  deleteAppDataOnUninstall: false
