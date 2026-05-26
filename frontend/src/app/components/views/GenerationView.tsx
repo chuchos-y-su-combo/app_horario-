@@ -17,17 +17,29 @@ const ESCENARIOS_FIJOS = [
   { id: "TAPSI_NOCTURNA", nombre: "TAPSI Nocturna" },
 ];
 
+/** Contador de sesiones asignadas para un escenario en el periodo activo. */
 interface EscenarioStats {
+  /** Número de asignaciones (sesiones) en la propuesta del escenario. */
   assigned: number;
 }
 
+/** Fila del historial de generaciones: un escenario en un periodo dado. */
 interface HistoricoRow {
   periodo: string;
   escenario: string;
+  /** Total de sesiones generadas para ese escenario y periodo. */
   total: number;
+  /** Estado predominante de las asignaciones del grupo ("Propuesta" o "Confirmada"). */
   estado: string;
 }
 
+/**
+ * Vista de generación automática de horarios.
+ * Presenta cuatro tarjetas fijas (una por escenario) con el estado de la propuesta activa;
+ * al hacer clic en una tarjeta se dispara la generación solo para ese escenario.
+ * También permite generar todos los escenarios en un solo click y muestra un historial
+ * de generaciones de periodos anteriores consultando el endpoint de periodos históricos.
+ */
 export function GenerationView() {
   const [statsMap, setStatsMap]                   = useState<Record<string, EscenarioStats>>({});
   const [loadingStats, setLoadingStats]           = useState(true);
@@ -42,7 +54,7 @@ export function GenerationView() {
     cargarHistorico();
   }, []);
 
-  // ── Carga stats del periodo activo ────────────────────────────────────────
+  /** Obtiene las propuestas del periodo activo y agrupa el conteo de sesiones por escenario para las tarjetas de estado. */
   const cargarPropuestas = async () => {
     setLoadingStats(true);
     setErrorStats(null);
@@ -63,7 +75,7 @@ export function GenerationView() {
     }
   };
 
-  // ── Carga historial de todos los periodos ────────────────────────────────
+  /** Carga el historial de generaciones de todos los periodos disponibles en el backend para la tabla de historial. */
   const cargarHistorico = async () => {
     setLoadingHistorico(true);
     try {
@@ -99,7 +111,11 @@ export function GenerationView() {
     finally { setLoadingHistorico(false); }
   };
 
-  // ── Generación por escenario individual ──────────────────────────────────
+  /**
+   * Genera las propuestas de horario para un escenario específico.
+   * Borra las propuestas previas del periodo antes de generar las nuevas.
+   * @param escId Identificador del escenario (p.ej. "ING_DIURNA").
+   */
   const handleGenerarEscenario = async (escId: string) => {
     setGenerandoEscenario(escId);
     setMensajeGeneracion(null);
@@ -128,7 +144,10 @@ export function GenerationView() {
     }
   };
 
-  // ── Generación de todos los escenarios ───────────────────────────────────
+  /**
+   * Genera propuestas para todos los escenarios en un solo request (array vacío = todos en el backend).
+   * Borra las propuestas previas antes de generar.
+   */
   const handleGenerarTodos = async () => {
     setGenerandoEscenario("TODOS");
     setMensajeGeneracion(null);

@@ -7,10 +7,13 @@ import { calendarioService } from "../../../services/calendarioService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/** Props del componente CalendarView. */
 interface Props {
+  /** Función de navegación del layout; si se llama con "reportes" + filtros, pre-selecciona los filtros en ReportsView. */
   onNavigate?: (view: string, state?: Record<string, string>) => void;
 }
 
+/** Bloque de horario de la cuadrícula semanal, enriquecido con campos calculados para el renderizado. */
 interface Bloque {
   idAsignacion: string;
   idDocente: string;
@@ -20,17 +23,22 @@ interface Bloque {
   codigoAsignatura: string;
   nombreDocente: string;
   semestreAsignatura: number;
+  /** Escenario al que pertenece la asignación: "ING_DIURNA", "ING_NOCTURNA", etc. */
   escenario: string;
+  /** "Diurna" o "Nocturna". */
   jornada: string;
   nombrePlan: string;
   idPlan: string;
   estado: string;
-  // computed:
-  day: number;      // 0-indexed
-  hour: number;     // integer hour
-  duration: number; // hours
+  /** Índice del día en la grilla (0=Lunes … 4=Viernes), calculado a partir de numeroDia del backend. */
+  day: number;
+  /** Hora entera de inicio (p.ej. 7 para las 07:00). */
+  hour: number;
+  /** Duración del bloque en horas enteras. */
+  duration: number;
 }
 
+/** Datos mínimos de docente para el selector de filtro por docente en CalendarView. */
 interface Docente {
   idProfesor: string;
   nombre: string;
@@ -38,7 +46,7 @@ interface Docente {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 
 const ESCENARIOS = [
   { value: "",              label: "Todos los escenarios",  jornada: undefined,   maxSemestre: 12 },
@@ -57,12 +65,20 @@ const PERIODOS = [
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Convierte "HH:MM" a su componente de hora entera; retorna 0 si la cadena es vacía. */
 const toHour = (t: string) => (t ? parseInt(t.split(":")[0], 10) : 0);
+/** Calcula la duración en horas entre dos franjas; mínimo 1 hora. */
 const durHours = (inicio: string, fin: string) =>
   Math.max(toHour(fin) - toHour(inicio), 1);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+/**
+ * Vista de calendario semanal del sistema de horarios (solo lectura).
+ * Permite filtrar por periodo, escenario, semestre y docente.
+ * Ajusta automáticamente el rango horario visible según la jornada (diurna 7–18, nocturna 18–23).
+ * Al hacer clic en "Exportar" navega a ReportsView pasando los filtros activos como estado inicial.
+ */
 export function CalendarView({ onNavigate }: Props) {
   const [periodo, setPeriodo]                   = useState("2026-1");
   const [scenarioFilter, setScenarioFilter]     = useState("");
@@ -117,6 +133,12 @@ export function CalendarView({ onNavigate }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo, scenarioFilter, teacherFilter, semestreFilter]);
 
+  /**
+   * Carga los bloques del calendario según los filtros activos.
+   * Si hay docente seleccionado usa el endpoint de calendario por docente;
+   * de lo contrario usa el endpoint general con filtros de jornada y semestre.
+   * Aplana los bloques de todos los días en un array plano con campos calculados (day, hour, duration).
+   */
   const cargarCalendario = async () => {
     setLoading(true);
     setError(null);
@@ -184,7 +206,10 @@ export function CalendarView({ onNavigate }: Props) {
     return filtered;
   }, [rawBlocks, scenarioFilter, teacherFilter, semestreFilter, startHour, endHour]);
 
-  // ── Block color ─────────────────────────────────────────────────────────────
+  /**
+   * Determina el color de fondo del bloque según su escenario:
+   * TAPSI → azul oscuro, NOCTURNA → azul medio, DIURNA → azul claro institucional.
+   */
   const blockColor = (b: Bloque) => {
     if (b.escenario?.startsWith("TAPSI")) return "bg-[#003087]";
     if (b.escenario?.includes("NOCTURNA")) return "bg-[#1A4A8A]";
@@ -329,7 +354,7 @@ export function CalendarView({ onNavigate }: Props) {
           ) : (
             <div className="border rounded-lg overflow-hidden min-w-[800px]">
               {/* Header row */}
-              <div className="grid grid-cols-7 bg-[#333333]">
+              <div className="grid grid-cols-6 bg-[#333333]">
                 <div className="p-3 text-white text-center text-xs font-medium border-r border-white/20">Hora</div>
                 {DAYS.map((day) => (
                   <div key={day} className="p-3 text-white text-center text-xs font-medium border-r border-white/20 last:border-r-0">
@@ -340,7 +365,7 @@ export function CalendarView({ onNavigate }: Props) {
 
               {/* Body */}
               <div
-                className="grid grid-cols-7"
+                className="grid grid-cols-6"
                 style={{ minHeight: `${numSlots * ROW_H_PX}px` }}
               >
                 {/* Hour labels */}

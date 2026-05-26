@@ -15,13 +15,21 @@ import {
 } from "lucide-react";
 import { cn } from "../utils/cn";
 
+/** Props de un ítem de navegación en el Sidebar. */
 interface SidebarItemProps {
+  /** Componente de icono Lucide a mostrar junto al label. */
   icon: LucideIcon;
+  /** Texto del ítem de menú. */
   label: string;
+  /** Indica si este ítem es la vista actualmente visible. */
   active?: boolean;
   onClick?: () => void;
 }
 
+/**
+ * Botón de navegación del sidebar con icono y label.
+ * El ítem activo tiene fondo azul sólido; los inactivos muestran azul al hacer hover.
+ */
 function SidebarItem({ icon: Icon, label, active, onClick }: SidebarItemProps) {
   return (
     <button
@@ -37,12 +45,22 @@ function SidebarItem({ icon: Icon, label, active, onClick }: SidebarItemProps) {
   );
 }
 
+/** Props del componente Sidebar. */
 interface SidebarProps {
+  /** ID de la vista actualmente renderizada para resaltar el ítem correspondiente. */
   currentView: string;
+  /** Función de navegación; acepta un estado opcional para pre-configurar la vista destino. */
   onNavigate: (view: string, state?: Record<string, string>) => void;
+  /** Callback para cerrar la sesión y limpiar el almacenamiento local. */
   onLogout: () => void;
 }
 
+/**
+ * Lee el rol del usuario desde localStorage.
+ * Intenta primero el objeto `usuario` guardado al hacer login,
+ * y como fallback decodifica el JWT para extraer el claim de rol.
+ * Devuelve string vacío si no se puede determinar el rol.
+ */
 function getRolFromStorage(): string {
   // Fuente primaria: objeto usuario guardado al hacer login
   try {
@@ -71,6 +89,10 @@ function getRolFromStorage(): string {
   return "";
 }
 
+/**
+ * Lee el nombre completo del usuario desde el objeto `usuario` en localStorage.
+ * Devuelve string vacío si no está disponible.
+ */
 function getNombreFromStorage(): string {
   try {
     const raw = localStorage.getItem("usuario");
@@ -82,6 +104,12 @@ function getNombreFromStorage(): string {
   return "";
 }
 
+/**
+ * Barra de navegación lateral fija de la aplicación.
+ * Muestra el logo, los ítems de menú filtrados según el rol del usuario
+ * (los ítems marcados como `soloAdmin` solo aparecen para Administradores),
+ * e información del usuario en el pie con botón de logout.
+ */
 export function Sidebar({ currentView, onNavigate, onLogout }: SidebarProps) {
   const rol = getRolFromStorage();
   const nombre = getNombreFromStorage();

@@ -1,4 +1,3 @@
-// views/HistoryView.tsx - Versión completa y corregida
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import { Badge } from "../Badge";
@@ -7,6 +6,12 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from ".
 import { Download, Eye, Archive, Loader2, FileText, FileSpreadsheet } from "lucide-react";
 import { historyService, SemesterHistory, SemesterDetail } from "../../../services/history.service";
 
+/**
+ * Vista de historial de generaciones de horarios.
+ * Lista los periodos académicos con asignaciones registradas, muestra estadísticas
+ * globales (total asignaturas, docentes, periodos) y permite ver el detalle de cada
+ * periodo con su mini cuadrícula semanal y opciones de exportación a PDF y Excel.
+ */
 export function HistoryView() {
   const [semesters, setSemesters] = useState<SemesterHistory[]>([]);
   const [selectedPeriodo, setSelectedPeriodo] = useState<string>("");
@@ -22,7 +27,7 @@ export function HistoryView() {
     periodos: 0
   });
 
-  const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const days = ["Lun", "Mar", "Mié", "Jue", "Vie"];
   const hours = Array.from({ length: 7 }, (_, i) => i + 7);
 
   // Cargar periodos históricos (las estadísticas se derivan de los periodos)
@@ -37,6 +42,7 @@ export function HistoryView() {
     }
   }, [selectedPeriodo]);
 
+  /** Carga todos los periodos históricos y calcula las estadísticas globales del historial. */
   const cargarPeriodos = async () => {
     setLoading(true);
     try {
@@ -55,26 +61,27 @@ export function HistoryView() {
         totalExportaciones: 0,
         periodos: data.length,
       });
-    } catch (error) {
-      console.error("Error cargando periodos:", error);
+    } catch {
+      // La UI ya muestra estado vacío si no hay periodos
     } finally {
       setLoading(false);
     }
   };
 
+  /** Carga el detalle completo de asignaciones de un periodo para mostrar la mini cuadrícula y datos de exportación. */
   const cargarDetallePeriodo = async (periodo: string) => {
     setLoadingDetail(true);
     try {
       const data = await historyService.getDetallePeriodo(periodo);
       setSelectedDetail(data);
-    } catch (error) {
-      console.error("Error cargando detalle:", error);
+    } catch {
+      // La UI muestra estado vacío si falla el detalle
     } finally {
       setLoadingDetail(false);
     }
   };
 
-  // Exportar a PDF
+  /** Descarga el histórico del periodo indicado en formato PDF. */
   const handleExportarPDF = async (periodo: string) => {
     setExportando(true);
     try {
@@ -87,15 +94,14 @@ export function HistoryView() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error exportando:", error);
+    } catch {
       alert("Error al exportar el histórico");
     } finally {
       setExportando(false);
     }
   };
 
-  // Helper para descargar un Blob
+  /** Fuerza la descarga de un Blob como archivo con el nombre dado, usando un anchor temporal en el DOM. */
   const descargarBlob = (blob: Blob, nombre: string) => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -107,29 +113,27 @@ export function HistoryView() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Exportar a Excel (horario del período)
+  /** Descarga el histórico del periodo indicado en formato Excel (.xlsx). */
   const handleExportarExcel = async (periodo: string) => {
     setExportando(true);
     try {
       const blob = await historyService.exportarHistorico(periodo, 'excel');
       descargarBlob(blob, `Historico_${periodo}.xlsx`);
-    } catch (error) {
-      console.error("Error exportando:", error);
+    } catch {
       alert("Error al exportar el historial");
     } finally {
       setExportando(false);
     }
   };
 
-  // Exportar histórico general del período seleccionado
+  /** Descarga el histórico completo del periodo actualmente seleccionado en la tabla de periodos. */
   const handleExportarHistoricoGeneral = async () => {
     if (!selectedPeriodo) return;
     setExportando(true);
     try {
       const blob = await historyService.exportarHistorico(selectedPeriodo, 'excel');
       descargarBlob(blob, `Historico_${selectedPeriodo}.xlsx`);
-    } catch (error) {
-      console.error("Error exportando:", error);
+    } catch {
       alert("Error al exportar el histórico");
     } finally {
       setExportando(false);
@@ -373,7 +377,7 @@ export function HistoryView() {
                   <div className="pt-4 border-t border-[#CCCCCC]">
                     <p className="text-xs font-medium text-[#333333] mb-3">Vista previa del horario</p>
                     <div className="border border-[#CCCCCC] rounded overflow-hidden bg-white">
-                      <div className="grid grid-cols-7 bg-[#333333]">
+                      <div className="grid grid-cols-6 bg-[#333333]">
                         <div className="p-1 text-[10px] text-white text-center border-r border-white/20">H</div>
                         {days.map((day) => (
                           <div key={day} className="p-1 text-[10px] text-white text-center border-r border-white/20 last:border-r-0">
@@ -381,7 +385,7 @@ export function HistoryView() {
                           </div>
                         ))}
                       </div>
-                      <div className="grid grid-cols-7" style={{ height: "200px" }}>
+                      <div className="grid grid-cols-6" style={{ height: "200px" }}>
                         <div className="border-r border-[#CCCCCC] bg-[#F5F5F5]">
                           {hours.map((hour) => (
                             <div key={hour} className="h-[28.5px] border-b border-[#CCCCCC] px-1 text-[9px] text-[#666666]">

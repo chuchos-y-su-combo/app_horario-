@@ -10,6 +10,7 @@ import { obtenerDocentes } from "../../../services/teachersService";
 import { obtenerPlanes, PlanEstudio } from "../../../services/planesService";
 import api from "../../../services/api";
 
+/** Datos mínimos de un docente para los selectores de filtro en la vista de reportes. */
 interface Docente { idDocente: string; nombre: string; }
 
 const reportTypes = [
@@ -18,11 +19,20 @@ const reportTypes = [
   { id: "conflicts", title: "Conflictos y excepciones",    description: "Registro de auditoría",             icon: History,        format: "Excel", color: "text-[#E8A020]", bg: "bg-[#E8A020]/10" },
 ];
 
+/** Props de ReportsView. Si CalendarView redirige aquí con filtros, se pre-seleccionan semestre y docente. */
 interface Props {
+  /** Código de periodo a preseleccionar en el selector de semestre (p.ej. "2026-1"). */
   initialSemestre?: string;
+  /** ID del docente a preseleccionar en el filtro de exportación por docente. */
   initialDocenteId?: string;
 }
 
+/**
+ * Vista de reportes y exportaciones del sistema.
+ * Muestra tres secciones: reporte de carga docente (con barra de progreso por docente),
+ * exportación de horarios (por escenario, por docente o por plan) y registro de conflictos.
+ * Acepta filtros iniciales provenientes de CalendarView para pre-seleccionar el tab correcto.
+ */
 export function ReportsView({ initialSemestre, initialDocenteId }: Props) {
   const [selectedReport, setSelectedReport] = useState<string>(initialDocenteId ? "schedule" : "workload");
   const [selectedSemestre, setSelectedSemestre] = useState(initialSemestre ?? "2026-1");
@@ -42,6 +52,7 @@ export function ReportsView({ initialSemestre, initialDocenteId }: Props) {
     if (selectedReport === "workload") cargarReporteCarga();
   }, [selectedReport, selectedSemestre]);
 
+  /** Carga en paralelo docentes y planes de estudio para los selectores de filtro de exportación. */
   const cargarFiltros = async () => {
     try {
       const [docs, plans] = await Promise.allSettled([obtenerDocentes(), obtenerPlanes()]);
@@ -50,6 +61,7 @@ export function ReportsView({ initialSemestre, initialDocenteId }: Props) {
     } catch { /* graceful */ }
   };
 
+  /** Solicita al backend el reporte de carga docente del semestre seleccionado y actualiza el estado local. */
   const cargarReporteCarga = async () => {
     setLoading(true);
     try {
@@ -58,6 +70,10 @@ export function ReportsView({ initialSemestre, initialDocenteId }: Props) {
     } catch { /* silent */ } finally { setLoading(false); }
   };
 
+  /**
+   * Fuerza la descarga de un Blob en el navegador/Electron con el nombre de archivo indicado.
+   * Crea un anchor temporal en el DOM, hace clic programáticamente y lo elimina.
+   */
   const descargarBlob = (blob: Blob, nombreArchivo: string) => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -69,6 +85,12 @@ export function ReportsView({ initialSemestre, initialDocenteId }: Props) {
     window.URL.revokeObjectURL(url);
   };
 
+  /**
+   * Exporta el horario en formato Excel según el tipo seleccionado:
+   * - "todos": una hoja por cada uno de los cuatro escenarios.
+   * - "docente": horario individual del docente seleccionado, o una hoja por docente si se eligió "__ALL__".
+   * - "plan": una hoja por semestre del plan de estudios seleccionado.
+   */
   const exportarHorario = async (tipo: "todos" | "docente" | "plan") => {
     setExportando(tipo);
     try {
@@ -101,6 +123,7 @@ export function ReportsView({ initialSemestre, initialDocenteId }: Props) {
     }
   };
 
+  /** Descarga el reporte de carga docente del semestre seleccionado en formato Excel (.xlsx). */
   const exportarReporteCarga = async () => {
     setExportando("carga");
     try {

@@ -1,11 +1,21 @@
 import { cn } from "../utils/cn";
 
+/**
+ * Props del componente Input.
+ * Extiende todos los atributos nativos de <input>.
+ */
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  /** Etiqueta visible encima del campo. */
   label?: string;
+  /** Mensaje de error que aparece en rojo debajo del campo y cambia el borde a rojo. */
   error?: string;
   className?: string;
 }
 
+/**
+ * Campo de texto con soporte para label, estado de error y todos los atributos nativos.
+ * El anillo de foco cambia de azul a rojo cuando hay un mensaje de error activo.
+ */
 export function Input({ label, error, className, ...props }: InputProps) {
   return (
     <div className="flex flex-col gap-2">

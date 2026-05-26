@@ -13,6 +13,9 @@ public class BloqueosFranjaAsignaturaController : ControllerBase
 {
     private readonly IBloqueoFranjaAsignaturaService _bloqueoService;
 
+    /// <summary>
+    /// Inicializa el controlador inyectando el servicio de bloqueos de franja.
+    /// </summary>
     public BloqueosFranjaAsignaturaController(IBloqueoFranjaAsignaturaService bloqueoService)
     {
         _bloqueoService = bloqueoService;

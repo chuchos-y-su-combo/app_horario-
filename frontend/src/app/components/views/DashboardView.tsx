@@ -16,26 +16,43 @@ const ESCENARIOS_FIJOS = [
   { key: "TAPSI_NOCTURNA", name: "TAPSI Nocturna" },
 ] as const;
 
+/** Resumen de estado de un escenario (ING_DIURNA, ING_NOCTURNA, TAPSI_DIURNA, TAPSI_NOCTURNA) en el dashboard. */
 interface ScenarioItem {
   id: string;
   name: string;
+  /** Estado textual del escenario: "Propuesta", "Confirmada" o "Sin datos". */
   status: string;
+  /** Variante del Badge que refleja el estado: "primary", "success" o "inactive". */
   badge: string;
+  /** Porcentaje de asignaciones completadas respecto del total del escenario (0–100). */
   progress: number;
+  /** Cantidad de asignaciones con día y hora definidos. */
   assigned: number;
+  /** Total de asignaciones en el escenario. */
   total: number;
   conflicts: number;
 }
 
+/** Bloque de horario asignado para renderizar en la mini cuadrícula del dashboard. */
 interface AssignedBlock {
   id: string;
+  /** Índice del día (0=Lunes … 4=Viernes). */
   day: number;
+  /** Hora de inicio en formato 24 h (p.ej. 7 para las 07:00). */
   hour: number;
+  /** Duración en horas del bloque. */
   duration: number;
   subject: string;
   teacher: string;
 }
 
+/**
+ * Vista principal del sistema: muestra KPIs globales (docentes, asignaturas, conflictos,
+ * avance del horario), tarjetas de estado por escenario, una mini cuadrícula semanal
+ * con los bloques asignados y un panel de resumen del periodo activo.
+ * Todos los datos se cargan al montar usando Promise.allSettled para degradar
+ * graciosamente si algún endpoint falla.
+ */
 export function DashboardView() {
   const [docentes, setDocentes] = useState(0);
   const [asignaturas, setAsignaturas] = useState(0);
@@ -48,13 +65,14 @@ export function DashboardView() {
   const [assignedBlocks, setAssignedBlocks] = useState<AssignedBlock[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const days = ["Lun", "Mar", "Mié", "Jue", "Vie"];
   const hours = Array.from({ length: 14 }, (_, i) => i + 7);
 
   useEffect(() => {
     cargarDatos();
   }, []);
 
+  /** Carga en paralelo docentes, asignaturas y propuestas del periodo activo para calcular los KPIs y el estado de cada escenario. */
   const cargarDatos = async () => {
     setLoading(true);
     try {
@@ -184,13 +202,13 @@ export function DashboardView() {
             </CardHeader>
             <CardContent>
               <div className="border border-[#CCCCCC] rounded overflow-hidden">
-                <div className="grid grid-cols-7 bg-[#333333]">
+                <div className="grid grid-cols-6 bg-[#333333]">
                   <div className="p-2 text-xs text-white text-center border-r border-white/20">Hora</div>
                   {days.map((day) => (
                     <div key={day} className="p-2 text-xs text-white text-center border-r border-white/20 last:border-r-0">{day}</div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 relative" style={{ height: "400px" }}>
+                <div className="grid grid-cols-6 relative" style={{ height: "400px" }}>
                   <div className="border-r border-[#CCCCCC] bg-[#F5F5F5]">
                     {hours.map((hour) => (
                       <div key={hour} className="h-[28.5px] border-b border-[#CCCCCC] px-2 py-1 text-xs text-[#666666]">{hour}:00</div>

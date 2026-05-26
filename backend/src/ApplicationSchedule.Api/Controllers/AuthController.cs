@@ -9,25 +9,39 @@ using BCrypt.Net;
 
 namespace ApplicationSchedule.Api.Controllers;
 
+/// <summary>
+/// Controlador de autenticación y recuperación de contraseña.
+/// Todos sus endpoints son públicos (<see cref="AllowAnonymousAttribute"/>).
+/// Los códigos de recuperación se almacenan en memoria con expiración de 15 minutos.
+/// </summary>
 [AllowAnonymous]
 [ApiController]
 [Route("api/auth")]
-/// <summary>
-/// Controlador de autenticación.
-/// </summary>
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly AppDbContext _context;
 
+    /// <summary>
+    /// Almacén en memoria de códigos de recuperación activos.
+    /// Clave: correo del usuario (insensible a mayúsculas).
+    /// Valor: código generado y su fecha de expiración.
+    /// </summary>
     private static readonly ConcurrentDictionary<string, (string Codigo, DateTime Expira)> _codigosRecuperacion = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Inicializa el controlador con el servicio de autenticación y el contexto de BD.
+    /// </summary>
     public AuthController(IAuthService authService, AppDbContext context)
     {
         _authService = authService;
         _context = context;
     }
 
+    /// <summary>
+    /// Autentica al usuario y devuelve un JWT si las credenciales son correctas.
+    /// </summary>
+    /// <returns>Token JWT, nombre completo y rol del usuario autenticado.</returns>
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request)
     {
@@ -46,6 +60,11 @@ public class AuthController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Genera y almacena un código numérico de 6 dígitos para el correo indicado.
+    /// La respuesta es siempre la misma para no revelar si el correo existe o no.
+    /// En producción el código debe enviarse por email; actualmente queda en memoria.
+    /// </summary>
     [HttpPost("solicitar-recuperacion")]
     public async Task<IActionResult> SolicitarRecuperacion([FromBody] SolicitarRecuperacionRequest request)
     {
@@ -63,6 +82,10 @@ public class AuthController : ControllerBase
         return Ok(new { mensaje = "Si el correo existe, se ha enviado un código de recuperación." });
     }
 
+    /// <summary>
+    /// Valida que el código de recuperación recibido sea correcto y no haya expirado.
+    /// Debe llamarse antes de <see cref="CambiarContrasena"/>.
+    /// </summary>
     [HttpPost("verificar-codigo")]
     public IActionResult VerificarCodigo([FromBody] VerificarCodigoRequest request)
     {
@@ -85,6 +108,10 @@ public class AuthController : ControllerBase
         return Ok(new { mensaje = "Código verificado correctamente." });
     }
 
+    /// <summary>
+    /// Actualiza la contraseña del usuario tras verificar que el código sea válido.
+    /// Elimina el código de recuperación al finalizar para evitar reutilización.
+    /// </summary>
     [HttpPost("cambiar-contrasena")]
     public async Task<IActionResult> CambiarContrasena([FromBody] CambiarContrasenaRequest request)
     {
@@ -121,20 +148,29 @@ public class AuthController : ControllerBase
     }
 }
 
+/// <summary>Cuerpo de la solicitud para iniciar la recuperación de contraseña.</summary>
 public class SolicitarRecuperacionRequest
 {
+    /// <summary>Correo institucional del usuario que olvidó su contraseña.</summary>
     public string Correo { get; set; } = string.Empty;
 }
 
+/// <summary>Cuerpo de la solicitud para verificar el código de 6 dígitos.</summary>
 public class VerificarCodigoRequest
 {
+    /// <summary>Correo del usuario que está verificando el código.</summary>
     public string Correo { get; set; } = string.Empty;
+    /// <summary>Código numérico de 6 dígitos recibido en el correo.</summary>
     public string Codigo { get; set; } = string.Empty;
 }
 
+/// <summary>Cuerpo de la solicitud para establecer una nueva contraseña.</summary>
 public class CambiarContrasenaRequest
 {
+    /// <summary>Correo del usuario cuya contraseña se cambiará.</summary>
     public string Correo { get; set; } = string.Empty;
+    /// <summary>Código de verificación válido previamente confirmado.</summary>
     public string Codigo { get; set; } = string.Empty;
+    /// <summary>Nueva contraseña en texto plano (se almacena hasheada con BCrypt).</summary>
     public string NuevaContrasena { get; set; } = string.Empty;
 }

@@ -67,8 +67,8 @@ const cargarDatos = async () => {
         ]);
         setSubjects(asignaturasData);
         setPlanes(planesData);
-    } catch (error) {
-        console.error("Error cargando datos:", error);
+    } catch {
+        // La UI muestra estado vacío si falla la carga inicial
     } finally {
         setLoading(false);
     }

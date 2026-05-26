@@ -152,7 +152,7 @@ export function UsersView() {
       setSelectedUser(null);
       cargarUsuarios();
     } catch (err: any) {
-      console.error("Error eliminando usuario:", err);
+      setError(err?.response?.data?.mensaje || "Error al eliminar el usuario.");
     } finally {
       setEliminando(false);
     }

@@ -1,13 +1,25 @@
 import { cn } from "../utils/cn";
 
+/**
+ * Props del componente Select.
+ * Extiende todos los atributos nativos de <select>.
+ */
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  /** Etiqueta visible encima del selector. */
   label?: string;
+  /** Mensaje de error que aparece en rojo debajo del selector. */
   error?: string;
+  /** Lista de opciones a mostrar. Cada opción tiene un value y un label visible. */
   options: Array<{ value: string; label: string }>;
+  /** Texto de la opción vacía por defecto. Por defecto "Seleccionar...". */
   placeholder?: string;
   className?: string;
 }
 
+/**
+ * Selector desplegable con soporte para label, placeholder, error y opciones tipadas.
+ * La primera opción siempre es el placeholder con value="" para representar "sin selección".
+ */
 export function Select({
   label,
   error,
