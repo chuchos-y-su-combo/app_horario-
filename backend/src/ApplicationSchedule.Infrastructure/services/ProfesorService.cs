@@ -230,6 +230,17 @@ public class ProfesorService : IProfesorService
         return total;
     }
 
+    /// <summary>
+    /// Retorna los identificadores de asignaturas que el docente está habilitado para dictar.
+    /// </summary>
+    public async Task<List<string>> ObtenerHabilitadosAsync(string idProfesor)
+    {
+        return await _context.DocentesHabilitados
+            .Where(h => h.IdDocente == idProfesor)
+            .Select(h => h.IdAsignatura)
+            .ToListAsync();
+    }
+
     private static string ObtenerNombreDia(int dia) => dia switch
     {
         1 => "Lunes",

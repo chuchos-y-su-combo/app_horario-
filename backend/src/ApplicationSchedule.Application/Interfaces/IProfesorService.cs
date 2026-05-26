@@ -42,4 +42,9 @@ public interface IProfesorService
     /// Elimina TODOS los docentes y sus asignaciones asociadas.
     /// </summary>
     Task<int> EliminarTodosAsync();
+
+    /// <summary>
+    /// Retorna los IDs de asignaturas que el docente está habilitado para dictar.
+    /// </summary>
+    Task<List<string>> ObtenerHabilitadosAsync(string idProfesor);
 }
